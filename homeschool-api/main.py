@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, tutor
+from routers import auth, tutor, voice
 from core.config import settings
 
 app = FastAPI(
@@ -19,6 +19,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(tutor.router)
+app.include_router(voice.router)
 
 
 @app.get("/health")

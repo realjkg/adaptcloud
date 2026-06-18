@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Sparkles } from 'lucide-react'
+import { ChevronRight, Sparkles, Mic, CheckCircle } from 'lucide-react'
 import { useSessionStore } from '../store/sessionStore'
 import type { SessionConfig, Subject, GradeStage } from '../types'
 import { SUBJECTS } from '../types'
+import VoiceEnrollment from '../components/VoiceEnrollment'
+import { listVoiceProfiles } from '../services/voiceApi'
 
 const GRADE_STAGES: Array<{ label: string; value: GradeStage; description: string; emoji: string }> = [
   { label: 'K–2', value: 'K-2', description: 'Grammar Stage: Exploration & Discovery', emoji: '🌱' },
@@ -13,9 +15,18 @@ const GRADE_STAGES: Array<{ label: string; value: GradeStage; description: strin
 
 export default function ParentSetup() {
   const navigate = useNavigate()
-  const { setSessionConfig, startSession, logout } = useSessionStore()
+  const { setSessionConfig, startSession, logout, token } = useSessionStore()
 
   const [studentName, setStudentName] = useState('')
+  const [showEnrollment, setShowEnrollment] = useState(false)
+  const [enrolledProfiles, setEnrolledProfiles] = useState<string[]>([])
+
+  useEffect(() => {
+    if (token) listVoiceProfiles(token).then(setEnrolledProfiles).catch(() => {})
+  }, [token])
+
+  const isEnrolled = (name: string) =>
+    enrolledProfiles.some((p) => p.toLowerCase() === name.toLowerCase())
   const [grade, setGrade] = useState('')
   const [gradeStage, setGradeStage] = useState<GradeStage>('3-5')
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>(
@@ -179,6 +190,36 @@ export default function ParentSetup() {
             </div>
           </Card>
 
+          {/* Voice enrolment */}
+          {studentName.trim() && (
+            <Card title="🎤 Voice Recognition">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    {isEnrolled(studentName.trim())
+                      ? `✅ Voice enrolled for ${studentName.trim()}`
+                      : `No voice profile for ${studentName.trim()} yet`}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {isEnrolled(studentName.trim())
+                      ? 'Student will be asked to say the passphrase at session start.'
+                      : 'Enrol a voice profile so Sage can confirm the right student is present.'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowEnrollment(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-sage-300 text-sage-700 hover:bg-sage-50 text-sm font-medium transition-colors flex-shrink-0 ml-4"
+                >
+                  {isEnrolled(studentName.trim()) ? (
+                    <><CheckCircle size={14} /> Re-enrol</>
+                  ) : (
+                    <><Mic size={14} /> Enrol Voice</>
+                  )}
+                </button>
+              </div>
+            </Card>
+          )}
+
           <button
             onClick={handleStart}
             disabled={!studentName.trim() || !grade.trim() || selectedSubjects.length === 0}
@@ -188,6 +229,16 @@ export default function ParentSetup() {
             Begin Session with Sage
             <ChevronRight size={18} />
           </button>
+
+          {showEnrollment && studentName.trim() && (
+            <VoiceEnrollment
+              studentName={studentName.trim()}
+              onEnrolled={() => {
+                listVoiceProfiles(token!).then(setEnrolledProfiles).catch(() => {})
+              }}
+              onClose={() => setShowEnrollment(false)}
+            />
+          )}
         </div>
       </div>
     </div>
