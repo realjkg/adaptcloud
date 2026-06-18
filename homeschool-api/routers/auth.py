@@ -20,12 +20,12 @@ async def login(req: LoginRequest, request: Request):
 
     if req.role == "parent":
         if req.credential != settings.parent_password:
-            log_event(AuditEvent.AUTH_FAILURE, role="parent", success=False, **ctx)
+            await log_event(AuditEvent.AUTH_FAILURE, role="parent", success=False, **ctx)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         expires = timedelta(minutes=settings.access_token_expire_minutes)
     elif req.role == "child":
         if req.credential != settings.child_pin:
-            log_event(AuditEvent.AUTH_FAILURE, role="child", success=False, **ctx)
+            await log_event(AuditEvent.AUTH_FAILURE, role="child", success=False, **ctx)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         expires = timedelta(minutes=settings.child_token_expire_minutes)
     else:
@@ -36,7 +36,7 @@ async def login(req: LoginRequest, request: Request):
         fingerprint=fp,
         expires_delta=expires,
     )
-    log_event(AuditEvent.AUTH_SUCCESS, role=req.role, success=True, **ctx)
+    await log_event(AuditEvent.AUTH_SUCCESS, role=req.role, success=True, **ctx)
     return TokenResponse(access_token=token, role=req.role)
 
 
@@ -51,13 +51,13 @@ async def validate_token(
     """
     payload = decode_token(credentials.credentials)
     if not payload:
-        log_event(AuditEvent.TOKEN_INVALID, **audit_from_request(request), success=False)
+        await log_event(AuditEvent.TOKEN_INVALID, **audit_from_request(request), success=False)
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     ctx = audit_from_request(request)
     fp = compute_fingerprint(ctx["ip"], ctx["user_agent"])
     if not validate_fingerprint(payload, fp):
-        log_event(
+        await log_event(
             AuditEvent.TOKEN_FINGERPRINT_MISMATCH,
             role=payload.get("role"),
             success=False,
@@ -66,5 +66,3 @@ async def validate_token(
         raise HTTPException(status_code=401, detail="Session fingerprint mismatch — please log in again")
 
     return {"role": payload.get("role"), "valid": True}
-
-

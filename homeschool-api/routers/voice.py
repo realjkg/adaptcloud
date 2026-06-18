@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from core.audit import AuditEvent, audit_from_request, log_event
+from core.database import get_db
 from core.deps import require_auth, require_parent
 from services.voice_auth import (
     delete_profile,
@@ -14,32 +16,26 @@ from services.transcription import transcribe_audio
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
-# Audio file safety limits
-_MAX_AUDIO_BYTES = 10 * 1024 * 1024   # 10 MB per sample
+_MAX_AUDIO_BYTES = 10 * 1024 * 1024
 _AUDIO_MAGIC_BYTES = {
-    b"RIFF": "wav",
-    b"OggS": "ogg",
-    b"\x1aE\xdf\xa3": "webm",       # WebM/Matroska
-    b"\xff\xfb": "mp3",
-    b"ID3": "mp3",
+    b"RIFF":          "wav",
+    b"OggS":          "ogg",
+    b"\x1aE\xdf\xa3": "webm",
+    b"\xff\xfb":      "mp3",
+    b"ID3":           "mp3",
 }
 
 
 def _validate_audio(data: bytes, filename: str) -> None:
     if len(data) > _MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio file too large (max 10 MB)")
-    # Verify magic bytes — reject non-audio uploads regardless of MIME type
-    for magic, fmt in _AUDIO_MAGIC_BYTES.items():
+    for magic in _AUDIO_MAGIC_BYTES:
         if data[:len(magic)] == magic:
             return
-    # Some WebM start with different bytes; allow if filename suggests audio
     ext = filename.rsplit(".", 1)[-1].lower()
     if ext in {"wav", "webm", "ogg", "mp4", "m4a", "mp3"}:
         return
-    raise HTTPException(
-        status_code=415,
-        detail="Unsupported file type — only audio files are accepted",
-    )
+    raise HTTPException(status_code=415, detail="Unsupported file type — only audio files are accepted")
 
 
 # ── Enrollment (parent only) ─────────────────────────────────────────────────
@@ -49,6 +45,7 @@ async def enroll(
     request: Request,
     student_name: str = Form(..., min_length=1, max_length=50),
     samples: List[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
     _: dict = Depends(require_parent),
 ):
     """Enrol a student's voice. Embeddings stored encrypted — never returned."""
@@ -65,18 +62,17 @@ async def enroll(
         audio_bytes_list.append(data)
 
     try:
-        result = enroll_student(student_name, audio_bytes_list)
-        log_event(AuditEvent.VOICE_ENROLL, student_name=student_name, role="parent", **ctx)
-        # Return only metadata — NEVER the embedding
+        result = await enroll_student(student_name, audio_bytes_list, db)
+        await log_event(AuditEvent.VOICE_ENROLL, student_name=student_name, role="parent", **ctx)
         return {
-            "success": True,
+            "success":      True,
             "student_name": result["student_name"],
             "samples_used": result["samples_used"],
-            "method": result["method"],
+            "method":       result["method"],
         }
-    except ValueError as e:
-        log_event(AuditEvent.VOICE_ENROLL, student_name=student_name, success=False, detail=str(e), **ctx)
-        raise HTTPException(status_code=422, detail=str(e))
+    except ValueError as exc:
+        await log_event(AuditEvent.VOICE_ENROLL, student_name=student_name, success=False, detail=str(exc), **ctx)
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 # ── Verification (both roles) ────────────────────────────────────────────────
@@ -86,6 +82,7 @@ async def verify(
     request: Request,
     student_name: str = Form(..., min_length=1, max_length=50),
     audio: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_auth),
 ):
     """Verify student voice. Returns score + level — never the stored embedding."""
@@ -93,10 +90,10 @@ async def verify(
     data = await audio.read()
     _validate_audio(data, audio.filename or "audio")
 
-    result = verify_student(student_name, data)
+    result = await verify_student(student_name, data, db)
 
     event = AuditEvent.VOICE_VERIFY_PASS if result["verified"] else AuditEvent.VOICE_VERIFY_FAIL
-    log_event(
+    await log_event(
         event,
         student_name=student_name,
         role=auth.get("role"),
@@ -104,13 +101,11 @@ async def verify(
         success=result["verified"],
         **ctx,
     )
-
-    # Return confidence metadata — embedding never leaves the server
     return {
         "verified": result["verified"],
-        "score": result.get("score"),
-        "level": result["level"],
-        "message": result["message"],
+        "score":    result.get("score"),
+        "level":    result["level"],
+        "message":  result["message"],
     }
 
 
@@ -124,27 +119,36 @@ async def override_verification(
 ):
     """Parent approves a medium-confidence session. Logged in audit trail."""
     ctx = audit_from_request(request)
-    log_event(AuditEvent.VOICE_OVERRIDE, student_name=student_name, role="parent", **ctx)
+    await log_event(AuditEvent.VOICE_OVERRIDE, student_name=student_name, role="parent", **ctx)
     return parent_override(student_name)
 
 
 # ── Profile management (parent only) ─────────────────────────────────────────
 
 @router.get("/profiles")
-async def get_profiles(_: dict = Depends(require_parent)):
+async def get_profiles(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_parent),
+):
     """List enrolled student names. No embeddings returned."""
-    return {"enrolled_students": list_profiles()}
+    return {"enrolled_students": await list_profiles(db)}
 
 
 @router.delete("/profiles/{student_name}")
 async def remove_profile(
     student_name: str,
     request: Request,
+    db: AsyncSession = Depends(get_db),
     _: dict = Depends(require_parent),
 ):
-    if delete_profile(student_name):
-        log_event(AuditEvent.VOICE_ENROLL, student_name=student_name, role="parent",
-                  detail="profile deleted", **audit_from_request(request))
+    if await delete_profile(student_name, db):
+        await log_event(
+            AuditEvent.VOICE_ENROLL,
+            student_name=student_name,
+            role="parent",
+            detail="profile deleted",
+            **audit_from_request(request),
+        )
         return {"deleted": student_name}
     raise HTTPException(status_code=404, detail="Profile not found")
 

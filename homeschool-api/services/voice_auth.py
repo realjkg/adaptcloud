@@ -5,85 +5,62 @@ Two-tier approach:
   1. resemblyzer (GE2E-trained 256-dim embeddings) if available → more accurate
   2. librosa MFCC + cosine similarity fallback → reliable, no model download
 
-Confidence thresholds (tuned for a single-child home environment):
-  ≥ 0.82  → HIGH    (auto-pass)
+Confidence thresholds:
+  ≥ 0.82   → HIGH    (auto-pass)
   0.68–0.82 → MEDIUM (parent can override)
-  < 0.68  → LOW     (deny, retry)
+  < 0.68   → LOW     (deny, retry)
+
+Profiles are stored as AES-256-GCM-encrypted BYTEA rows in the voice_profiles
+table — one row per student. Embeddings never appear in plaintext outside this
+module and are never returned to API callers.
 """
+
 import io
-import json
 import logging
-import os
-from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import soundfile as sf
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.database import VoiceProfile
+from core.encryption import decrypt_json, encrypt_json
 
 logger = logging.getLogger(__name__)
 
-# ── Try resemblyzer; fall back to MFCC ─────────────────────────────────────
+# ── Try resemblyzer; fall back to MFCC ──────────────────────────────────────
 _encoder = None
 _USE_RESEMBLYZER = False
 
 try:
     from resemblyzer import VoiceEncoder, preprocess_wav as _rz_preprocess  # type: ignore
-
     _encoder = VoiceEncoder()
     _USE_RESEMBLYZER = True
     logger.info("Voice auth: using resemblyzer (GE2E model)")
 except Exception:
     logger.info("Voice auth: resemblyzer unavailable, using librosa MFCC fallback")
 
-# ── Encrypted profile storage ────────────────────────────────────────────────
-# Profiles are stored as AES-256-GCM encrypted JSON — embeddings never touch
-# disk in plaintext and are never returned to API callers.
-PROFILES_PATH = Path(os.environ.get("VOICE_PROFILES_PATH", "voice_profiles.enc"))
-THRESHOLD_HIGH = 0.82
+THRESHOLD_HIGH   = 0.82
 THRESHOLD_MEDIUM = 0.68
-
-
-def _load_profiles() -> dict:
-    if not PROFILES_PATH.exists():
-        return {}
-    try:
-        from core.encryption import decrypt_json
-        return decrypt_json(PROFILES_PATH.read_bytes())  # type: ignore
-    except Exception as e:
-        logger.error("Failed to load voice profiles: %s", e)
-        return {}
-
-
-def _save_profiles(profiles: dict) -> None:
-    from core.encryption import encrypt_json
-    tmp = PROFILES_PATH.with_suffix(".tmp")
-    tmp.write_bytes(encrypt_json(profiles))
-    tmp.chmod(0o600)
-    tmp.rename(PROFILES_PATH)
-    PROFILES_PATH.chmod(0o600)
 
 
 # ── Audio loading ────────────────────────────────────────────────────────────
 
 def _load_wav(audio_bytes: bytes, target_sr: int = 16000) -> np.ndarray:
-    """Read audio bytes → mono float32 numpy array at target_sr."""
     buf = io.BytesIO(audio_bytes)
     data, sr = sf.read(buf, dtype="float32", always_2d=False)
 
-    # Mix stereo → mono
     if data.ndim > 1:
         data = data.mean(axis=1)
 
-    # Resample if needed (simple linear, avoids scipy dependency issues)
     if sr != target_sr:
         try:
-            from scipy.signal import resample_poly  # type: ignore
+            from scipy.signal import resample_poly
             from math import gcd
-
             g = gcd(target_sr, sr)
             data = resample_poly(data, target_sr // g, sr // g)
         except Exception:
-            # Last-resort: numpy linear interpolation
             old_len = len(data)
             new_len = int(old_len * target_sr / sr)
             data = np.interp(
@@ -98,48 +75,68 @@ def _load_wav(audio_bytes: bytes, target_sr: int = 16000) -> np.ndarray:
 # ── Feature extraction ───────────────────────────────────────────────────────
 
 def _extract_embedding_resemblyzer(audio: np.ndarray) -> np.ndarray:
-    embedding = _encoder.embed_utterance(audio)  # type: ignore
-    return embedding
+    return _encoder.embed_utterance(audio)  # type: ignore
 
 
 def _extract_embedding_mfcc(audio: np.ndarray, sr: int = 16000) -> np.ndarray:
-    """MFCC + delta features, time-averaged → fixed-length vector."""
     import librosa  # type: ignore
-
-    mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=20)
-    delta = librosa.feature.delta(mfcc)
+    mfcc   = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=20)
+    delta  = librosa.feature.delta(mfcc)
     delta2 = librosa.feature.delta(mfcc, order=2)
     features = np.concatenate([mfcc, delta, delta2], axis=0)
-    # Normalise per frame, then take mean
     features = (features - features.mean(axis=1, keepdims=True)) / (
         features.std(axis=1, keepdims=True) + 1e-9
     )
-    return features.mean(axis=1)  # shape (60,)
+    return features.mean(axis=1)
 
 
 def _extract_embedding(audio: np.ndarray) -> np.ndarray:
-    if _USE_RESEMBLYZER:
-        return _extract_embedding_resemblyzer(audio)
-    return _extract_embedding_mfcc(audio)
+    return _extract_embedding_resemblyzer(audio) if _USE_RESEMBLYZER else _extract_embedding_mfcc(audio)
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
 
 
+# ── DB helpers ───────────────────────────────────────────────────────────────
+
+async def _get_profile(db: AsyncSession, student_name: str) -> Optional[dict]:
+    result = await db.execute(
+        select(VoiceProfile).where(VoiceProfile.student_name == student_name)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return decrypt_json(row.profile_enc)  # type: ignore
+
+
+async def _save_profile(db: AsyncSession, student_name: str, profile: dict) -> None:
+    enc = encrypt_json(profile)
+    result = await db.execute(
+        select(VoiceProfile).where(VoiceProfile.student_name == student_name)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        db.add(VoiceProfile(student_name=student_name, profile_enc=enc))
+    else:
+        row.profile_enc = enc
+    await db.commit()
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 class ConfidenceLevel:
-    HIGH = "high"
+    HIGH   = "high"
     MEDIUM = "medium"
-    LOW = "low"
+    LOW    = "low"
 
 
-def enroll_student(student_name: str, audio_samples: list[bytes]) -> dict:
-    """
-    Create a voice profile from 2–5 audio samples.
-    Averages embeddings for robustness across recording conditions.
-    """
+async def enroll_student(
+    student_name: str,
+    audio_samples: list[bytes],
+    db: AsyncSession,
+) -> dict:
+    """Create or replace a voice profile from 2–5 audio samples."""
     if not audio_samples:
         raise ValueError("At least one audio sample is required")
 
@@ -147,96 +144,100 @@ def enroll_student(student_name: str, audio_samples: list[bytes]) -> dict:
     for idx, raw in enumerate(audio_samples):
         try:
             audio = _load_wav(raw)
-            emb = _extract_embedding(audio)
+            emb   = _extract_embedding(audio)
             embeddings.append(emb)
-        except Exception as e:
-            logger.warning("Sample %d failed to process: %s", idx, e)
+        except Exception as exc:
+            logger.warning("Sample %d failed to process: %s", idx, exc)
 
     if not embeddings:
         raise ValueError("No samples could be processed")
 
     mean_embedding = np.mean(embeddings, axis=0)
-    # Normalise to unit sphere for stable cosine comparisons
     mean_embedding = mean_embedding / (np.linalg.norm(mean_embedding) + 1e-9)
 
-    profiles = _load_profiles()
-    profiles[student_name] = {
-        "embedding": mean_embedding.tolist(),
+    profile = {
+        "embedding":   mean_embedding.tolist(),
         "num_samples": len(embeddings),
-        "method": "resemblyzer" if _USE_RESEMBLYZER else "mfcc",
+        "method":      "resemblyzer" if _USE_RESEMBLYZER else "mfcc",
     }
-    _save_profiles(profiles)
+    await _save_profile(db, student_name, profile)
 
     return {
         "student_name": student_name,
         "samples_used": len(embeddings),
-        "method": profiles[student_name]["method"],
+        "method":       profile["method"],
     }
 
 
-def verify_student(student_name: str, audio_bytes: bytes) -> dict:
-    """
-    Compare audio against stored profile.
-    Returns score (0–1), level, and a pass/warn/fail decision.
-    """
-    profiles = _load_profiles()
-    if student_name not in profiles:
-        return {"verified": False, "score": 0.0, "level": ConfidenceLevel.LOW,
-                "message": "No voice profile found — please ask a parent to enrol your voice first."}
+async def verify_student(
+    student_name: str,
+    audio_bytes: bytes,
+    db: AsyncSession,
+) -> dict:
+    """Compare audio against stored profile. Returns score + confidence level."""
+    profile = await _get_profile(db, student_name)
+    if profile is None:
+        return {
+            "verified": False,
+            "score":    0.0,
+            "level":    ConfidenceLevel.LOW,
+            "message":  "No voice profile found — ask a parent to enrol your voice first.",
+        }
 
-    stored = np.array(profiles[student_name]["embedding"])
+    stored = np.array(profile["embedding"])
 
     try:
-        audio = _load_wav(audio_bytes)
+        audio     = _load_wav(audio_bytes)
         embedding = _extract_embedding(audio)
         embedding = embedding / (np.linalg.norm(embedding) + 1e-9)
-        score = _cosine_similarity(embedding, stored)
-    except Exception as e:
-        logger.error("Verification failed: %s", e)
-        return {"verified": False, "score": 0.0, "level": ConfidenceLevel.LOW,
-                "message": "Could not process audio — please try again."}
+        score     = _cosine_similarity(embedding, stored)
+    except Exception as exc:
+        logger.error("Verification failed: %s", exc)
+        return {
+            "verified": False,
+            "score":    0.0,
+            "level":    ConfidenceLevel.LOW,
+            "message":  "Could not process audio — please try again.",
+        }
 
     if score >= THRESHOLD_HIGH:
-        level = ConfidenceLevel.HIGH
-        verified = True
-        message = "Voice recognised! Welcome back."
+        level, verified, message = ConfidenceLevel.HIGH, True, "Voice recognised! Welcome back."
     elif score >= THRESHOLD_MEDIUM:
-        level = ConfidenceLevel.MEDIUM
-        verified = False
-        message = "Voice is a partial match — a parent can approve to continue."
+        level, verified, message = ConfidenceLevel.MEDIUM, False, "Partial match — a parent can approve to continue."
     else:
-        level = ConfidenceLevel.LOW
-        verified = False
-        message = "Voice not recognised — please try again or ask a parent."
+        level, verified, message = ConfidenceLevel.LOW, False, "Voice not recognised — please try again."
 
     return {
-        "verified": verified,
-        "score": round(score, 4),
-        "level": level,
-        "message": message,
+        "verified":     verified,
+        "score":        round(score, 4),
+        "level":        level,
+        "message":      message,
         "student_name": student_name,
     }
 
 
-def list_profiles() -> list[str]:
-    return list(_load_profiles().keys())
+async def list_profiles(db: AsyncSession) -> list[str]:
+    result = await db.execute(select(VoiceProfile.student_name))
+    return list(result.scalars().all())
 
 
-def delete_profile(student_name: str) -> bool:
-    profiles = _load_profiles()
-    if student_name in profiles:
-        del profiles[student_name]
-        _save_profiles(profiles)
-        return True
-    return False
+async def delete_profile(student_name: str, db: AsyncSession) -> bool:
+    result = await db.execute(
+        select(VoiceProfile).where(VoiceProfile.student_name == student_name)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return False
+    await db.delete(row)
+    await db.commit()
+    return True
 
 
 def parent_override(student_name: str) -> dict:
-    """Parent can approve a medium-confidence session without re-recording."""
     return {
-        "verified": True,
-        "score": None,
-        "level": ConfidenceLevel.MEDIUM,
-        "message": f"Parent approved session for {student_name}.",
+        "verified":        True,
+        "score":           None,
+        "level":           ConfidenceLevel.MEDIUM,
+        "message":         f"Parent approved session for {student_name}.",
         "parent_override": True,
     }

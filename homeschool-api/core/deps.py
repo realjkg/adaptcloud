@@ -29,7 +29,7 @@ async def require_auth(
 
     payload = decode_token(credentials.credentials)
     if not payload:
-        log_event(AuditEvent.TOKEN_INVALID, success=False, **ctx)
+        await log_event(AuditEvent.TOKEN_INVALID, success=False, **ctx)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session — please log in again",
@@ -37,7 +37,7 @@ async def require_auth(
 
     fp = compute_fingerprint(ctx["ip"], ctx["user_agent"])
     if not validate_fingerprint(payload, fp):
-        log_event(
+        await log_event(
             AuditEvent.TOKEN_FINGERPRINT_MISMATCH,
             role=payload.get("role"),
             success=False,
@@ -54,7 +54,7 @@ async def require_auth(
 async def require_parent(auth: dict = Depends(require_auth)) -> dict:
     """Require parent role. Children and unauthenticated requests are rejected."""
     if auth.get("role") != "parent":
-        log_event(
+        await log_event(
             AuditEvent.ACCESS_DENIED,
             role=auth.get("role"),
             success=False,

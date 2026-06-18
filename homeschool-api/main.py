@@ -1,10 +1,12 @@
 import logging
 import sys
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
+from core.database import AsyncSessionLocal, create_tables, engine
 from core.encryption import initialize_encryption
 from core.middleware import ExfiltrationGuard, RateLimitMiddleware, SecurityHeadersMiddleware
 from routers import admin, auth, tutor, voice
@@ -16,40 +18,55 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ── Startup: initialise encryption before any requests are served ─────────────
-try:
-    initialize_encryption(settings.master_secret)
-    log.info("Encryption initialised ✓")
-except RuntimeError as e:
-    log.critical("FATAL: %s", e)
-    sys.exit(1)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Startup:
+      1. Create database tables (idempotent — safe on every boot)
+      2. Load or generate device_salt and DATA_KEY from the DB
+         PBKDF2 key derivation runs in a thread pool so the event loop
+         is not blocked during the ~1.5 s CPU-bound operation.
+    Shutdown:
+      3. Dispose the connection pool cleanly.
+    """
+    try:
+        await create_tables()
+        async with AsyncSessionLocal() as db:
+            await initialize_encryption(settings.master_secret, db)
+        log.info("Encryption initialised ✓")
+    except RuntimeError as exc:
+        log.critical("FATAL: %s", exc)
+        sys.exit(1)
+
+    yield
+
+    await engine.dispose()
+    log.info("Database connections closed")
+
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
-# API docs are disabled in production — /docs would expose all routes to anyone
-# with network access, and the Swagger UI has historically been an attack surface.
 app = FastAPI(
     title="Sage Homeschool Tutor API",
     description="Secure agentic AI tutor — Charlotte Mason + Socratic method",
-    version="2.0.0",
-    docs_url="/docs" if settings.api_docs_enabled else None,
-    redoc_url="/redoc" if settings.api_docs_enabled else None,
+    version="3.0.0",
+    lifespan=lifespan,
+    docs_url="/docs"        if settings.api_docs_enabled else None,
+    redoc_url="/redoc"      if settings.api_docs_enabled else None,
     openapi_url="/openapi.json" if settings.api_docs_enabled else None,
 )
 
-# ── Middleware stack (applied in reverse order of declaration) ────────────────
+# ── Middleware (applied in reverse declaration order) ─────────────────────────
 # Outermost → SecurityHeaders → ExfiltrationGuard → RateLimit → CORS → routes
 
 app.add_middleware(SecurityHeadersMiddleware)
-
 app.add_middleware(ExfiltrationGuard)
-
 app.add_middleware(RateLimitMiddleware)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,   # explicit whitelist, never "*"
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],     # no PUT/PATCH — reduces attack surface
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -62,5 +79,5 @@ app.include_router(admin.router)
 
 @app.get("/health")
 async def health():
-    """Public health check — returns no sensitive information."""
+    """Public health check — no sensitive information returned."""
     return {"status": "ok"}

@@ -69,7 +69,7 @@ class ExfiltrationGuard(BaseHTTPMiddleware):
         # Block known exfiltration endpoints unconditionally
         for blocked in _BLOCKED_ENDPOINTS:
             if blocked in path:
-                log_event(
+                await log_event(
                     AuditEvent.SUSPICIOUS_REQUEST,
                     ip=request.client.host if request.client else "unknown",
                     user_agent=request.headers.get("user-agent", ""),
@@ -91,7 +91,7 @@ class ExfiltrationGuard(BaseHTTPMiddleware):
         async for chunk in response.body_iterator:
             body += chunk
             if len(body) > _MAX_RESPONSE_BYTES:
-                log_event(
+                await log_event(
                     AuditEvent.SUSPICIOUS_REQUEST,
                     ip=request.client.host if request.client else "unknown",
                     success=False,
@@ -104,7 +104,7 @@ class ExfiltrationGuard(BaseHTTPMiddleware):
             text = body.decode("utf-8", errors="replace")
             for pattern in _BLOCKED_PATTERNS:
                 if pattern.search(text):
-                    log_event(
+                    await log_event(
                         AuditEvent.SUSPICIOUS_REQUEST,
                         ip=request.client.host if request.client else "unknown",
                         success=False,
@@ -185,7 +185,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             allowed, bucket, limit = _check_rate(ip, "api", API_LIMIT), "api", API_LIMIT
 
         if not allowed:
-            log_event(
+            await log_event(
                 AuditEvent.RATE_LIMITED,
                 ip=ip,
                 success=False,
