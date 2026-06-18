@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Loader2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react'
 import { streamTutorChat } from '../services/api'
-import { useSessionStore } from '../store/sessionStore'
+import { getApiMessages, useSessionStore } from '../store/sessionStore'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useTextToSpeech } from '../hooks/useTextToSpeech'
 import { SUBJECT_MAP } from '../types'
@@ -16,7 +16,7 @@ export default function SocraticChat() {
     token,
     sessionConfig,
     currentSubject,
-    history,
+    subjectStart,
     displayMessages,
     isStreaming,
     addUserMessage,
@@ -59,6 +59,9 @@ export default function SocraticChat() {
     stopSpeech()      // stop any ongoing speech when child replies
     stopListening()
     setInput('')
+
+    // Snapshot current-subject history BEFORE addUserMessage mutates displayMessages
+    const apiHistory = getApiMessages(displayMessages, subjectStart)
     addUserMessage(msg)
 
     abortRef.current?.abort()
@@ -69,7 +72,7 @@ export default function SocraticChat() {
         token,
         sessionConfig,
         currentSubject,
-        history,
+        apiHistory,
         msg,
         abortRef.current.signal
       )
@@ -94,7 +97,7 @@ export default function SocraticChat() {
       setStreaming(false)
     }
   }, [
-    input, isStreaming, token, sessionConfig, currentSubject, history,
+    input, isStreaming, token, sessionConfig, currentSubject, subjectStart, displayMessages,
     addUserMessage, appendAssistantChunk, addToolMessage, finalizeAssistantMessage,
     setStreaming, stopSpeech, stopListening, speak,
   ])

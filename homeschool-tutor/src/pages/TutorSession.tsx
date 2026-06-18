@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, FileText, ChevronRight } from 'lucide-react'
-import { useSessionStore } from '../store/sessionStore'
+import { getApiMessages, useSessionStore } from '../store/sessionStore'
 import SocraticChat from '../components/SocraticChat'
 import SubjectNav from '../components/SubjectNav'
 import SessionTimer from '../components/SessionTimer'
@@ -17,7 +17,7 @@ export default function TutorSession() {
     currentSubject,
     subjectsCompleted,
     sessionStartedAt,
-    history,
+    displayMessages,
     isStreaming,
     nextSubject,
     endSession,
@@ -50,7 +50,7 @@ export default function TutorSession() {
         const text = await fetchSessionSummary(
           token,
           sessionConfig,
-          history,
+          getApiMessages(displayMessages),  // full session, no subject filter
           subjectsCompleted,
           elapsed
         )

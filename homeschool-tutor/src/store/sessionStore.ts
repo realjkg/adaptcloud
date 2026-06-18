@@ -2,6 +2,14 @@ import { create } from 'zustand'
 import type { SessionConfig, Subject, ChatMessage } from '../types'
 import { SUBJECTS } from '../types'
 
+interface DisplayMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  tool?: string
+  timestamp: Date
+}
+
 interface SessionState {
   // Auth
   token: string | null
@@ -16,14 +24,11 @@ interface SessionState {
   // Active tutoring state
   currentSubjectIndex: number
   currentSubject: Subject
-  history: ChatMessage[]         // full conversation history for API
-  displayMessages: Array<{       // UI messages (includes tool results)
-    id: string
-    role: 'user' | 'assistant' | 'system'
-    content: string
-    tool?: string
-    timestamp: Date
-  }>
+  // Index into displayMessages where the current subject's messages begin.
+  // getApiMessages(displayMessages, subjectStart) gives the current-subject context
+  // sent to the API; cleared implicitly on each subject transition.
+  subjectStart: number
+  displayMessages: DisplayMessage[]
   isStreaming: boolean
   sessionStartedAt: Date | null
   subjectsCompleted: Subject[]
@@ -42,6 +47,25 @@ interface SessionState {
 let msgIdCounter = 0
 const nextId = () => `msg-${++msgIdCounter}`
 
+/**
+ * Derive API-format ChatMessage[] from a displayMessages slice.
+ * Excludes system messages, tool messages, and the streaming placeholder.
+ *
+ * @param msgs  - full displayMessages array
+ * @param from  - start index (defaults to 0 = full session)
+ */
+export function getApiMessages(msgs: DisplayMessage[], from = 0): ChatMessage[] {
+  return msgs
+    .slice(from)
+    .filter(
+      (m) =>
+        (m.role === 'user' || m.role === 'assistant') &&
+        !m.tool &&
+        m.id !== 'streaming-response',
+    )
+    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+}
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   token: null,
   role: null,
@@ -51,8 +75,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       token: null,
       role: null,
       sessionConfig: null,
-      history: [],
       displayMessages: [],
+      subjectStart: 0,
       sessionStartedAt: null,
       currentSubjectIndex: 0,
       subjectsCompleted: [],
@@ -63,7 +87,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   currentSubjectIndex: 0,
   currentSubject: 'morning_time',
-  history: [],
+  subjectStart: 0,
   displayMessages: [],
   isStreaming: false,
   sessionStartedAt: null,
@@ -73,41 +97,33 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const config = get().sessionConfig
     if (!config) return
     const firstSubject = config.subjects[0] ?? 'morning_time'
+    const welcomeMsg: DisplayMessage = {
+      id: nextId(),
+      role: 'system',
+      content: `Welcome, ${config.student_name}! Today we begin with ${
+        SUBJECTS.find((s) => s.id === firstSubject)?.label ?? firstSubject
+      }. Sage is ready to learn with you. 🌿`,
+      timestamp: new Date(),
+    }
     set({
       sessionStartedAt: new Date(),
       currentSubjectIndex: 0,
       currentSubject: firstSubject,
-      history: [],
-      displayMessages: [
-        {
-          id: nextId(),
-          role: 'system',
-          content: `Welcome, ${config.student_name}! Today we begin with ${
-            SUBJECTS.find((s) => s.id === firstSubject)?.label ?? firstSubject
-          }. Sage is ready to learn with you. 🌿`,
-          timestamp: new Date(),
-        },
-      ],
+      displayMessages: [welcomeMsg],
+      subjectStart: 1, // API history starts after the welcome system message
       subjectsCompleted: [],
     })
   },
 
   addUserMessage: (content) => {
-    const msg: ChatMessage = { role: 'user', content }
     set((s) => ({
-      history: [...s.history, msg],
       displayMessages: [
         ...s.displayMessages,
         { id: nextId(), role: 'user', content, timestamp: new Date() },
-      ],
-      isStreaming: true,
-    }))
-    // Reserve a slot for the streaming assistant response
-    set((s) => ({
-      displayMessages: [
-        ...s.displayMessages,
+        // Reserve streaming slot immediately so the UI shows the thinking indicator
         { id: 'streaming-response', role: 'assistant', content: '', timestamp: new Date() },
       ],
+      isStreaming: true,
     }))
   },
 
@@ -116,7 +132,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       displayMessages: s.displayMessages.map((m) =>
         m.id === 'streaming-response'
           ? { ...m, content: m.content + content }
-          : m
+          : m,
       ),
     }))
   },
@@ -125,11 +141,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set((s) => ({
       displayMessages: [
         ...s.displayMessages.filter((m) => m.id !== 'streaming-response'),
-        // keep existing content from the streaming slot if any
+        // Preserve any text already streamed before the tool call
         ...s.displayMessages
           .filter((m) => m.id === 'streaming-response' && m.content)
           .map((m) => ({ ...m, id: nextId() })),
         { id: nextId(), role: 'assistant' as const, content, tool, timestamp: new Date() },
+        // Reopen streaming slot for any text that follows the tool call
         { id: 'streaming-response', role: 'assistant' as const, content: '', timestamp: new Date() },
       ],
     }))
@@ -139,22 +156,20 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set((s) => {
       const streamingMsg = s.displayMessages.find((m) => m.id === 'streaming-response')
       const fullContent = streamingMsg?.content ?? ''
-
       const withoutSlot = s.displayMessages.filter((m) => m.id !== 'streaming-response')
       const display = fullContent
-        ? [...withoutSlot, { id: nextId(), role: 'assistant' as const, content: fullContent, timestamp: new Date() }]
+        ? [
+            ...withoutSlot,
+            {
+              id: nextId(),
+              role: 'assistant' as const,
+              content: fullContent,
+              timestamp: new Date(),
+            },
+          ]
         : withoutSlot
 
-      const assistantHistoryMsg: ChatMessage = {
-        role: 'assistant',
-        content: fullContent || '(thinking...)',
-      }
-
-      return {
-        displayMessages: display,
-        history: [...s.history, assistantHistoryMsg],
-        isStreaming: false,
-      }
+      return { displayMessages: display, isStreaming: false }
     })
   },
 
@@ -163,22 +178,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!sessionConfig) return
     const nextIndex = currentSubjectIndex + 1
     const nextSubj = sessionConfig.subjects[nextIndex]
-    set((s) => ({
-      currentSubjectIndex: nextIndex,
-      currentSubject: nextSubj ?? currentSubject,
-      subjectsCompleted: [...s.subjectsCompleted, currentSubject],
-      displayMessages: [
-        ...s.displayMessages,
-        {
-          id: nextId(),
-          role: 'system' as const,
-          content: nextSubj
-            ? `✅ Moving to ${SUBJECTS.find((s) => s.id === nextSubj)?.label ?? nextSubj}`
-            : '🎉 All subjects complete! Great work today.',
-          timestamp: new Date(),
-        },
-      ],
-    }))
+    set((s) => {
+      const transitionMsg: DisplayMessage = {
+        id: nextId(),
+        role: 'system',
+        content: nextSubj
+          ? `✅ Moving to ${SUBJECTS.find((sub) => sub.id === nextSubj)?.label ?? nextSubj}`
+          : '🎉 All subjects complete! Great work today.',
+        timestamp: new Date(),
+      }
+      return {
+        currentSubjectIndex: nextIndex,
+        currentSubject: nextSubj ?? currentSubject,
+        subjectsCompleted: [...s.subjectsCompleted, currentSubject],
+        // New subject context starts AFTER the transition system message
+        subjectStart: s.displayMessages.length + 1,
+        displayMessages: [...s.displayMessages, transitionMsg],
+      }
+    })
   },
 
   endSession: () => {

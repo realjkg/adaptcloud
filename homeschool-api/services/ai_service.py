@@ -11,6 +11,11 @@ from models.schemas import (
 )
 from core.config import settings
 
+# Single shared client — avoids re-initialising on every request
+_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+# Max conversation turns sent to Claude per request (sliding window)
+_HISTORY_WINDOW = 20
 
 # Agentic tools the tutor can invoke during a session
 TUTOR_TOOLS = [
@@ -97,80 +102,67 @@ TUTOR_TOOLS = [
 ]
 
 
-def _build_system_prompt(config: SessionConfig, subject: Subject) -> str:
-    stage_guidance = {
-        GradeStage.foundations: (
-            "This child is in the Grammar Stage (K-2). Use very simple language, short sentences, "
-            "lots of pictures with words, stories, rhymes, and playful questions. "
-            "Lessons should feel like adventure and play. Attention span is short — keep it lively!"
-        ),
-        GradeStage.core_mastery: (
-            "This child is in the Logic Stage (grades 3-5). They can handle cause-and-effect thinking, "
-            "categorizing, and 'why' questions. Encourage them to find patterns, make connections, "
-            "and begin to form their own opinions backed by reasons."
-        ),
-        GradeStage.independent: (
-            "This child is in the Rhetoric Stage (grades 6-8). They are ready for Socratic debate, "
-            "persuasive arguments, nuanced analysis, and real-world application. "
-            "Challenge them to defend their thinking, consider opposing views, and synthesize ideas."
-        ),
-    }
+_STAGE_GUIDANCE = {
+    GradeStage.foundations: (
+        "This child is in the Grammar Stage (K-2). Use very simple language, short sentences, "
+        "lots of pictures with words, stories, rhymes, and playful questions. "
+        "Lessons should feel like adventure and play. Attention span is short — keep it lively!"
+    ),
+    GradeStage.core_mastery: (
+        "This child is in the Logic Stage (grades 3-5). They can handle cause-and-effect thinking, "
+        "categorizing, and 'why' questions. Encourage them to find patterns, make connections, "
+        "and begin to form their own opinions backed by reasons."
+    ),
+    GradeStage.independent: (
+        "This child is in the Rhetoric Stage (grades 6-8). They are ready for Socratic debate, "
+        "persuasive arguments, nuanced analysis, and real-world application. "
+        "Challenge them to defend their thinking, consider opposing views, and synthesize ideas."
+    ),
+}
 
-    subject_context = {
-        Subject.morning_time: (
-            "This is Morning Time — the heart of the Charlotte Mason day. "
-            "Open with warmth and wonder. Touch on Scripture, a hymn, or poetry. "
-            "Set a joyful, expectant tone for the day."
-        ),
-        Subject.living_books: (
-            "You are guiding a Living Books session. Charlotte Mason believed children should "
-            "encounter ideas through real books written by real people with passion, not dry textbooks. "
-            "Ask questions about the story, characters, themes, and ideas. Invite narration."
-        ),
-        Subject.mathematics: (
-            "Math session. Use discovery-based questioning — never show the algorithm first. "
-            "Ask the child to figure out patterns, use manipulatives in imagination, "
-            "and reason through problems step by step. Math should develop logical thinking."
-        ),
-        Subject.nature_study: (
-            "Nature Study session. Charlotte Mason believed in unhurried observation of the real world. "
-            "Invite the child to describe, wonder, hypothesize, and connect to God's design in creation. "
-            "Ask them to imagine they are a naturalist making a discovery."
-        ),
-        Subject.history: (
-            "History & Geography session. Use the story of history — real people, real choices, real consequences. "
-            "Ask: 'Why do you think they chose that?' and 'What would YOU have done?' "
-            "Connect past to present and to the child's own life."
-        ),
-        Subject.language_arts: (
-            "Language Arts session. Focus on narration (oral or written), copywork discussion, "
-            "and grammar through real usage. Ask the child to tell back, re-tell from a different "
-            "character's view, or explain what makes a sentence powerful."
-        ),
-        Subject.free_study: (
-            "Free Study time. The child leads. Ask what they are curious about and follow their interest. "
-            "Socratic questions still apply — help them think deeper about whatever they choose."
-        ),
-    }
+_SUBJECT_CONTEXT = {
+    Subject.morning_time: (
+        "This is Morning Time — the heart of the Charlotte Mason day. "
+        "Open with warmth and wonder. Touch on Scripture, a hymn, or poetry. "
+        "Set a joyful, expectant tone for the day."
+    ),
+    Subject.living_books: (
+        "You are guiding a Living Books session. Charlotte Mason believed children should "
+        "encounter ideas through real books written by real people with passion, not dry textbooks. "
+        "Ask questions about the story, characters, themes, and ideas. Invite narration."
+    ),
+    Subject.mathematics: (
+        "Math session. Use discovery-based questioning — never show the algorithm first. "
+        "Ask the child to figure out patterns, use manipulatives in imagination, "
+        "and reason through problems step by step. Math should develop logical thinking."
+    ),
+    Subject.nature_study: (
+        "Nature Study session. Charlotte Mason believed in unhurried observation of the real world. "
+        "Invite the child to describe, wonder, hypothesize, and connect to God's design in creation. "
+        "Ask them to imagine they are a naturalist making a discovery."
+    ),
+    Subject.history: (
+        "History & Geography session. Use the story of history — real people, real choices, real consequences. "
+        "Ask: 'Why do you think they chose that?' and 'What would YOU have done?' "
+        "Connect past to present and to the child's own life."
+    ),
+    Subject.language_arts: (
+        "Language Arts session. Focus on narration (oral or written), copywork discussion, "
+        "and grammar through real usage. Ask the child to tell back, re-tell from a different "
+        "character's view, or explain what makes a sentence powerful."
+    ),
+    Subject.free_study: (
+        "Free Study time. The child leads. Ask what they are curious about and follow their interest. "
+        "Socratic questions still apply — help them think deeper about whatever they choose."
+    ),
+}
 
-    faith_note = ""
-    if config.faith_emphasis:
-        faith_note = f"\nToday's faith focus: {config.faith_emphasis}"
 
-    lesson_note = ""
-    if config.lesson_focus:
-        lesson_note = f"\nParent's note for today: {config.lesson_focus}"
-
-    unit_note = ""
-    if config.current_unit:
-        unit_note = f"\nCurrent unit of study: {config.current_unit}"
-
+def _build_static_prompt(config: SessionConfig) -> str:
+    """Tutor persona, grade stage, and rules — constant within a session. Prompt-cacheable."""
     return f"""You are Sage — a warm, wise, and patient Socratic tutor following the Charlotte Mason educational philosophy. You are tutoring {config.student_name}, a {config.grade}th-grade student.
 
-{stage_guidance[config.grade_stage]}
-
-CURRENT SUBJECT: {SUBJECT_LABELS[subject]}
-{subject_context[subject]}{faith_note}{lesson_note}{unit_note}
+{_STAGE_GUIDANCE[config.grade_stage]}
 
 SACRED RULES — never break these:
 1. NEVER give the answer directly. Always respond to a question with a guiding question.
@@ -185,6 +177,16 @@ SACRED RULES — never break these:
 You have access to tools: use `request_narration` after learning moments, `offer_socratic_hint` when stuck, `celebrate_discovery` for breakthroughs, and `connect_to_faith` when it fits naturally.
 
 Remember: your goal is to kindle delight in learning, not to transfer information. The child who discovers is the child who remembers."""
+
+
+def _build_subject_prompt(config: SessionConfig, subject: Subject) -> str:
+    """Subject-specific context block — changes between subjects, not cached."""
+    faith_note = f"\nToday's faith focus: {config.faith_emphasis}" if config.faith_emphasis else ""
+    lesson_note = f"\nParent's note for today: {config.lesson_focus}" if config.lesson_focus else ""
+    unit_note = f"\nCurrent unit of study: {config.current_unit}" if config.current_unit else ""
+
+    return f"""CURRENT SUBJECT: {SUBJECT_LABELS[subject]}
+{_SUBJECT_CONTEXT[subject]}{faith_note}{lesson_note}{unit_note}"""
 
 
 def _process_tool_use(tool_name: str, tool_input: dict) -> str:
@@ -224,19 +226,37 @@ async def stream_tutor_response(
     Stream the Socratic tutor response token by token using Claude Sonnet.
     Uses agentic tool calls when appropriate (narration, hints, celebration, faith).
     """
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-
+    # Build message list and apply sliding window to cap per-turn input tokens
     messages = [{"role": m.role, "content": m.content} for m in history]
     messages.append({"role": "user", "content": child_message})
+    messages = messages[-_HISTORY_WINDOW:]
 
-    system_prompt = _build_system_prompt(config, subject)
+    # Two-block system prompt: static block is prompt-cached across turns and subjects;
+    # subject block changes per subject and is sent fresh each time.
+    system = [
+        {
+            "type": "text",
+            "text": _build_static_prompt(config),
+            "cache_control": {"type": "ephemeral"},
+        },
+        {
+            "type": "text",
+            "text": _build_subject_prompt(config, subject),
+        },
+    ]
 
-    with client.messages.stream(
+    # Cache the tools block (static for the entire session)
+    tools_with_cache = [
+        *TUTOR_TOOLS[:-1],
+        {**TUTOR_TOOLS[-1], "cache_control": {"type": "ephemeral"}},
+    ]
+
+    with _client.messages.stream(
         model=settings.tutor_model,
         max_tokens=400,  # Keep responses tight — Charlotte Mason lesson brevity
-        system=system_prompt,
+        system=system,
         messages=messages,
-        tools=TUTOR_TOOLS,
+        tools=tools_with_cache,
     ) as stream:
         tool_calls_buffer = {}
 
@@ -288,7 +308,7 @@ async def generate_session_summary(req: SessionSummaryRequest) -> str:
     Generate a parent-facing session summary using the faster Haiku model.
     Lists what was covered, narrations recorded, and suggested follow-up.
     """
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = _client
 
     conversation_text = "\n".join(
         f"{m.role.upper()}: {m.content}" for m in req.conversation_history[-40:]
