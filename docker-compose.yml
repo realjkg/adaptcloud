@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: ./homeschool-api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - PARENT_PASSWORD=${PARENT_PASSWORD:-homeschool-parent}
+      - CHILD_PIN=${CHILD_PIN:-1234}
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:80
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ./homeschool-tutor
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
