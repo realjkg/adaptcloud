@@ -1,26 +1,81 @@
 version: '3.9'
 
+# ── Sage Homeschool Tutor — secure deployment ─────────────────────────────────
+#
+# Required env vars (set in .env or shell, never hardcoded here):
+#   ANTHROPIC_API_KEY   Claude API key
+#   SECRET_KEY          JWT signing key (openssl rand -hex 32)
+#   MASTER_SECRET       Encryption master secret (openssl rand -hex 32)
+#   PARENT_PASSWORD     Parent login password
+#   CHILD_PIN           Child login PIN
+#
+# The api container is NOT exposed directly — all traffic goes through nginx.
+
 services:
   api:
     build:
       context: ./homeschool-api
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"          # internal only — nginx proxies to this
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - PARENT_PASSWORD=${PARENT_PASSWORD:-homeschool-parent}
-      - CHILD_PIN=${CHILD_PIN:-1234}
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:80
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
+      - MASTER_SECRET=${MASTER_SECRET:?MASTER_SECRET is required}
+      - PARENT_PASSWORD=${PARENT_PASSWORD:?PARENT_PASSWORD is required}
+      - CHILD_PIN=${CHILD_PIN:?CHILD_PIN is required}
+      - CORS_ORIGINS=http://localhost:80,http://ui:80
+      - DISABLE_API_DOCS=true
+      - PRODUCTION=true
+      - SAGE_DATA_KEY_FILE=/data/data_key.enc
+      - SAGE_SALT_FILE=/data/device.salt
+      - VOICE_PROFILES_PATH=/data/voice_profiles.enc
+    volumes:
+      # /data is the only writeable path — encrypted files only
+      - sage_data:/data
+    read_only: true                    # filesystem is read-only except /data
+    tmpfs:
+      - /tmp:size=64m,mode=1777       # temp files only
+    networks:
+      - internal
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   ui:
     build:
       context: ./homeschool-tutor
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "127.0.0.1:80:80"             # bind to loopback only (put a real TLS proxy in front)
     depends_on:
       - api
+    networks:
+      - internal
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m
+      - /var/run:size=4m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE             # nginx needs to bind port 80
+
+volumes:
+  sage_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data                 # create this dir before first run: mkdir -m 700 data
+
+networks:
+  internal:
+    driver: bridge
+    internal: false                  # api needs outbound for Claude API calls

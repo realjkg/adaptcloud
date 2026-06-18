@@ -1,33 +1,31 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, Request
 from sse_starlette.sse import EventSourceResponse
-from models.schemas import TutorRequest, SessionSummaryRequest
-from services.ai_service import stream_tutor_response, generate_session_summary
-from core.security import decode_token
+
+from core.audit import AuditEvent, audit_from_request, log_event
+from core.deps import require_auth, require_parent
+from models.schemas import SessionSummaryRequest, TutorRequest
+from services.ai_service import generate_session_summary, stream_tutor_response
 
 router = APIRouter(prefix="/tutor", tags=["tutor"])
-security = HTTPBearer()
-
-
-def _require_auth(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    payload = decode_token(credentials.credentials)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-        )
-    return payload
 
 
 @router.post("/chat")
 async def chat(
     req: TutorRequest,
-    auth: dict = Depends(_require_auth),
+    request: Request,
+    auth: dict = Depends(require_auth),
 ):
     """
     Stream Socratic tutor responses via Server-Sent Events.
-    The AI never gives direct answers — only guiding questions and Socratic coaching.
+    Accessible to both parent and child tokens.
     """
+    log_event(
+        AuditEvent.TUTOR_CHAT,
+        role=auth.get("role"),
+        student_name=req.session_config.student_name,
+        success=True,
+        **audit_from_request(request),
+    )
 
     async def event_generator():
         async for chunk in stream_tutor_response(
@@ -44,17 +42,16 @@ async def chat(
 @router.post("/summary")
 async def session_summary(
     req: SessionSummaryRequest,
-    auth: dict = Depends(_require_auth),
+    request: Request,
+    auth: dict = Depends(require_parent),   # parent only
 ):
-    """
-    Generate a parent-facing end-of-session report.
-    Requires parent role.
-    """
-    if auth.get("role") != "parent":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only parents can view session summaries",
-        )
-
+    """Generate end-of-session parent report. Parent role required."""
+    log_event(
+        AuditEvent.SESSION_END,
+        role="parent",
+        student_name=req.session_config.student_name,
+        detail=f"duration={req.duration_minutes}min",
+        **audit_from_request(request),
+    )
     summary = await generate_session_summary(req)
     return {"summary": summary}

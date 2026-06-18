@@ -35,22 +35,32 @@ try:
 except Exception:
     logger.info("Voice auth: resemblyzer unavailable, using librosa MFCC fallback")
 
-# ── Profile storage ──────────────────────────────────────────────────────────
-PROFILES_PATH = Path(os.environ.get("VOICE_PROFILES_PATH", "voice_profiles.json"))
+# ── Encrypted profile storage ────────────────────────────────────────────────
+# Profiles are stored as AES-256-GCM encrypted JSON — embeddings never touch
+# disk in plaintext and are never returned to API callers.
+PROFILES_PATH = Path(os.environ.get("VOICE_PROFILES_PATH", "voice_profiles.enc"))
 THRESHOLD_HIGH = 0.82
 THRESHOLD_MEDIUM = 0.68
 
 
 def _load_profiles() -> dict:
-    if PROFILES_PATH.exists():
-        with open(PROFILES_PATH) as f:
-            return json.load(f)
-    return {}
+    if not PROFILES_PATH.exists():
+        return {}
+    try:
+        from core.encryption import decrypt_json
+        return decrypt_json(PROFILES_PATH.read_bytes())  # type: ignore
+    except Exception as e:
+        logger.error("Failed to load voice profiles: %s", e)
+        return {}
 
 
 def _save_profiles(profiles: dict) -> None:
-    with open(PROFILES_PATH, "w") as f:
-        json.dump(profiles, f, indent=2)
+    from core.encryption import encrypt_json
+    tmp = PROFILES_PATH.with_suffix(".tmp")
+    tmp.write_bytes(encrypt_json(profiles))
+    tmp.chmod(0o600)
+    tmp.rename(PROFILES_PATH)
+    PROFILES_PATH.chmod(0o600)
 
 
 # ── Audio loading ────────────────────────────────────────────────────────────

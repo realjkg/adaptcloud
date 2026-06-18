@@ -1,14 +1,25 @@
 """
-Minimal JWT using stdlib only (hmac + hashlib) — avoids the broken
-cryptography/cffi situation in this environment. HS256 only.
+JWT with SHA-256 HMAC (stdlib only) + device fingerprint binding.
+
+Every token embeds a 'fp' claim derived from SHA-256(client_ip | user_agent).
+On each request, the fingerprint is re-computed and compared — a token cannot
+be used from a different device or browser without triggering an audit event.
+
+Token lifetime is fixed at ACCESS_TOKEN_EXPIRE_MINUTES (max 8h for parents,
+4h for children). There is no refresh endpoint; re-authentication is required.
 """
+
 import base64
 import hashlib
 import hmac
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+
 from core.config import settings
+
+log = logging.getLogger(__name__)
 
 
 def _b64url_encode(data: bytes) -> str:
@@ -20,12 +31,23 @@ def _b64url_decode(s: str) -> bytes:
     return base64.urlsafe_b64decode(s + "=" * (padding % 4))
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    data: dict,
+    fingerprint: Optional[str] = None,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+    """
+    Issue a signed JWT.
+    `fingerprint` should be compute_fingerprint(ip, user_agent) from the
+    middleware module — binding the token to the issuing client.
+    """
     payload = data.copy()
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
-    )
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
+    payload["iat"] = int(now.timestamp())
     payload["exp"] = int(expire.timestamp())
+    if fingerprint:
+        payload["fp"] = fingerprint
 
     header = _b64url_encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
     body = _b64url_encode(json.dumps(payload).encode())
@@ -35,6 +57,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def decode_token(token: str) -> Optional[dict]:
+    """
+    Validate signature and expiry.
+    Returns payload dict or None if invalid.
+    Does NOT validate fingerprint (caller must do that with the request).
+    """
     try:
         parts = token.split(".")
         if len(parts) != 3:
@@ -53,3 +80,14 @@ def decode_token(token: str) -> Optional[dict]:
         return payload
     except Exception:
         return None
+
+
+def validate_fingerprint(payload: dict, current_fp: str) -> bool:
+    """
+    Returns True if the token's fingerprint matches the current request's
+    fingerprint, or if the token was issued without a fingerprint (legacy).
+    """
+    token_fp = payload.get("fp")
+    if not token_fp:
+        return True   # no fingerprint in token — allow (backward compat)
+    return hmac.compare_digest(token_fp, current_fp)

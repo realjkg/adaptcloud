@@ -6,6 +6,8 @@ pydantic>=2.9.0
 pydantic-settings>=2.6.0
 sse-starlette>=2.1.0
 python-multipart>=0.0.12
+# Encryption at rest (AES-256-GCM, no cffi dependency)
+pycryptodome>=3.21.0
 # Voice authentication + transcription
 numpy>=1.26.0
 scipy>=1.13.0
