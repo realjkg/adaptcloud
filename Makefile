@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: setup start stop restart logs status update clean help
+.PHONY: setup start stop restart logs logs-api logs-ui status caddy-trust update backup-env clean help
 
 ##@ First-time setup
 setup:           ## Run interactive first-run wizard (generates .env, pulls images, starts services)
@@ -32,10 +32,24 @@ status:          ## Show container health and last 20 API log lines
 	docker compose ps
 	@echo ""
 	@echo "=== API health ==="
-	@curl -sf http://localhost:80/api/health 2>/dev/null | python3 -m json.tool || echo "  (not reachable yet — still starting)"
+	@curl -skf https://localhost/api/health 2>/dev/null | python3 -m json.tool || echo "  (not reachable yet — still starting)"
 	@echo ""
 	@echo "=== Recent API logs ==="
 	docker compose logs --tail=20 api
+
+caddy-trust:     ## Export Caddy's root CA cert — install on each LAN tablet once
+	@docker compose exec caddy cat /data/pki/authorities/local/root.crt > sage-root-ca.crt 2>/dev/null || \
+	  { echo "Caddy is not running yet. Start with 'make start' first."; exit 1; }
+	@echo ""
+	@echo "Saved: sage-root-ca.crt"
+	@echo ""
+	@echo "Install this cert on each tablet:"
+	@echo "  iPad/iPhone  : AirDrop the file → Settings → General → VPN & Device Management → trust it"
+	@echo "  Android      : Settings → Security → Install a certificate → CA certificate"
+	@echo "  Windows      : Double-click → Install Certificate → Trusted Root Certification Authorities"
+	@echo "  macOS        : Double-click → Keychain Access → set to Always Trust"
+	@echo ""
+	@echo "After installing, open https://$$(hostname -I | awk '{print $$1}') on the tablet."
 
 ##@ Maintenance
 update:          ## Pull latest images and restart

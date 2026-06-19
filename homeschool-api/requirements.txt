@@ -17,3 +17,4 @@ scipy>=1.13.0
 librosa>=0.10.0
 soundfile>=0.12.0
 openai-whisper>=20240930
+resemblyzer>=0.1.1

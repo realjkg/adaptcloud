@@ -3,24 +3,30 @@ import { Mic, CheckCircle, AlertTriangle, XCircle, RefreshCw } from 'lucide-reac
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder'
 import { verifyVoice, parentOverrideVoice } from '../services/voiceApi'
 import type { VerifyResult } from '../services/voiceApi'
+import { login } from '../services/api'
 
 const PASSPHRASE = "I am ready to learn today!"
 
 interface Props {
   studentName: string
   token: string
-  parentToken?: string          // if parent is also present, they can override
   onVerified: (result: VerifyResult) => void
-  onSkip?: () => void           // parent can skip verification entirely
+  onSkip?: () => void
 }
 
 type Step = 'prompt' | 'recording' | 'processing' | 'result'
 
-export default function VoiceVerification({ studentName, token, parentToken, onVerified, onSkip }: Props) {
+export default function VoiceVerification({ studentName, token, onVerified, onSkip }: Props) {
   const [step, setStep] = useState<Step>('prompt')
   const [result, setResult] = useState<VerifyResult | null>(null)
   const [attempts, setAttempts] = useState(0)
   const MAX_ATTEMPTS = 3
+
+  // Parent password modal state
+  const [showParentModal, setShowParentModal] = useState(false)
+  const [parentPw, setParentPw] = useState('')
+  const [parentAuthError, setParentAuthError] = useState('')
+  const [parentAuthLoading, setParentAuthLoading] = useState(false)
 
   const handleRecordingComplete = useCallback(async (wavBlob: Blob) => {
     setStep('processing')
@@ -38,15 +44,68 @@ export default function VoiceVerification({ studentName, token, parentToken, onV
 
   const retry = () => { setResult(null); setStep('prompt') }
 
-  const handleParentOverride = async () => {
-    const overrideToken = parentToken ?? token
-    const res = await parentOverrideVoice(overrideToken, studentName)
-    onVerified(res)
+  const handleParentOverride = () => {
+    setParentPw('')
+    setParentAuthError('')
+    setShowParentModal(true)
+  }
+
+  const handleParentAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!parentPw) return
+    setParentAuthLoading(true)
+    setParentAuthError('')
+    try {
+      const parentToken = await login('parent', parentPw)
+      const res = await parentOverrideVoice(parentToken, studentName)
+      setShowParentModal(false)
+      onVerified(res)
+    } catch {
+      setParentAuthError('Incorrect password — please try again.')
+    } finally {
+      setParentAuthLoading(false)
+    }
   }
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-sage-900/80 to-faith-600/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
+        {/* Parent password modal overlay */}
+        {showParentModal && (
+          <div className="absolute inset-0 bg-white rounded-2xl p-6 flex flex-col justify-center z-10">
+            <h3 className="text-base font-semibold text-gray-800 mb-1 text-center">Parent Approval</h3>
+            <p className="text-xs text-gray-500 text-center mb-5">
+              Enter the parent password to approve this session.
+            </p>
+            <form onSubmit={handleParentAuth} className="space-y-3">
+              <input
+                type="password"
+                value={parentPw}
+                onChange={(e) => setParentPw(e.target.value)}
+                placeholder="Parent password"
+                autoFocus
+                className="input w-full"
+              />
+              {parentAuthError && (
+                <p className="text-xs text-red-600 text-center">{parentAuthError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={!parentPw || parentAuthLoading}
+                className="w-full py-2.5 bg-faith-600 text-white rounded-xl font-medium hover:bg-faith-700 disabled:opacity-40 transition-colors"
+              >
+                {parentAuthLoading ? 'Checking…' : 'Approve Session'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowParentModal(false)}
+                className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        )}
         <div className="text-center mb-5">
           <div className="text-5xl mb-3">🎙️</div>
           <h2 className="text-xl font-display font-bold text-gray-800">

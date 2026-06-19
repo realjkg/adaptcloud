@@ -24,6 +24,7 @@ import soundfile as sf
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
 from core.database import VoiceProfile
 from core.encryption import decrypt_json, encrypt_json
 
@@ -41,8 +42,8 @@ try:
 except Exception:
     logger.info("Voice auth: resemblyzer unavailable, using librosa MFCC fallback")
 
-THRESHOLD_HIGH   = 0.82
-THRESHOLD_MEDIUM = 0.68
+THRESHOLD_HIGH   = settings.voice_threshold_high
+THRESHOLD_MEDIUM = settings.voice_threshold_medium
 
 
 # ── Audio loading ────────────────────────────────────────────────────────────

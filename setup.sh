@@ -88,6 +88,16 @@ SECRET_KEY=$(openssl rand -hex 32)
 MASTER_SECRET=$(openssl rand -hex 32)
 success "SECRET_KEY and MASTER_SECRET generated (64 hex chars each)"
 
+# ── Detect LAN IP for tablet access ──────────────────────────────────────────
+LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [[ -n "$LAN_IP" ]]; then
+  CORS_ORIGINS="https://localhost,https://${LAN_IP},http://ui:80"
+  success "Detected LAN IP: ${LAN_IP} — tablets can reach Sage at https://${LAN_IP}"
+else
+  CORS_ORIGINS="https://localhost,http://ui:80"
+  warn "Could not detect LAN IP. Add it to CORS_ORIGINS in .env if needed."
+fi
+
 # ── Write .env ────────────────────────────────────────────────────────────────
 blank
 info "Writing .env..."
@@ -101,7 +111,7 @@ MASTER_SECRET=${MASTER_SECRET}
 PARENT_PASSWORD=${PARENT_PASSWORD}
 CHILD_PIN=${CHILD_PIN}
 DATABASE_URL=${DATABASE_URL}
-CORS_ORIGINS=http://localhost:80,http://ui:80
+CORS_ORIGINS=${CORS_ORIGINS}
 DISABLE_API_DOCS=true
 PRODUCTION=true
 EOF
@@ -115,9 +125,9 @@ docker compose up -d --build
 
 # ── Wait for health ───────────────────────────────────────────────────────────
 blank
-info "Waiting for the API to become healthy (up to 60 s)..."
-DEADLINE=$((SECONDS + 60))
-until curl -sf http://localhost:80/api/health >/dev/null 2>&1; do
+info "Waiting for the API to become healthy (up to 90 s)..."
+DEADLINE=$((SECONDS + 90))
+until curl -skf https://localhost/api/health >/dev/null 2>&1; do
   if [[ $SECONDS -ge $DEADLINE ]]; then
     warn "API did not respond in time. Check logs with: make logs"
     break
@@ -127,7 +137,7 @@ until curl -sf http://localhost:80/api/health >/dev/null 2>&1; do
 done
 echo ""
 
-if curl -sf http://localhost:80/api/health >/dev/null 2>&1; then
+if curl -skf https://localhost/api/health >/dev/null 2>&1; then
   success "API is healthy!"
 fi
 
@@ -137,7 +147,11 @@ echo -e "${BOLD}${GREEN}══════════════════�
 echo -e "${BOLD}${GREEN}  Sage is running!${RESET}"
 echo -e "${BOLD}${GREEN}══════════════════════════════════════════${RESET}"
 blank
-echo "  Open in your browser: http://localhost"
+echo "  Open in your browser:  https://localhost"
+if [[ -n "$LAN_IP" ]]; then
+  echo "  From tablets on your network: https://${LAN_IP}"
+  echo "  (Run 'make caddy-trust' to install the cert on each tablet — no more warnings)"
+fi
 echo "  Log in as parent with: PARENT_PASSWORD you just set"
 blank
 echo "  Useful commands:"
