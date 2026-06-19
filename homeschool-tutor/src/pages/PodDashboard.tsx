@@ -30,11 +30,14 @@ export default function PodDashboard() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-display font-bold text-gray-800">Today's Pod</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {podStudents.length} student{podStudents.length > 1 ? 's' : ''} · Open each session on their tablet
-            </p>
+          <div className="flex items-center gap-3">
+            <img src="/agnus-dei.svg" alt="Agnus Dei" className="w-10 h-10 flex-shrink-0" />
+            <div>
+              <h1 className="text-2xl font-display font-bold text-gray-800">Today's Pod</h1>
+              <p className="text-sm text-gray-500">
+                {podStudents.length} student{podStudents.length > 1 ? 's' : ''} · Open each session on their tablet
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <button

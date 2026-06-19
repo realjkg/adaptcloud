@@ -123,7 +123,8 @@ export default function TutorSession() {
       {/* Top bar */}
       <header className="bg-white border-b border-sage-100 shadow-sm px-4 py-3 flex items-center gap-3">
         <div className="flex-1 flex items-center gap-3">
-          <div className="font-display font-bold text-sage-700 text-lg">Sage</div>
+          <img src="/agnus-dei.svg" alt="Agnus Dei" className="w-8 h-8 flex-shrink-0" />
+          <div className="font-display font-bold text-sage-700 text-lg hidden sm:block">Agnus Dei</div>
           <div className="hidden sm:flex items-center gap-1.5 text-sm text-gray-500">
             <span>with</span>
             <span className="font-medium text-gray-700">{sessionConfig.student_name}</span>

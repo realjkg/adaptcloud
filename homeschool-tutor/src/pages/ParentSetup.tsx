@@ -120,7 +120,10 @@ export default function ParentSetup() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-display font-bold text-gray-800">Plan Today's Pod</h1>
+            <div className="flex items-center gap-3">
+              <img src="/agnus-dei.svg" alt="Agnus Dei" className="w-9 h-9" />
+              <h1 className="text-2xl font-display font-bold text-gray-800">Plan Today's Pod</h1>
+            </div>
             <p className="text-sm text-gray-500 mt-1">Add each student, then open their session on their tablet</p>
           </div>
           <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600 underline">

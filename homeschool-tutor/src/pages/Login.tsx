@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { BookOpen, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { login, fetchStudentConfig } from '../services/api'
 import { useSessionStore } from '../store/sessionStore'
 import VoiceVerification from '../components/VoiceVerification'
@@ -115,10 +115,12 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-lg border border-sage-100 w-full max-w-md p-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-sage-100 rounded-2xl mb-4">
-            <BookOpen size={32} className="text-sage-600" />
-          </div>
-          <h1 className="text-2xl font-display font-bold text-gray-800">Sage</h1>
+          <img
+            src="/agnus-dei.svg"
+            alt="Agnus Dei"
+            className="w-20 h-20 mx-auto mb-4 drop-shadow-sm"
+          />
+          <h1 className="text-2xl font-display font-bold text-gray-800">Agnus Dei</h1>
           <p className="text-sm text-gray-500 mt-1">Your Charlotte Mason Homeschool Tutor</p>
           {studentFromUrl && (
             <p className="text-sm font-medium text-sage-700 mt-2">
