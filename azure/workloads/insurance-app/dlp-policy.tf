@@ -13,6 +13,7 @@
 
 # --- tenant baseline: block the high-risk connectors everywhere ------------
 resource "powerplatform_data_loss_prevention_policy" "tenant_baseline" {
+  count                             = var.enable_power_platform ? 1 : 0
   display_name                      = "Tenant baseline - block high-risk connectors"
   default_connectors_classification = "General" # unknown/new connectors land in Non-Business by default at tenant scope
   environment_type                  = "AllEnvironments"
@@ -37,6 +38,7 @@ resource "powerplatform_data_loss_prevention_policy" "tenant_baseline" {
 
 # --- insurance environments: the working policy ----------------------------
 resource "powerplatform_data_loss_prevention_policy" "insurance" {
+  count                             = var.enable_power_platform ? 1 : 0
   display_name                      = "Insurance agent platform - connector governance"
   default_connectors_classification = "Blocked"
   environment_type                  = "OnlyEnvironments"

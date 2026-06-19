@@ -95,8 +95,11 @@ terraform apply \
 No VNet, no private endpoints, Consumption APIM, Basic AI Search, one Power
 Platform sandbox env, one agent identity.
 
-> **No Power Platform capacity (or you only want the Azure AI plane)?** Apply
-> just those resources, e.g. `-target=azurerm_cognitive_account.openai -target=azurerm_cognitive_deployment.approved -target=azurerm_search_service.grounding -target=azurerm_key_vault.workload`. Ask if you'd like an `enable_power_platform` toggle added so this is a single flag instead.
+> **No Power Platform capacity (or you only want the Azure AI plane)?** Add
+> `-var enable_power_platform=false`. That skips the Dataverse environments,
+> Managed Environments, environment settings, DLP policies, and the VNet
+> enterprise policy — the Azure AI plane (OpenAI/Search/Content Safety/AI
+> Foundry), APIM, Key Vault, agent identities, and observability still deploy.
 
 ### Path B — full stack with governance
 

@@ -123,6 +123,12 @@ variable "enable_vnet_injection" {
   default     = true
 }
 
+variable "enable_power_platform" {
+  description = "Provision the Power Platform plane (Dataverse environments, Managed Environments, environment settings, DLP policies, and the VNet enterprise policy). Set false to deploy only the Azure AI plane (OpenAI/Search/Content Safety/AI Foundry), APIM, Key Vault, identities and observability — useful when the tenant has no Dataverse capacity or you don't need the low-code surface."
+  type        = bool
+  default     = true
+}
+
 variable "key_vault_purge_protection" {
   description = "Enable Key Vault purge protection (recommended for prod). When true, a destroyed vault stays soft-deleted for 90 days and CANNOT be force-purged — the name is unusable for that period. Set false for a demo you intend to tear down and rebuild."
   type        = bool

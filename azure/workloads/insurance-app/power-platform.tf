@@ -6,10 +6,15 @@
 # CAF: use an environment strategy (dev/test/prod), enforce Managed Environment
 # controls (sharing limits, Solution Checker, usage insights, env IP firewall),
 # and inject the environments into the platform VNet.
+#
+# The whole plane is gated by var.enable_power_platform (default true); set it
+# false to deploy the Azure AI plane only — e.g. no Dataverse capacity in the
+# tenant. The Managed Environment / settings / DLP resources iterate over the
+# environment resource, so they collapse to empty automatically when it's off.
 # ---------------------------------------------------------------------------
 
 resource "powerplatform_environment" "this" {
-  for_each         = var.power_platform_environments
+  for_each         = var.enable_power_platform ? var.power_platform_environments : {}
   display_name     = each.key
   location         = var.power_platform_location
   environment_type = each.value.environment_type
@@ -68,7 +73,7 @@ resource "powerplatform_environment_settings" "this" {
 # firewall) instead of the public internet.
 # ---------------------------------------------------------------------------
 resource "azapi_resource" "powerplatform_vnet_enterprise_policy" {
-  count     = var.enable_vnet_injection ? 1 : 0
+  count     = var.enable_power_platform && var.enable_vnet_injection ? 1 : 0
   type      = "Microsoft.PowerPlatform/enterprisePolicies@2020-10-30-preview"
   name      = "ep-insurance-app-vnet"
   location  = var.location
