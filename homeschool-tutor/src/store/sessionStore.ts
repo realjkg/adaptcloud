@@ -40,6 +40,7 @@ interface SessionState {
 
   // Actions
   startSession: () => void
+  startAssistantStream: () => void
   addUserMessage: (content: string) => void
   appendAssistantChunk: (content: string) => void
   addToolMessage: (tool: string, content: string) => void
@@ -125,6 +126,15 @@ export const useSessionStore = create<SessionState>()(
       subjectsCompleted: [],
     })
   },
+
+  startAssistantStream: () =>
+    set((s) => ({
+      isStreaming: true,
+      displayMessages: [
+        ...s.displayMessages,
+        { id: 'streaming-response', role: 'assistant' as const, content: '', timestamp: new Date() },
+      ],
+    })),
 
   addUserMessage: (content) => {
     set((s) => ({

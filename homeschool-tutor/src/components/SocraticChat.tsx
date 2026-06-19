@@ -19,6 +19,7 @@ export default function SocraticChat() {
     subjectStart,
     displayMessages,
     isStreaming,
+    startAssistantStream,
     addUserMessage,
     appendAssistantChunk,
     addToolMessage,
@@ -35,6 +36,56 @@ export default function SocraticChat() {
       setInput((prev) => (prev ? prev + ' ' + transcript : transcript))
     },
   })
+
+  // Track which subjects have already received their opening message
+  const openerFiredRef = useRef(new Set<string>())
+
+  // sendOpener reads live store state to avoid stale-closure issues during streaming
+  const sendOpener = useCallback(async () => {
+    const state = useSessionStore.getState()
+    if (state.isStreaming || !state.token || !state.sessionConfig) return
+
+    state.startAssistantStream()
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+
+    try {
+      const stream = streamTutorChat(
+        state.token,
+        state.sessionConfig,
+        state.currentSubject,
+        [],          // no prior history — clean slate for each subject opener
+        '[START]',
+        abortRef.current.signal,
+      )
+      for await (const chunk of stream) {
+        if (chunk.type === 'text' && chunk.content) {
+          appendAssistantChunk(chunk.content)
+        } else if (chunk.type === 'tool' && chunk.content) {
+          addToolMessage(chunk.tool ?? 'tool', chunk.content)
+          speak(chunk.content)
+        } else if (chunk.type === 'done') {
+          break
+        }
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        addToolMessage('error', `⚠️ ${err.message}`)
+      }
+    } finally {
+      finalizeAssistantMessage()
+      setStreaming(false)
+    }
+  }, [appendAssistantChunk, addToolMessage, finalizeAssistantMessage, setStreaming, speak])
+
+  // Fire opener once per subject — when subject changes and session is ready
+  useEffect(() => {
+    if (!sessionConfig || !token) return
+    if (openerFiredRef.current.has(currentSubject)) return
+    openerFiredRef.current.add(currentSubject)
+    sendOpener()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSubject, !!sessionConfig, !!token])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
