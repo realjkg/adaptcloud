@@ -75,6 +75,24 @@ export async function* streamTutorChat(
   }
 }
 
+// ── Admin ────────────────────────────────────────────────────────────────────
+
+export interface SystemStatus {
+  voice_profiles_enrolled: number
+  student_names: string[]
+  encryption: string
+  key_storage: string
+  audit_log: string
+}
+
+export async function fetchSystemStatus(token: string): Promise<SystemStatus> {
+  const res = await fetch(`${BASE}/admin/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Status unavailable')
+  return res.json()
+}
+
 // ── Session summary ──────────────────────────────────────────────────────────
 
 export async function fetchSessionSummary(

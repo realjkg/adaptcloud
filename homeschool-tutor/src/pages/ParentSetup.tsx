@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Sparkles, Mic, CheckCircle } from 'lucide-react'
+import { ChevronRight, Sparkles, Mic, CheckCircle, Database, Shield, Users } from 'lucide-react'
 import { useSessionStore } from '../store/sessionStore'
 import type { SessionConfig, Subject, GradeStage } from '../types'
 import { SUBJECTS } from '../types'
 import VoiceEnrollment from '../components/VoiceEnrollment'
 import { listVoiceProfiles } from '../services/voiceApi'
+import { fetchSystemStatus, type SystemStatus } from '../services/api'
 
 const GRADE_STAGES: Array<{ label: string; value: GradeStage; description: string; emoji: string }> = [
   { label: 'K–2', value: 'K-2', description: 'Grammar Stage: Exploration & Discovery', emoji: '🌱' },
@@ -20,9 +21,15 @@ export default function ParentSetup() {
   const [studentName, setStudentName] = useState('')
   const [showEnrollment, setShowEnrollment] = useState(false)
   const [enrolledProfiles, setEnrolledProfiles] = useState<string[]>([])
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
+  const [statusError, setStatusError] = useState(false)
 
   useEffect(() => {
-    if (token) listVoiceProfiles(token).then(setEnrolledProfiles).catch(() => {})
+    if (!token) return
+    listVoiceProfiles(token).then(setEnrolledProfiles).catch(() => {})
+    fetchSystemStatus(token)
+      .then(setSystemStatus)
+      .catch(() => setStatusError(true))
   }, [token])
 
   const isEnrolled = (name: string) =>
@@ -75,6 +82,36 @@ export default function ParentSetup() {
           <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600 underline">
             Log out
           </button>
+        </div>
+
+        {/* System status bar */}
+        <div className={`rounded-xl border px-4 py-3 mb-6 flex items-center gap-4 flex-wrap text-xs ${
+          statusError
+            ? 'border-red-200 bg-red-50 text-red-700'
+            : systemStatus
+            ? 'border-green-200 bg-green-50 text-green-800'
+            : 'border-gray-200 bg-gray-50 text-gray-500'
+        }`}>
+          {statusError ? (
+            <span className="flex items-center gap-1.5"><Database size={13} /> Cannot reach server</span>
+          ) : systemStatus ? (
+            <>
+              <span className="flex items-center gap-1.5 font-medium">
+                <Database size={13} /> DB connected
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Shield size={13} /> {systemStatus.encryption}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Users size={13} />
+                {systemStatus.voice_profiles_enrolled === 0
+                  ? 'No voices enrolled'
+                  : `${systemStatus.voice_profiles_enrolled} voice${systemStatus.voice_profiles_enrolled > 1 ? 's' : ''} enrolled: ${systemStatus.student_names.join(', ')}`}
+              </span>
+            </>
+          ) : (
+            <span>Checking system status…</span>
+          )}
         </div>
 
         <div className="space-y-6">

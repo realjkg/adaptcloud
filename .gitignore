@@ -1,3 +1,8 @@
+# Secrets — never commit these
+.env
+.env.backup
+.env.local
+
 #Config files or byte-compiled / optimized / DLL files
 config.py
 __pycache__/
