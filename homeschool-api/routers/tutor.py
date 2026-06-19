@@ -19,7 +19,7 @@ async def chat(
     Stream Socratic tutor responses via Server-Sent Events.
     Accessible to both parent and child tokens.
     """
-    log_event(
+    await log_event(
         AuditEvent.TUTOR_CHAT,
         role=auth.get("role"),
         student_name=req.session_config.student_name,
@@ -46,7 +46,7 @@ async def session_summary(
     auth: dict = Depends(require_parent),   # parent only
 ):
     """Generate end-of-session parent report. Parent role required."""
-    log_event(
+    await log_event(
         AuditEvent.SESSION_END,
         role="parent",
         student_name=req.session_config.student_name,

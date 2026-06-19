@@ -35,7 +35,7 @@ export default function Login() {
   })()
 
   const { setAuth, sessionConfig } = useSessionStore()
-  const knownStudentName = sessionConfig?.student_name ?? studentFromUrl || studentName
+  const knownStudentName = (sessionConfig?.student_name ?? studentFromUrl) || studentName
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -116,7 +116,7 @@ export default function Login() {
         {/* Header */}
         <div className="text-center mb-8">
           <img
-            src="/agnus-dei.svg"
+            src="/agnus-dei.png"
             alt="Agnus Dei"
             className="w-20 h-20 mx-auto mb-4 drop-shadow-sm"
           />

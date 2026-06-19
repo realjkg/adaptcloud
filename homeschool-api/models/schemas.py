@@ -16,6 +16,9 @@ class Subject(str, Enum):
     nature_study = "nature_study"       # Observation, nature journal
     history = "history"                 # Story-based history & geography
     language_arts = "language_arts"     # Narration, copywork, grammar
+    science = "science"                 # Botany, zoology, earth science
+    art_music = "art_music"             # Composer & artist study
+    saints = "saints"                   # Saints, catechism, virtue formation
     free_study = "free_study"           # Child-directed exploration
 
 
@@ -26,6 +29,10 @@ SUBJECT_DURATIONS = {
     Subject.nature_study: 20,
     Subject.history: 20,
     Subject.language_arts: 15,
+    Subject.science: 20,
+    Subject.art_music: 15,
+    Subject.saints: 15,
+    Subject.free_study: 20,
 }
 
 SUBJECT_LABELS = {
@@ -35,6 +42,9 @@ SUBJECT_LABELS = {
     Subject.nature_study: "Nature Study",
     Subject.history: "History & Geography",
     Subject.language_arts: "Language Arts",
+    Subject.science: "Science",
+    Subject.art_music: "Art & Music",
+    Subject.saints: "Saints & Catechism",
     Subject.free_study: "Free Study",
 }
 

@@ -102,7 +102,7 @@ async def initialize_encryption(master_secret: str, db) -> None:
         device_salt = salt_row.value
 
     # ── 2. Derive KEK (CPU-bound — run off the event loop) ───────────────────
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     kek: bytes = await loop.run_in_executor(
         None, _derive_kek, master_secret, device_salt
     )

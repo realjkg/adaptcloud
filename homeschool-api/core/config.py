@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import model_validator
 from typing import List
 
 
@@ -43,6 +44,33 @@ class Settings(BaseSettings):
     disable_api_docs: str = "false"
     # Set to "true" in Docker to enforce HTTPS-only cookie flags
     production: str = "false"
+
+    _WEAK_SECRETS = {
+        "dev-secret-CHANGE-IN-PRODUCTION-must-be-32-chars-min",
+        "change-me-parent",
+        "change-me-master-secret-32-chars-min",
+        "0000",
+    }
+
+    @model_validator(mode="after")
+    def reject_weak_defaults_in_production(self) -> "Settings":
+        if not self.is_production:
+            return self
+        problems = []
+        if self.secret_key in self._WEAK_SECRETS:
+            problems.append("SECRET_KEY is set to the default dev value")
+        if self.parent_password in self._WEAK_SECRETS:
+            problems.append("PARENT_PASSWORD is set to the default dev value")
+        if self.child_pin in self._WEAK_SECRETS:
+            problems.append("CHILD_PIN is set to the default dev value")
+        if self.master_secret in self._WEAK_SECRETS:
+            problems.append("MASTER_SECRET is set to the default dev value")
+        if problems:
+            raise ValueError(
+                "Production mode is enabled but insecure defaults are in use: "
+                + "; ".join(problems)
+            )
+        return self
 
     @property
     def cors_origins_list(self) -> List[str]:

@@ -7,6 +7,9 @@ export type Subject =
   | 'nature_study'
   | 'history'
   | 'language_arts'
+  | 'science'
+  | 'art_music'
+  | 'saints'
   | 'free_study'
 
 export interface SessionConfig {
@@ -88,6 +91,38 @@ export const SUBJECTS: SubjectInfo[] = [
     durationMin: 15,
     color: 'bg-purple-50 border-purple-200 text-purple-800',
     description: 'Narration, copywork & grammar',
+  },
+  {
+    id: 'science',
+    label: 'Science',
+    icon: '🔬',
+    durationMin: 20,
+    color: 'bg-teal-50 border-teal-200 text-teal-800',
+    description: 'Botany, zoology & earth science',
+  },
+  {
+    id: 'art_music',
+    label: 'Art & Music',
+    icon: '🎨',
+    durationMin: 15,
+    color: 'bg-rose-50 border-rose-200 text-rose-800',
+    description: 'Composer & artist study',
+  },
+  {
+    id: 'saints',
+    label: 'Saints & Catechism',
+    icon: '✝️',
+    durationMin: 15,
+    color: 'bg-faith-50 border-faith-200 text-faith-700',
+    description: 'Saints, catechism & virtue formation',
+  },
+  {
+    id: 'free_study',
+    label: 'Free Study',
+    icon: '🌟',
+    durationMin: 20,
+    color: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+    description: 'Student-directed exploration',
   },
 ]
 

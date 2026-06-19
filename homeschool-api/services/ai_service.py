@@ -11,8 +11,8 @@ from models.schemas import (
 )
 from core.config import settings
 
-# Single shared client — avoids re-initialising on every request
-_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+# Single shared async client — avoids re-initialising on every request
+_client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
 
 # Max conversation turns sent to Claude per request (sliding window)
 _HISTORY_WINDOW = 20
@@ -151,6 +151,24 @@ _SUBJECT_CONTEXT = {
         "and grammar through real usage. Ask the child to tell back, re-tell from a different "
         "character's view, or explain what makes a sentence powerful."
     ),
+    Subject.science: (
+        "Science session. Agnus Dei curriculum covers botany, zoology, and earth science through "
+        "Charlotte Mason observation and living books. Ask the child to observe, hypothesize, "
+        "and wonder at God's design in creation. Questions like 'What do you notice?' and "
+        "'Why do you think that happens?' invite genuine scientific thinking."
+    ),
+    Subject.art_music: (
+        "Art & Music Study session. Following Charlotte Mason, expose the child to one composer "
+        "and one artist at a time — listening, looking, and responding. Ask: 'What do you notice "
+        "in this painting?' or 'How does this music make you feel and why?' Develop aesthetic "
+        "sensibility and appreciation, not technical critique."
+    ),
+    Subject.saints: (
+        "Saints & Catechism session. Present the saint's life as a living story — their courage, "
+        "virtues, and faith. Connect to the catechism with wonder, not rote answers. Ask: "
+        "'What made this saint brave?' and 'How could you show that same virtue today?' "
+        "Faith formation should kindle love, not just knowledge."
+    ),
     Subject.free_study: (
         "Free Study time. The child leads. Ask what they are curious about and follow their interest. "
         "Socratic questions still apply — help them think deeper about whatever they choose."
@@ -251,7 +269,7 @@ async def stream_tutor_response(
         {**TUTOR_TOOLS[-1], "cache_control": {"type": "ephemeral"}},
     ]
 
-    with _client.messages.stream(
+    async with _client.messages.stream(
         model=settings.tutor_model,
         max_tokens=400,  # Keep responses tight — Charlotte Mason lesson brevity
         system=system,
@@ -260,7 +278,7 @@ async def stream_tutor_response(
     ) as stream:
         tool_calls_buffer = {}
 
-        for event in stream:
+        async for event in stream:
             event_type = type(event).__name__
 
             if event_type == "ContentBlockStart":
@@ -337,7 +355,7 @@ Write a parent summary with these sections:
 
 Keep it warm, specific, and under 300 words. Address the parent directly."""
 
-    response = client.messages.create(
+    response = await client.messages.create(
         model=settings.session_model,
         max_tokens=600,
         messages=[{"role": "user", "content": prompt}],

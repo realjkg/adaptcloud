@@ -1,4 +1,5 @@
 from datetime import timedelta
+import hmac
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -19,12 +20,12 @@ async def login(req: LoginRequest, request: Request):
     fp = compute_fingerprint(ctx["ip"], ctx["user_agent"])
 
     if req.role == "parent":
-        if req.credential != settings.parent_password:
+        if not hmac.compare_digest(req.credential, settings.parent_password):
             await log_event(AuditEvent.AUTH_FAILURE, role="parent", success=False, **ctx)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         expires = timedelta(minutes=settings.access_token_expire_minutes)
     elif req.role == "child":
-        if req.credential != settings.child_pin:
+        if not hmac.compare_digest(req.credential, settings.child_pin):
             await log_event(AuditEvent.AUTH_FAILURE, role="child", success=False, **ctx)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         expires = timedelta(minutes=settings.child_token_expire_minutes)

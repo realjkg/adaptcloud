@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { SessionConfig, Subject, ChatMessage } from '../types'
 import { SUBJECTS } from '../types'
 
@@ -70,7 +71,9 @@ export function getApiMessages(msgs: DisplayMessage[], from = 0): ChatMessage[] 
     .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 }
 
-export const useSessionStore = create<SessionState>((set, get) => ({
+export const useSessionStore = create<SessionState>()(
+  persist(
+    (set, get) => ({
   token: null,
   role: null,
   setAuth: (token, role) => set({ token, role }),
@@ -215,5 +218,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }))
   },
 
-  setStreaming: (v) => set({ isStreaming: v }),
-}))
+      setStreaming: (v) => set({ isStreaming: v }),
+    }),
+    {
+      name: 'agnus-dei-session',
+      storage: createJSONStorage(() => sessionStorage),
+      // Only persist auth + config — never chat history or streaming state
+      partialize: (s) => ({
+        token: s.token,
+        role: s.role,
+        sessionConfig: s.sessionConfig,
+        podStudents: s.podStudents,
+      }),
+    }
+  )
+)
