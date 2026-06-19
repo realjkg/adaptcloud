@@ -17,6 +17,7 @@ export interface SessionConfig {
   lesson_focus?: string
   faith_emphasis?: string
   current_unit?: string
+  voice_required?: boolean  // false for mute students — PIN-only auth, no voice passphrase
 }
 
 export interface ChatMessage {

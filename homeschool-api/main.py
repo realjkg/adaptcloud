@@ -9,7 +9,7 @@ from core.config import settings
 from core.database import AsyncSessionLocal, create_tables, engine
 from core.encryption import initialize_encryption
 from core.middleware import ExfiltrationGuard, RateLimitMiddleware, SecurityHeadersMiddleware
-from routers import admin, auth, tutor, voice
+from routers import admin, auth, pod, tutor, voice
 
 logging.basicConfig(
     level=logging.INFO,
@@ -75,6 +75,7 @@ app.include_router(auth.router)
 app.include_router(tutor.router)
 app.include_router(voice.router)
 app.include_router(admin.router)
+app.include_router(pod.router)
 
 
 @app.get("/health")

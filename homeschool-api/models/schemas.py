@@ -61,6 +61,11 @@ class SessionConfig(BaseModel):
     lesson_focus: Optional[str] = None       # Parent's note for today
     faith_emphasis: Optional[str] = None     # Scripture or virtue focus
     current_unit: Optional[str] = None       # e.g. "Ancient Egypt", "Fractions"
+    voice_required: bool = True              # False for mute students (PIN-only auth)
+
+
+class PodConfigsRequest(BaseModel):
+    configs: List[SessionConfig] = Field(..., min_length=1, max_length=10)
 
 
 class TutorRequest(BaseModel):

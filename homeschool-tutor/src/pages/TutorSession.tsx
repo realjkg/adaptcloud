@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { LogOut, FileText, ChevronRight } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { LogOut, FileText, ChevronRight, Loader2 } from 'lucide-react'
 import { getApiMessages, useSessionStore } from '../store/sessionStore'
 import SocraticChat from '../components/SocraticChat'
 import SubjectNav from '../components/SubjectNav'
 import SessionTimer from '../components/SessionTimer'
-import { fetchSessionSummary } from '../services/api'
+import { fetchSessionSummary, fetchStudentConfig } from '../services/api'
 import { SUBJECT_MAP } from '../types'
 
 export default function TutorSession() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const studentParam = searchParams.get('student')
+
   const {
     token,
     role,
@@ -21,20 +24,62 @@ export default function TutorSession() {
     isStreaming,
     nextSubject,
     endSession,
+    setSessionConfig,
+    startSession,
     logout,
   } = useSessionStore()
 
   const [showSummary, setShowSummary] = useState(false)
   const [summary, setSummary] = useState('')
   const [summaryLoading, setSummaryLoading] = useState(false)
+  const [configLoading, setConfigLoading] = useState(false)
+  const [configError, setConfigError] = useState('')
 
-  // Guard: redirect if no session config
+  // Guard: redirect if no token; load config from server if child has a student param
   useEffect(() => {
     if (!token) { navigate('/'); return }
-    if (!sessionConfig && role === 'parent') { navigate('/setup'); return }
-  }, [token, sessionConfig, role, navigate])
 
-  if (!sessionConfig) return null
+    if (!sessionConfig) {
+      if (studentParam && token) {
+        // Child or parent opening a pod session via URL — fetch config from server
+        setConfigLoading(true)
+        setConfigError('')
+        fetchStudentConfig(token, studentParam)
+          .then((config) => {
+            setSessionConfig(config)
+            startSession()
+          })
+          .catch((err) => setConfigError(err instanceof Error ? err.message : 'Could not load session config.'))
+          .finally(() => setConfigLoading(false))
+      } else if (role === 'parent') {
+        navigate('/setup')
+      }
+    }
+  }, [token, sessionConfig, role, studentParam, navigate, setSessionConfig, startSession])
+
+  if (!sessionConfig) {
+    if (configLoading) {
+      return (
+        <div className="min-h-screen bg-parchment-50 flex flex-col items-center justify-center gap-4">
+          <Loader2 size={32} className="text-sage-500 animate-spin" />
+          <p className="text-sm text-gray-500">Loading your session…</p>
+        </div>
+      )
+    }
+    if (configError) {
+      return (
+        <div className="min-h-screen bg-parchment-50 flex flex-col items-center justify-center gap-4 p-8 text-center">
+          <div className="text-4xl">😕</div>
+          <p className="text-gray-700 font-medium">Session not found</p>
+          <p className="text-sm text-gray-500 max-w-sm">{configError}</p>
+          <button onClick={() => { logout(); navigate('/') }} className="mt-2 text-sm text-sage-600 underline">
+            Back to login
+          </button>
+        </div>
+      )
+    }
+    return null
+  }
 
   const allSubjectsDone = subjectsCompleted.length >= sessionConfig.subjects.length
 

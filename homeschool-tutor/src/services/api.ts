@@ -93,6 +93,33 @@ export async function fetchSystemStatus(token: string): Promise<SystemStatus> {
   return res.json()
 }
 
+// ── Pod session configs ──────────────────────────────────────────────────────
+
+export async function savePodConfigs(token: string, configs: SessionConfig[]): Promise<void> {
+  const res = await fetch(`${BASE}/pod/configs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ configs }),
+  })
+  if (!res.ok) throw new Error('Failed to save pod configuration')
+}
+
+export async function listPodConfigs(token: string): Promise<SessionConfig[]> {
+  const res = await fetch(`${BASE}/pod/configs`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Failed to load pod configuration')
+  return res.json()
+}
+
+export async function fetchStudentConfig(token: string, studentName: string): Promise<SessionConfig> {
+  const res = await fetch(`${BASE}/pod/configs/${encodeURIComponent(studentName)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`No configuration found for ${studentName} — ask a parent to set up today's pod.`)
+  return res.json()
+}
+
 // ── Session summary ──────────────────────────────────────────────────────────
 
 export async function fetchSessionSummary(

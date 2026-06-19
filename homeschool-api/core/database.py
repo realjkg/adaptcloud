@@ -88,6 +88,20 @@ class VoiceProfile(Base):
     )
 
 
+class StudentConfig(Base):
+    """Per-student session configuration saved by parent before each pod session."""
+    __tablename__ = "student_configs"
+
+    student_name: Mapped[str] = mapped_column(String(100), primary_key=True)
+    config_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 async def create_tables() -> None:
     """Idempotent table creation — safe to call on every startup."""
     async with engine.begin() as conn:

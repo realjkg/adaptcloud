@@ -1,17 +1,12 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import AppShell from './guards/AppShell'
 import Login from './pages/Login'
 import ParentSetup from './pages/ParentSetup'
+import PodDashboard from './pages/PodDashboard'
 import TutorSession from './pages/TutorSession'
 import { useSessionStore } from './store/sessionStore'
 
-/**
- * Global 401 interceptor.
- * Patches window.fetch so that ANY 401 from the API immediately clears session
- * state and redirects to the login page — regardless of which component made
- * the request. This is the last line of defence against expired/stolen tokens.
- */
 function GlobalAuthInterceptor() {
   const navigate = useNavigate()
   const logout = useSessionStore((s) => s.logout)
@@ -22,7 +17,6 @@ function GlobalAuthInterceptor() {
     window.fetch = async (...args) => {
       const response = await originalFetch(...args)
       if (response.status === 401) {
-        // Check it's our API (not a third-party call)
         const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url
         if (url.startsWith('/api/') || url.includes(window.location.host)) {
           logout()
@@ -48,8 +42,16 @@ function RequireAuth({
   allowedRole?: 'parent' | 'child'
 }) {
   const { token, role } = useSessionStore()
-  if (!token) return <Navigate to="/" replace />
-  if (allowedRole && role !== allowedRole) return <Navigate to="/session" replace />
+  const location = useLocation()
+
+  if (!token) {
+    // Preserve the full path + query so student URLs survive the login redirect
+    const returnTo = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/?returnTo=${returnTo}`} replace />
+  }
+  if (allowedRole && role !== allowedRole) {
+    return <Navigate to={role === 'parent' ? '/setup' : '/session'} replace />
+  }
   return <>{children}</>
 }
 
@@ -65,6 +67,14 @@ export default function App() {
             element={
               <RequireAuth allowedRole="parent">
                 <ParentSetup />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/pod"
+            element={
+              <RequireAuth allowedRole="parent">
+                <PodDashboard />
               </RequireAuth>
             }
           />

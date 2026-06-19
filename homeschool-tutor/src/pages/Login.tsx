@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BookOpen, Lock } from 'lucide-react'
-import { login } from '../services/api'
+import { login, fetchStudentConfig } from '../services/api'
 import { useSessionStore } from '../store/sessionStore'
 import VoiceVerification from '../components/VoiceVerification'
 import type { VerifyResult } from '../services/voiceApi'
@@ -18,10 +18,24 @@ export default function Login() {
   const [studentName, setStudentName] = useState('')
 
   const navigate = useNavigate()
-  const { setAuth, sessionConfig } = useSessionStore()
+  const [searchParams] = useSearchParams()
 
-  // Derive student name from existing session config if parent already set it up
-  const knownStudentName = sessionConfig?.student_name ?? studentName
+  // ?returnTo=/session?student=emma — preserved through the auth redirect
+  const returnTo = searchParams.get('returnTo') ?? ''
+
+  // Extract student name from the returnTo URL if present
+  const studentFromUrl = (() => {
+    if (!returnTo) return ''
+    try {
+      const inner = new URLSearchParams(decodeURIComponent(returnTo).split('?')[1] ?? '')
+      return inner.get('student') ?? ''
+    } catch {
+      return ''
+    }
+  })()
+
+  const { setAuth, sessionConfig } = useSessionStore()
+  const knownStudentName = sessionConfig?.student_name ?? studentFromUrl || studentName
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,14 +45,28 @@ export default function Login() {
       const token = await login(role, credential)
 
       if (role === 'parent') {
-        // Parents go straight through — voice auth is for students
         setAuth(token, 'parent')
-        navigate('/setup')
-      } else {
-        // Child: store token and move to voice verification gate
-        setPendingToken(token)
-        setPhase('voice-verify')
+        navigate(returnTo ? decodeURIComponent(returnTo) : '/setup')
+        return
       }
+
+      // Child: check if voice verification is required for this student
+      if (studentFromUrl) {
+        try {
+          const config = await fetchStudentConfig(token, studentFromUrl)
+          if (config.voice_required === false) {
+            // Mute student or accessibility mode — skip voice check entirely
+            setAuth(token, 'child')
+            navigate(decodeURIComponent(returnTo))
+            return
+          }
+        } catch {
+          // Config not found — proceed with voice check as default
+        }
+      }
+
+      setPendingToken(token)
+      setPhase('voice-verify')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
@@ -46,16 +74,14 @@ export default function Login() {
     }
   }
 
-  const handleVoiceVerified = (result: VerifyResult) => {
+  const handleVoiceVerified = (_result: VerifyResult) => {
     setAuth(pendingToken, 'child')
-    // If parent hasn't set up the session yet, child sees a waiting screen
-    navigate('/session')
+    navigate(returnTo ? decodeURIComponent(returnTo) : '/session')
   }
 
   const handleVoiceSkip = () => {
-    // No voice profile enrolled — let child in with PIN only
     setAuth(pendingToken, 'child')
-    navigate('/session')
+    navigate(returnTo ? decodeURIComponent(returnTo) : '/session')
   }
 
   if (phase === 'voice-verify') {
@@ -67,11 +93,10 @@ export default function Login() {
           onVerified={handleVoiceVerified}
           onSkip={handleVoiceSkip}
         />
-        {/* Fallback if student name unknown */}
         {!knownStudentName && (
           <div className="fixed bottom-6 left-0 right-0 text-center">
             <div className="inline-block bg-white/90 rounded-xl border border-sage-200 px-4 py-3 shadow">
-              <p className="text-xs text-gray-500 mb-2">Enter student name for voice check:</p>
+              <p className="text-xs text-gray-500 mb-2">Enter your name for the voice check:</p>
               <input
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
@@ -95,6 +120,11 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-display font-bold text-gray-800">Sage</h1>
           <p className="text-sm text-gray-500 mt-1">Your Charlotte Mason Homeschool Tutor</p>
+          {studentFromUrl && (
+            <p className="text-sm font-medium text-sage-700 mt-2">
+              Welcome, {studentFromUrl}!
+            </p>
+          )}
         </div>
 
         {/* Role toggle */}
@@ -131,8 +161,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Voice verification notice for children */}
-          {role === 'child' && (
+          {role === 'child' && !studentFromUrl && (
             <div className="flex items-start gap-2.5 bg-sage-50 border border-sage-200 rounded-lg px-3 py-2.5">
               <span className="text-lg mt-0.5">🎤</span>
               <div className="text-xs text-sage-700">
@@ -153,7 +182,7 @@ export default function Login() {
             disabled={loading || !credential}
             className="w-full py-3 bg-sage-500 text-white rounded-lg font-medium hover:bg-sage-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Checking…' : role === 'parent' ? 'Enter as Parent' : 'Continue to Voice Check →'}
+            {loading ? 'Checking…' : role === 'parent' ? 'Enter as Parent' : 'Continue →'}
           </button>
         </form>
 

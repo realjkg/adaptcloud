@@ -17,7 +17,11 @@ interface SessionState {
   setAuth: (token: string, role: 'parent' | 'child') => void
   logout: () => void
 
-  // Session configuration (set by parent)
+  // Pod — all students configured for today's session (parent's device)
+  podStudents: SessionConfig[]
+  setPodStudents: (configs: SessionConfig[]) => void
+
+  // Session configuration for the currently active student
   sessionConfig: SessionConfig | null
   setSessionConfig: (config: SessionConfig) => void
 
@@ -75,12 +79,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       token: null,
       role: null,
       sessionConfig: null,
+      podStudents: [],
       displayMessages: [],
       subjectStart: 0,
       sessionStartedAt: null,
       currentSubjectIndex: 0,
       subjectsCompleted: [],
     }),
+
+  podStudents: [],
+  setPodStudents: (configs) => set({ podStudents: configs }),
 
   sessionConfig: null,
   setSessionConfig: (config) => set({ sessionConfig: config }),
