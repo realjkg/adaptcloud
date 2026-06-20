@@ -56,8 +56,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const isLoginPage = location.pathname === '/'
 
     if (!token) {
-      setReady(true)  // allow login page to render
-      if (!isLoginPage) navigate('/', { replace: true })
+      setReady(true)  // allow login page to render (RequireAuth handles redirect)
       return
     }
 
