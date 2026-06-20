@@ -6,7 +6,7 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useTextToSpeech } from '../hooks/useTextToSpeech'
 import { SUBJECT_MAP } from '../types'
 
-export default function SocraticChat() {
+export default function SocraticChat({ breakActive = false }: { breakActive?: boolean }) {
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -224,7 +224,7 @@ export default function SocraticChat() {
           {sttSupported && (
             <button
               onClick={toggleMic}
-              disabled={isStreaming}
+              disabled={isStreaming || breakActive}
               title={isListening ? 'Stop listening' : 'Speak your answer'}
               className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${
                 isListening
@@ -240,9 +240,11 @@ export default function SocraticChat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKey}
-            disabled={isStreaming}
+            disabled={isStreaming || breakActive}
             placeholder={
-              isListening
+              breakActive
+                ? '☕ On a break — Sage will be here when you return'
+                : isListening
                 ? '🎤 Listening… speak now'
                 : sttSupported
                 ? 'Type or tap the mic to speak…'
@@ -254,7 +256,7 @@ export default function SocraticChat() {
 
           <button
             onClick={send}
-            disabled={isStreaming || !input.trim()}
+            disabled={isStreaming || breakActive || !input.trim()}
             className="p-2.5 rounded-lg bg-sage-500 text-white hover:bg-sage-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}

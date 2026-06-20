@@ -36,6 +36,7 @@ interface SessionState {
   displayMessages: DisplayMessage[]
   isStreaming: boolean
   sessionStartedAt: Date | null
+  subjectStartedAt: Date | null
   subjectsCompleted: Subject[]
 
   // Actions
@@ -87,6 +88,7 @@ export const useSessionStore = create<SessionState>()(
       displayMessages: [],
       subjectStart: 0,
       sessionStartedAt: null,
+      subjectStartedAt: null,
       currentSubjectIndex: 0,
       subjectsCompleted: [],
     }),
@@ -103,6 +105,7 @@ export const useSessionStore = create<SessionState>()(
   displayMessages: [],
   isStreaming: false,
   sessionStartedAt: null,
+  subjectStartedAt: null,
   subjectsCompleted: [],
 
   startSession: () => {
@@ -117,8 +120,10 @@ export const useSessionStore = create<SessionState>()(
       }. Sage is ready to learn with you. 🌿`,
       timestamp: new Date(),
     }
+    const now = new Date()
     set({
-      sessionStartedAt: new Date(),
+      sessionStartedAt: now,
+      subjectStartedAt: now,
       currentSubjectIndex: 0,
       currentSubject: firstSubject,
       displayMessages: [welcomeMsg],
@@ -212,6 +217,7 @@ export const useSessionStore = create<SessionState>()(
         currentSubjectIndex: nextIndex,
         currentSubject: nextSubj ?? currentSubject,
         subjectsCompleted: [...s.subjectsCompleted, currentSubject],
+        subjectStartedAt: new Date(),
         // New subject context starts AFTER the transition system message
         subjectStart: s.displayMessages.length + 1,
         displayMessages: [...s.displayMessages, transitionMsg],

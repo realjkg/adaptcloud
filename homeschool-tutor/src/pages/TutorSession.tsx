@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { LogOut, FileText, ChevronRight, Loader2 } from 'lucide-react'
+import { LogOut, FileText, ChevronRight, Loader2, Coffee } from 'lucide-react'
 import { getApiMessages, useSessionStore } from '../store/sessionStore'
 import SocraticChat from '../components/SocraticChat'
 import SubjectNav from '../components/SubjectNav'
 import SessionTimer from '../components/SessionTimer'
 import { fetchSessionSummary, fetchStudentConfig } from '../services/api'
 import { SUBJECT_MAP } from '../types'
+import { getTimerConfig, getPhase, fmtTime } from '../utils/gradeTimer'
 
 export default function TutorSession() {
   const navigate = useNavigate()
@@ -20,6 +21,7 @@ export default function TutorSession() {
     currentSubject,
     subjectsCompleted,
     sessionStartedAt,
+    subjectStartedAt,
     displayMessages,
     isStreaming,
     nextSubject,
@@ -83,6 +85,16 @@ export default function TutorSession() {
 
   const allSubjectsDone = subjectsCompleted.length >= sessionConfig.subjects.length
 
+  // Grade-based timer: K-3 uses per-subject 20-min blocks; 4-8 uses 60-min blocks with 10-min breaks
+  const timerCfg = getTimerConfig(sessionConfig.grade)
+  const timerStartedAt = timerCfg.isYounger ? subjectStartedAt : sessionStartedAt
+  const { phase: currentPhase, remainingSecs } = getPhase(
+    timerStartedAt,
+    timerCfg.blockMinutes,
+    timerCfg.breakMinutes,
+  )
+  const isOnBreak = currentPhase === 'break'
+
   const handleEndSession = async () => {
     endSession()
     if (role === 'parent' && token) {
@@ -133,7 +145,12 @@ export default function TutorSession() {
           </div>
         </div>
 
-        <SessionTimer startedAt={sessionStartedAt} />
+        <SessionTimer
+          startedAt={timerStartedAt}
+          blockMinutes={timerCfg.blockMinutes}
+          breakMinutes={timerCfg.breakMinutes}
+          warningMinutes={timerCfg.warningMinutes}
+        />
 
         {role === 'parent' && (
           <button
@@ -193,8 +210,26 @@ export default function TutorSession() {
         </aside>
 
         {/* Chat */}
-        <main className="flex-1 flex flex-col overflow-hidden p-4">
-          <SocraticChat />
+        <main className="flex-1 flex flex-col overflow-hidden p-4 relative">
+          {isOnBreak && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-parchment-50/90 backdrop-blur-sm p-6">
+              <div className="bg-white rounded-2xl border border-amber-200 shadow-lg p-8 max-w-sm w-full text-center">
+                <Coffee size={40} className="mx-auto mb-4 text-amber-500" />
+                <h2 className="text-xl font-display font-bold text-gray-800 mb-2">Break Time!</h2>
+                <p className="text-sm text-gray-600 mb-1">
+                  {sessionConfig.student_name}, you've been working hard.
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  Step away from the screen, have a snack, and come back refreshed.
+                </p>
+                <div className="text-3xl font-mono font-bold text-amber-600 mb-1">
+                  {fmtTime(remainingSecs)}
+                </div>
+                <p className="text-xs text-gray-400">until your next learning block</p>
+              </div>
+            </div>
+          )}
+          <SocraticChat breakActive={isOnBreak} />
         </main>
       </div>
 
