@@ -29,9 +29,10 @@ export interface ChatMessage {
 }
 
 export interface StreamChunk {
-  type: 'text' | 'tool' | 'done'
+  type: 'text' | 'tool' | 'done' | 'assessment'
   content?: string
   tool?: string
+  data?: { subject: string; total_score: number; adaptive_signal: string }
 }
 
 export interface SubjectInfo {

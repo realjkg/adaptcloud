@@ -1,6 +1,12 @@
 import anthropic
 import json
-from typing import AsyncIterator, List
+import logging
+from datetime import datetime, timezone
+from typing import AsyncIterator, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 from models.schemas import (
     SessionConfig,
     Subject,
@@ -10,6 +16,8 @@ from models.schemas import (
     SessionSummaryRequest,
 )
 from core.config import settings
+
+log = logging.getLogger(__name__)
 
 # Single shared async client — avoids re-initialising on every request
 _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
@@ -97,6 +105,60 @@ TUTOR_TOOLS = [
                 },
             },
             "required": ["connection"],
+        },
+    },
+    {
+        "name": "assess_narration",
+        "description": (
+            "Silently score the student's narration after they have retold what they read or learned. "
+            "Call this AFTER 2-3 follow-up exchanges — not immediately after the narration. "
+            "The student does not see this score. It builds their learning profile over sessions."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "completeness": {
+                    "type": "integer", "minimum": 1, "maximum": 5,
+                    "description": "Did they cover the main ideas? 1=missed most, 5=comprehensive",
+                },
+                "sequence": {
+                    "type": "integer", "minimum": 1, "maximum": 5,
+                    "description": "Was the retelling in logical order? 1=jumbled, 5=clear sequence",
+                },
+                "detail": {
+                    "type": "integer", "minimum": 1, "maximum": 5,
+                    "description": "Richness of specifics. 1=very vague, 5=vivid and precise",
+                },
+                "language_quality": {
+                    "type": "integer", "minimum": 1, "maximum": 5,
+                    "description": "Own words, genuine voice. 1=parroting the text, 5=rich original language",
+                },
+                "synthesis": {
+                    "type": "integer", "minimum": 1, "maximum": 5,
+                    "description": "Connections to prior learning. 1=isolated recall, 5=genuine synthesis",
+                },
+                "concepts_demonstrated": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "2-5 concepts the student clearly grasped",
+                },
+                "misconceptions": {
+                    "type": "array", "items": {"type": "string"},
+                    "description": "Misunderstandings or gaps observed (may be empty)",
+                },
+                "adaptive_signal": {
+                    "type": "string",
+                    "enum": ["advance", "repeat", "review_prerequisite"],
+                    "description": "advance=ready to move on, repeat=needs more time, review_prerequisite=earlier gap",
+                },
+                "bede_observation": {
+                    "type": "string",
+                    "description": "One sentence of genuine observation about this child's learning patterns",
+                },
+            },
+            "required": [
+                "completeness", "sequence", "detail", "language_quality", "synthesis",
+                "concepts_demonstrated", "misconceptions", "adaptive_signal", "bede_observation",
+            ],
         },
     },
 ]
@@ -193,7 +255,7 @@ SACRED RULES — never break these:
 8. Speak to them as a capable, interesting person — Charlotte Mason: "children are born persons."
 9. When the child's message is exactly "[START]", you are opening a fresh lesson for this subject. Greet {config.student_name} warmly by name, introduce this subject in one inviting sentence, then ask your first Socratic question. Never echo, quote, or acknowledge "[START]" — just begin.
 
-You have access to tools: use `request_narration` after learning moments, `offer_socratic_hint` when stuck, `celebrate_discovery` for breakthroughs, and `connect_to_faith` when it fits naturally.
+You have access to tools: use `request_narration` after learning moments, `offer_socratic_hint` when stuck, `celebrate_discovery` for breakthroughs, `connect_to_faith` when it fits naturally, and `assess_narration` silently after 2-3 follow-up exchanges following a narration (the child never sees this).
 
 Remember: your goal is to kindle delight in learning, not to transfer information. The child who discovers is the child who remembers."""
 
@@ -235,11 +297,63 @@ def _process_tool_use(tool_name: str, tool_input: dict) -> str:
     return ""
 
 
+async def _save_assessment(
+    db: Optional["AsyncSession"],
+    student_name: str,
+    subject: Subject,
+    tool_input: dict,
+) -> Optional[dict]:
+    """
+    Persist narration rubric scores to DB (encrypted).
+    Returns a minimal summary dict for the SSE event, or None on failure.
+    """
+    if db is None:
+        return None
+    try:
+        from core.database import NarrationAssessment
+        from core.encryption import encrypt_json
+
+        total = (
+            tool_input.get("completeness", 0)
+            + tool_input.get("sequence", 0)
+            + tool_input.get("detail", 0)
+            + tool_input.get("language_quality", 0)
+            + tool_input.get("synthesis", 0)
+        )
+        now = datetime.now(timezone.utc)
+        data = {
+            "subject":                subject.value,
+            "completeness":           tool_input.get("completeness"),
+            "sequence":               tool_input.get("sequence"),
+            "detail":                 tool_input.get("detail"),
+            "language_quality":       tool_input.get("language_quality"),
+            "synthesis":              tool_input.get("synthesis"),
+            "total_score":            total,
+            "concepts_demonstrated":  tool_input.get("concepts_demonstrated", []),
+            "misconceptions":         tool_input.get("misconceptions", []),
+            "adaptive_signal":        tool_input.get("adaptive_signal"),
+            "bede_observation":       tool_input.get("bede_observation", ""),
+            "assessed_at":            now.isoformat(),
+        }
+        db.add(NarrationAssessment(
+            student_name=student_name,
+            subject=subject.value,
+            session_date=now,
+            assessment_enc=encrypt_json(data),
+        ))
+        await db.commit()
+        return {"subject": subject.value, "total_score": total, "adaptive_signal": data["adaptive_signal"]}
+    except Exception as exc:
+        log.warning("Assessment save failed for %s: %s", student_name, exc)
+        return None
+
+
 async def stream_tutor_response(
     config: SessionConfig,
     subject: Subject,
     history: List[ChatMessage],
     child_message: str,
+    db: Optional["AsyncSession"] = None,
 ) -> AsyncIterator[str]:
     """
     Stream the Socratic tutor response token by token using Claude Sonnet.
@@ -307,14 +421,19 @@ async def stream_tutor_response(
                         tool_calls_buffer[block_id]["input_str"] += delta.partial_json
 
             elif event_type == "ContentBlockStop":
-                # Emit completed tool call as a formatted response
                 for block_id, tc in list(tool_calls_buffer.items()):
                     if tc["input_str"]:
                         try:
                             tool_input = json.loads(tc["input_str"])
-                            tool_response = _process_tool_use(tc["name"], tool_input)
-                            if tool_response:
-                                yield f"data: {json.dumps({'type': 'tool', 'tool': tc['name'], 'content': tool_response})}\n\n"
+                            if tc["name"] == "assess_narration":
+                                # Silent server-side save; emit minimal event for frontend
+                                summary = await _save_assessment(db, config.student_name, subject, tool_input)
+                                if summary:
+                                    yield f"data: {json.dumps({'type': 'assessment', 'data': summary})}\n\n"
+                            else:
+                                tool_response = _process_tool_use(tc["name"], tool_input)
+                                if tool_response:
+                                    yield f"data: {json.dumps({'type': 'tool', 'tool': tc['name'], 'content': tool_response})}\n\n"
                         except json.JSONDecodeError:
                             pass
                         tool_calls_buffer.pop(block_id, None)
@@ -363,3 +482,41 @@ Keep it warm, specific, and under 300 words. Address the parent directly."""
     )
 
     return response.content[0].text
+
+
+async def synthesize_learner_profile(
+    student_name: str,
+    assessments: list[dict],
+    session_count: int,
+) -> dict:
+    """
+    Uses Claude Haiku to synthesize a stable learner-type profile from narration history.
+    Called by the narration router after session 3+. Returns a plain dict for encryption.
+    """
+    assessment_summary = json.dumps(assessments[:15], indent=2, default=str)
+
+    prompt = f"""Analyze narration scores for {student_name} across {session_count} tutoring sessions and identify their stable learner characteristics.
+
+Assessment history (most recent first):
+{assessment_summary}
+
+Determine these four stable characteristics:
+- trivium_stage: "grammar" (K-5, absorbs facts and stories), "logic" (6-8, asks why, finds patterns), or "rhetoric" (9-12, synthesizes and argues)
+- processing_style: "visual" (rich imagery in narrations), "auditory" (rhythm, sound, music references), "reading_writing" (precise language, accurate quotes), or "kinesthetic" (action, movement, hands-on references)
+- narration_mode: "sequential" (retells in careful order, step-by-step) or "associative" (jumps to what matters most, makes cross-connections)
+- attention_profile: "short_blocks" (quality drops mid-narration), "sustained" (consistent quality throughout), or "variable" (strong for some subjects, weaker for others)
+
+Also write bede_profile_notes: 2-3 warm, specific sentences describing how Bede should approach this learner — what helps them, what to watch for, what lights them up.
+
+Return ONLY a JSON object with keys: trivium_stage, processing_style, narration_mode, attention_profile, bede_profile_notes. No markdown, no other text."""
+
+    response = await _client.messages.create(
+        model=settings.session_model,
+        max_tokens=400,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    text = response.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    return json.loads(text)

@@ -102,6 +102,42 @@ class StudentConfig(Base):
     )
 
 
+class NarrationAssessment(Base):
+    """One rubric-scored assessment per narration Bede evaluates during a session."""
+    __tablename__ = "narration_assessments"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    student_name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
+    subject: Mapped[str] = mapped_column(String(50), nullable=False)
+    session_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+        nullable=False,
+    )
+    assessment_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class LearnerProfile(Base):
+    """Stable learner-type profile per student — synthesized after session 3+."""
+    __tablename__ = "learner_profiles"
+
+    student_name: Mapped[str] = mapped_column(String(100), primary_key=True)
+    session_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    profile_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 async def create_tables() -> None:
     """Idempotent table creation — safe to call on every startup."""
     async with engine.begin() as conn:

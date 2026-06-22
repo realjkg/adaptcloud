@@ -64,6 +64,8 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
         } else if (chunk.type === 'tool' && chunk.content) {
           addToolMessage(chunk.tool ?? 'tool', chunk.content)
           speak(chunk.content)
+        } else if (chunk.type === 'assessment') {
+          // Silent server-side narration score — no UI change for child
         } else if (chunk.type === 'done') {
           break
         }
@@ -135,6 +137,8 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
           addToolMessage(chunk.tool ?? 'tool', chunk.content)
           // Speak tool responses too (narration prompts, hints, etc.)
           speak(chunk.content)
+        } else if (chunk.type === 'assessment') {
+          // Silent server-side narration score — no UI change for child
         } else if (chunk.type === 'done') {
           break
         }

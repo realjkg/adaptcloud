@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, Request
 from sse_starlette.sse import EventSourceResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.audit import AuditEvent, audit_from_request, log_event
+from core.database import get_db
 from core.deps import require_auth, require_parent
 from models.schemas import SessionSummaryRequest, TutorRequest
 from services.ai_service import generate_session_summary, stream_tutor_response
@@ -14,10 +16,12 @@ async def chat(
     req: TutorRequest,
     request: Request,
     auth: dict = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Stream Socratic tutor responses via Server-Sent Events.
-    Accessible to both parent and child tokens.
+    Accessible to both parent and child tokens. Passes db so Bede can
+    persist narration assessments server-side mid-stream.
     """
     await log_event(
         AuditEvent.TUTOR_CHAT,
@@ -33,6 +37,7 @@ async def chat(
             subject=req.current_subject,
             history=req.conversation_history,
             child_message=req.child_message,
+            db=db,
         ):
             yield chunk
 

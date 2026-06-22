@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from enum import Enum
+from datetime import date
 
 
 class GradeStage(str, Enum):
@@ -107,3 +108,46 @@ class NarrationRecord(BaseModel):
     subject: Subject
     narration_text: str
     timestamp: str
+
+
+# ── Narration assessment (Phase 1 — mastery engine) ───────────────────────────
+
+class TriviumStage(str, Enum):
+    grammar  = "grammar"    # K-5: absorption, story, wonder
+    logic    = "logic"      # 6-8: questioning, patterns, cause-effect
+    rhetoric = "rhetoric"   # 9-12: synthesis, argument, application
+
+class ProcessingStyle(str, Enum):
+    visual         = "visual"          # rich imagery, spatial language
+    auditory       = "auditory"        # rhythm, sound, music references
+    reading_writing = "reading_writing" # precise quotes, careful language
+    kinesthetic    = "kinesthetic"     # action, movement, hands-on focus
+
+class NarrationMode(str, Enum):
+    sequential  = "sequential"   # retells in careful chronological order
+    associative = "associative"  # jumps to significance, makes cross-leaps
+
+class NarrationAssessmentData(BaseModel):
+    """Full rubric data stored encrypted per narration event."""
+    subject:                str
+    completeness:           int = Field(..., ge=1, le=5)
+    sequence:               int = Field(..., ge=1, le=5)
+    detail:                 int = Field(..., ge=1, le=5)
+    language_quality:       int = Field(..., ge=1, le=5)
+    synthesis:              int = Field(..., ge=1, le=5)
+    total_score:            int = Field(..., ge=5, le=25)
+    concepts_demonstrated:  List[str]
+    misconceptions:         List[str]
+    adaptive_signal:        Literal["advance", "repeat", "review_prerequisite"]
+    bede_observation:       str
+    assessed_at:            str
+
+class LearnerProfileData(BaseModel):
+    """Stable learner-type profile synthesized from accumulated assessments."""
+    trivium_stage:         TriviumStage
+    processing_style:      ProcessingStyle
+    narration_mode:        NarrationMode
+    attention_profile:     Literal["short_blocks", "sustained", "variable"]
+    session_count_assessed: int
+    bede_profile_notes:    str
+    assessed_at:           str
