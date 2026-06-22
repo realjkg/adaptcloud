@@ -260,14 +260,46 @@ You have access to tools: use `request_narration` after learning moments, `offer
 Remember: your goal is to kindle delight in learning, not to transfer information. The child who discovers is the child who remembers."""
 
 
+def _infer_year(config: SessionConfig) -> "int | None":
+    """
+    Rough heuristic: map grade string to Ambleside Online year.
+    AO Year 1 ~ grades K-1, Year 2 ~ grades 1-2, Year 3 ~ grades 2-3.
+    Returns None if the grade cannot be mapped.
+    """
+    grade = config.grade.strip().upper()
+    mapping: dict = {
+        "K": 1, "0": 1, "1": 1,
+        "2": 2,
+        "3": 3,
+    }
+    return mapping.get(grade)
+
+
+def _get_catalog_context(config: SessionConfig, subject: Subject) -> str:
+    """
+    Return a brief catalog note if a curriculum year can be inferred and no
+    explicit current_unit is set. Imports lazily to avoid circular dependency.
+    """
+    if config.current_unit:
+        return ""  # Parent already specified the unit — catalog note not needed
+    try:
+        from services.catalog_service import get_catalog_note
+        year = _infer_year(config)
+        note = get_catalog_note(year, subject.value)
+        return f"\nCatalog books for this subject: {note}" if note else ""
+    except Exception:
+        return ""
+
+
 def _build_subject_prompt(config: SessionConfig, subject: Subject) -> str:
     """Subject-specific context block — changes between subjects, not cached."""
     faith_note = f"\nToday's faith focus: {config.faith_emphasis}" if config.faith_emphasis else ""
     lesson_note = f"\nParent's note for today: {config.lesson_focus}" if config.lesson_focus else ""
     unit_note = f"\nCurrent unit of study: {config.current_unit}" if config.current_unit else ""
+    catalog_note = _get_catalog_context(config, subject)
 
     return f"""CURRENT SUBJECT: {SUBJECT_LABELS[subject]}
-{_SUBJECT_CONTEXT[subject]}{faith_note}{lesson_note}{unit_note}"""
+{_SUBJECT_CONTEXT[subject]}{faith_note}{lesson_note}{unit_note}{catalog_note}"""
 
 
 def _process_tool_use(tool_name: str, tool_input: dict) -> str:
