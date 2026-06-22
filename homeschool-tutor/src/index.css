@@ -35,3 +35,34 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-sage-200 rounded-full;
 }
+
+/* Safe area insets for iPad notch and home indicator */
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+.pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+
+/* iPad/iOS touch optimizations */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent iOS font size bumping on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 16px minimum on inputs prevents iOS zoom-on-focus */
+input, textarea, select {
+  font-size: max(16px, 1rem);
+}
+
+/* Smooth momentum scrolling on iOS */
+.overflow-y-auto, .overflow-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent rubber-band scroll on the root */
+html, body {
+  overscroll-behavior: none;
+}

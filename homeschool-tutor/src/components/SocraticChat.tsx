@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Loader2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react'
+import { Send, Loader2, Mic, MicOff, Volume2, VolumeX, PenLine, X } from 'lucide-react'
 import { streamTutorChat } from '../services/api'
 import { getApiMessages, useSessionStore } from '../store/sessionStore'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useTextToSpeech } from '../hooks/useTextToSpeech'
 import { SUBJECT_MAP } from '../types'
+import HandwritingCanvas from './HandwritingCanvas'
 
 export default function SocraticChat({ breakActive = false }: { breakActive?: boolean }) {
   const [input, setInput] = useState('')
+  const [showCanvas, setShowCanvas] = useState(false)
+  const [pendingDrawing, setPendingDrawing] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const lastAssistantRef = useRef('')  // track last spoken text to avoid re-speaking
@@ -105,17 +108,27 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
     }
   }, [displayMessages, speak])
 
+  const handleDrawingSubmit = (imageDataUrl: string) => {
+    setPendingDrawing(imageDataUrl)
+    setShowCanvas(false)
+  }
+  const handleDrawingCancel = () => setShowCanvas(false)
+
   const send = useCallback(async () => {
     const msg = input.trim()
-    if (!msg || isStreaming || !token || !sessionConfig) return
+    if ((!msg && !pendingDrawing) || isStreaming || !token || !sessionConfig) return
 
     stopSpeech()      // stop any ongoing speech when child replies
     stopListening()
     setInput('')
 
+    // Append drawing indicator to message if a drawing is pending
+    const fullMsg = pendingDrawing ? msg + (msg ? ' ' : '') + '[✏️ Drawing]' : msg
+    setPendingDrawing(null)
+
     // Snapshot current-subject history BEFORE addUserMessage mutates displayMessages
     const apiHistory = getApiMessages(displayMessages, subjectStart)
-    addUserMessage(msg)
+    addUserMessage(fullMsg)
 
     abortRef.current?.abort()
     abortRef.current = new AbortController()
@@ -126,7 +139,7 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
         sessionConfig,
         currentSubject,
         apiHistory,
-        msg,
+        fullMsg,
         abortRef.current.signal
       )
 
@@ -152,7 +165,7 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
       setStreaming(false)
     }
   }, [
-    input, isStreaming, token, sessionConfig, currentSubject, subjectStart, displayMessages,
+    input, pendingDrawing, isStreaming, token, sessionConfig, currentSubject, subjectStart, displayMessages,
     addUserMessage, appendAssistantChunk, addToolMessage, finalizeAssistantMessage,
     setStreaming, stopSpeech, stopListening, speak,
   ])
@@ -221,9 +234,30 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
         <div ref={bottomRef} />
       </div>
 
+      {/* Drawing preview */}
+      {pendingDrawing && (
+        <div className="px-4 pb-2 flex items-center gap-2 bg-white border-t border-parchment-200 pt-2">
+          <img src={pendingDrawing} alt="Your drawing" className="h-16 w-auto rounded-lg border border-sage-200 shadow-sm" />
+          <div className="flex-1 text-xs text-sage-700">Drawing ready — add a note or send</div>
+          <button onClick={() => setPendingDrawing(null)} className="text-gray-400 hover:text-gray-600">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Input bar */}
       <div className="px-4 py-3 bg-white border-t border-parchment-200">
         <div className="flex gap-2 items-end">
+          {/* Pen/drawing button */}
+          <button
+            onClick={() => setShowCanvas(true)}
+            disabled={isStreaming || breakActive}
+            title="Draw or write by hand"
+            className="p-2.5 rounded-lg bg-sage-100 text-sage-600 hover:bg-sage-200 disabled:opacity-40 transition-colors flex-shrink-0"
+          >
+            <PenLine size={18} />
+          </button>
+
           {/* Mic button */}
           {sttSupported && (
             <button
@@ -260,7 +294,7 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
 
           <button
             onClick={send}
-            disabled={isStreaming || breakActive || !input.trim()}
+            disabled={isStreaming || breakActive || (!input.trim() && !pendingDrawing)}
             className="p-2.5 rounded-lg bg-sage-500 text-white hover:bg-sage-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
@@ -270,6 +304,11 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
           {sttSupported ? 'Enter to send · 🎤 mic for voice input' : 'Press Enter to send · Shift+Enter for new line'}
         </p>
       </div>
+
+      {/* Handwriting overlay */}
+      {showCanvas && (
+        <HandwritingCanvas onSubmit={handleDrawingSubmit} onCancel={handleDrawingCancel} />
+      )}
     </div>
   )
 }

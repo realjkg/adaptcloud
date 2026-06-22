@@ -130,52 +130,86 @@ export default function TutorSession() {
 
   const subjectInfo = SUBJECT_MAP[currentSubject]
 
+  // Build subject progress segments for the header progress bar
+  const subjects = sessionConfig.subjects
+
+  // SVG break countdown ring dimensions
+  const RING_R = 54
+  const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
+  const breakTotalSecs = timerCfg.breakMinutes * 60
+  const breakProgress = breakTotalSecs > 0 ? Math.max(0, remainingSecs) / breakTotalSecs : 0
+  const strokeDashoffset = RING_CIRCUMFERENCE * (1 - breakProgress)
+
   return (
     <div className="min-h-screen bg-parchment-50 flex flex-col">
       {/* Top bar */}
-      <header className="bg-white border-b border-sage-100 shadow-sm px-4 py-3 flex items-center gap-3">
-        <div className="flex-1 flex items-center gap-3">
-          <img src="/agnus-dei.png" alt="Agnus Dei" className="w-8 h-8 flex-shrink-0" />
-          <div className="font-display font-bold text-sage-700 text-lg hidden sm:block">Agnus Dei</div>
-          <div className="hidden sm:flex items-center gap-1.5 text-sm text-gray-500">
-            <span>with</span>
-            <span className="font-medium text-gray-700">{sessionConfig.student_name}</span>
-            <span className="text-gray-400">·</span>
-            <span>Grade {sessionConfig.grade}</span>
+      <header className="bg-white border-b border-sage-100 shadow-sm flex flex-col pt-safe">
+        {/* Main header row */}
+        <div className="px-4 py-3 flex items-center gap-3">
+          <div className="flex-1 flex items-center gap-3">
+            <img src="/agnus-dei.png" alt="Agnus Dei" className="w-8 h-8 flex-shrink-0" />
+            {/* Breadcrumb */}
+            <nav aria-label="breadcrumb" className="hidden sm:flex items-center gap-1 text-sm">
+              <span className="font-display font-bold text-sage-700">Agnus Dei</span>
+              <span className="text-gray-300 mx-1">›</span>
+              <span className="text-gray-600">{sessionConfig.student_name}</span>
+              <span className="text-gray-300 mx-1">›</span>
+              <span className="font-medium text-sage-700">{subjectInfo?.label ?? currentSubject}</span>
+            </nav>
           </div>
+
+          <SessionTimer
+            startedAt={timerStartedAt}
+            blockMinutes={timerCfg.blockMinutes}
+            breakMinutes={timerCfg.breakMinutes}
+            warningMinutes={timerCfg.warningMinutes}
+          />
+
+          {role === 'parent' && (
+            <button
+              onClick={handleEndSession}
+              disabled={isStreaming}
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-sage-700 border border-gray-200 hover:border-sage-300 rounded-lg px-3 min-h-[44px] transition-colors"
+            >
+              <FileText size={14} />
+              <span className="hidden sm:inline">End &amp; Summarize</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => { logout(); navigate('/') }}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Log out"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
 
-        <SessionTimer
-          startedAt={timerStartedAt}
-          blockMinutes={timerCfg.blockMinutes}
-          breakMinutes={timerCfg.breakMinutes}
-          warningMinutes={timerCfg.warningMinutes}
-        />
-
-        {role === 'parent' && (
-          <button
-            onClick={handleEndSession}
-            disabled={isStreaming}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-sage-700 border border-gray-200 hover:border-sage-300 rounded-lg px-3 py-2 transition-colors"
-          >
-            <FileText size={14} />
-            <span className="hidden sm:inline">End & Summarize</span>
-          </button>
-        )}
-
-        <button
-          onClick={() => { logout(); navigate('/') }}
-          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-          title="Log out"
-        >
-          <LogOut size={16} />
-        </button>
+        {/* Subject progress bar — full width, 4px strip at the bottom of the header */}
+        <div className="flex h-1" role="progressbar" aria-label="Subject progress">
+          {subjects.map((subj) => {
+            const isDone = subjectsCompleted.includes(subj)
+            const isCurrent = subj === currentSubject
+            return (
+              <div
+                key={subj}
+                className={`flex-1 transition-all duration-500 ${
+                  isDone
+                    ? 'bg-sage-500'
+                    : isCurrent
+                    ? 'bg-sage-300 animate-pulse'
+                    : 'bg-gray-100'
+                }`}
+              />
+            )
+          })}
+        </div>
       </header>
 
       {/* Main area */}
       <div className="flex-1 flex gap-0 overflow-hidden">
-        {/* Sidebar (subjects) — hidden on mobile */}
-        <aside className="hidden md:flex flex-col w-56 bg-white border-r border-sage-100 p-4 overflow-y-auto">
+        {/* Sidebar (subjects) — hidden on mobile, visible md+, wider on lg */}
+        <aside className="hidden md:flex flex-col w-64 lg:w-64 bg-white border-r border-sage-100 p-4 overflow-y-auto">
           <SubjectNav
             subjects={sessionConfig.subjects}
             currentSubject={currentSubject}
@@ -214,7 +248,7 @@ export default function TutorSession() {
           {isOnBreak && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-parchment-50/90 backdrop-blur-sm p-6">
               <div className="bg-white rounded-2xl border border-amber-200 shadow-lg p-8 max-w-sm w-full text-center">
-                <Coffee size={40} className="mx-auto mb-4 text-amber-500" />
+                <Coffee size={28} className="mx-auto mb-3 text-amber-500" />
                 <h2 className="text-xl font-display font-bold text-gray-800 mb-2">Break Time!</h2>
                 <p className="text-sm text-gray-600 mb-1">
                   {sessionConfig.student_name}, you've been working hard.
@@ -222,8 +256,33 @@ export default function TutorSession() {
                 <p className="text-sm text-gray-500 mb-6">
                   Step away from the screen, have a snack, and come back refreshed.
                 </p>
-                <div className="text-3xl font-mono font-bold text-amber-600 mb-1">
-                  {fmtTime(remainingSecs)}
+
+                {/* Animated countdown ring */}
+                <div className="relative inline-flex items-center justify-center mb-3">
+                  <svg width="128" height="128" viewBox="0 0 128 128" aria-hidden="true">
+                    {/* Background circle */}
+                    <circle cx="64" cy="64" r={RING_R} fill="#fffbeb" stroke="#fef3c7" strokeWidth="10" />
+                    {/* Progress arc */}
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r={RING_R}
+                      fill="none"
+                      stroke="#fbbf24"
+                      strokeWidth="10"
+                      strokeLinecap="round"
+                      strokeDasharray={RING_CIRCUMFERENCE}
+                      strokeDashoffset={strokeDashoffset}
+                      transform="rotate(-90 64 64)"
+                      style={{ transition: 'stroke-dashoffset 1s linear' }}
+                    />
+                  </svg>
+                  {/* Timer text centered over ring */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-mono font-bold text-amber-600 leading-none">
+                      {fmtTime(remainingSecs)}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-400">until your next learning block</p>
               </div>
@@ -234,13 +293,15 @@ export default function TutorSession() {
       </div>
 
       {/* Mobile bottom bar */}
-      <div className="md:hidden bg-white border-t border-sage-100 px-4 py-2 flex items-center gap-2">
-        <span className="text-base">{subjectInfo?.icon}</span>
-        <span className="text-sm font-medium text-gray-700 flex-1">{subjectInfo?.label}</span>
+      <div className="md:hidden bg-white border-t border-sage-100 px-4 py-3 pb-safe flex items-center gap-3">
+        <span className="text-xl leading-none">{subjectInfo?.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-gray-700 truncate">{subjectInfo?.label}</div>
+        </div>
         <button
           onClick={nextSubject}
           disabled={isStreaming || allSubjectsDone}
-          className="text-xs text-sage-600 font-medium disabled:opacity-40 flex items-center gap-1"
+          className="flex items-center gap-1.5 bg-sage-500 text-white rounded-full px-4 py-1.5 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors hover:bg-sage-600"
         >
           Next <ChevronRight size={14} />
         </button>
