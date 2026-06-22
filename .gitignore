@@ -3,6 +3,9 @@
 .env.backup
 .env.local
 
+# Claude Code agent worktrees (ephemeral, not source)
+.claude/
+
 #Config files or byte-compiled / optimized / DLL files
 /config.py
 __pycache__/
