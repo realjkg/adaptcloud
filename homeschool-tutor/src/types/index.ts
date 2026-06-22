@@ -130,3 +130,28 @@ export const SUBJECTS: SubjectInfo[] = [
 export const SUBJECT_MAP: Record<Subject, SubjectInfo> = Object.fromEntries(
   SUBJECTS.map((s) => [s.id, s])
 ) as Record<Subject, SubjectInfo>
+
+export interface NarrationAssessmentData {
+  subject: string
+  completeness: number
+  sequence: number
+  detail: number
+  language_quality: number
+  synthesis: number
+  total_score: number
+  concepts_demonstrated: string[]
+  misconceptions: string[]
+  adaptive_signal: 'advance' | 'repeat' | 'review_prerequisite'
+  bede_observation: string
+  assessed_at: string
+}
+
+export interface LearnerProfileData {
+  trivium_stage: 'grammar' | 'logic' | 'rhetoric'
+  processing_style: 'visual' | 'auditory' | 'reading_writing' | 'kinesthetic'
+  narration_mode: 'sequential' | 'associative'
+  attention_profile: 'short_blocks' | 'sustained' | 'variable'
+  session_count_assessed: number
+  bede_profile_notes: string
+  assessed_at: string
+}

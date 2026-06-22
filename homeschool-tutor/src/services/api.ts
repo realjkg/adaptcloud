@@ -146,3 +146,46 @@ export async function fetchSessionSummary(
   const data = await res.json()
   return data.summary
 }
+
+// ── Narration assessments & learner profile ──────────────────────────────────
+
+import type { NarrationAssessmentData, LearnerProfileData } from '../types'
+
+export async function fetchNarrationAssessments(
+  token: string,
+  studentName: string
+): Promise<NarrationAssessmentData[]> {
+  const res = await fetch(`${BASE}/narration/${encodeURIComponent(studentName)}/assessments`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Failed to load assessments for ${studentName}`)
+  return res.json()
+}
+
+export async function fetchLearnerProfile(
+  token: string,
+  studentName: string
+): Promise<LearnerProfileData | null> {
+  const res = await fetch(`${BASE}/narration/${encodeURIComponent(studentName)}/profile`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`Failed to load learner profile for ${studentName}`)
+  return res.json()
+}
+
+export async function buildLearnerProfile(
+  token: string,
+  studentName: string,
+  sessionCount: number
+): Promise<LearnerProfileData> {
+  const res = await fetch(
+    `${BASE}/narration/${encodeURIComponent(studentName)}/profile?session_count=${sessionCount}`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  )
+  if (!res.ok) throw new Error(`Failed to build learner profile for ${studentName}`)
+  return res.json()
+}
