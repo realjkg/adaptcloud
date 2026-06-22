@@ -138,6 +138,28 @@ class LearnerProfile(Base):
     )
 
 
+class SessionTranscript(Base):
+    """Encrypted full session transcript saved at session end for parent review."""
+    __tablename__ = "session_transcripts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    student_name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
+    session_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+        nullable=False,
+    )
+    subjects: Mapped[str] = mapped_column(String(500), nullable=False)
+    duration_minutes: Mapped[int] = mapped_column(nullable=False, default=0)
+    transcript_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 async def create_tables() -> None:
     """Idempotent table creation — safe to call on every startup."""
     async with engine.begin() as conn:

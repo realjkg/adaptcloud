@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, Request
 from sse_starlette.sse import EventSourceResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +8,12 @@ from core.audit import AuditEvent, audit_from_request, log_event
 from core.database import get_db
 from core.deps import require_auth, require_parent
 from models.schemas import SessionSummaryRequest, TutorRequest
-from services.ai_service import generate_session_summary, stream_tutor_response
+from services.ai_service import (
+    check_safeguarding,
+    generate_session_summary,
+    SAFEGUARDING_RESPONSE,
+    stream_tutor_response,
+)
 
 router = APIRouter(prefix="/tutor", tags=["tutor"])
 
@@ -32,6 +39,20 @@ async def chat(
     )
 
     async def event_generator():
+        # Deterministic safeguarding check — bypasses LLM entirely for crisis signals
+        if check_safeguarding(req.child_message):
+            await log_event(
+                AuditEvent.SAFEGUARDING,
+                role=auth.get("role"),
+                student_name=req.session_config.student_name,
+                success=True,
+                detail=f"trigger:{req.child_message[:80]}",
+                **audit_from_request(request),
+            )
+            yield f"data: {json.dumps({'type': 'text', 'content': SAFEGUARDING_RESPONSE})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
         async for chunk in stream_tutor_response(
             config=req.session_config,
             subject=req.current_subject,

@@ -41,6 +41,7 @@ class AuditEvent:
     TOKEN_FINGERPRINT_MISMATCH = "token.fingerprint_mismatch"
     RATE_LIMITED             = "rate_limited"
     SUSPICIOUS_REQUEST       = "suspicious_request"
+    SAFEGUARDING             = "safeguarding.alert"
 
 
 # ── Write ────────────────────────────────────────────────────────────────────

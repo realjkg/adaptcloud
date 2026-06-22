@@ -50,6 +50,7 @@ export default function ParentSetup() {
   const [statusError, setStatusError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [hitlConsent, setHitlConsent] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -79,6 +80,7 @@ export default function ParentSetup() {
     setStudents((prev) => prev.filter((_, idx) => idx !== i))
 
   const canSave =
+    hitlConsent &&
     students.length > 0 &&
     students.every((s) => s.student_name.trim() && s.grade.trim() && s.selected_subjects.length > 0)
 
@@ -184,6 +186,22 @@ export default function ParentSetup() {
             <Plus size={16} /> Add Another Student
           </button>
         )}
+
+        {/* Parent HITL consent acknowledgment */}
+        <label className="mt-6 flex items-start gap-3 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={hitlConsent}
+            onChange={(e) => setHitlConsent(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-sage-600 flex-shrink-0"
+          />
+          <span className="text-xs text-gray-600 leading-relaxed">
+            I understand that Bede is an AI assistant that{' '}
+            <strong>supports, not replaces</strong>, my role as primary educator. I remain
+            responsible for my child's curriculum, wellbeing, and learning outcomes. I have
+            reviewed today's plan and it reflects my intentions.
+          </span>
+        </label>
 
         {/* Save */}
         {saveError && (
