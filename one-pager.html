@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Agnus Dei / Bede — One-Pager</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+  :root {
+    --sage: #5a8a72; --sage-dark: #3a5a4e; --sage-light: #d9ece3;
+    --parchment: #faf8f0; --parchment-mid: #f0ead8;
+    --faith: #7c5cbf; --faith-light: #ede9f8;
+    --ink: #1a2a28; --ink-mid: #445a52; --ink-light: #7a8f88;
+    --amber: #f59e0b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: white;
+    font-family: 'EB Garamond', Georgia, serif;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  /* A4-ish proportions for print */
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, var(--sage-dark) 0%, var(--sage) 60%, #8dc6ad 100%);
+    padding: 56px 64px 48px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .hero-eyebrow {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    opacity: .7; font-family: system-ui, sans-serif; font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .hero-title {
+    font-size: 48px; font-weight: 700; line-height: 1.1;
+    margin-bottom: 6px;
+  }
+  .hero-title em { font-style: italic; font-weight: 400; opacity: .85; }
+  .hero-subtitle {
+    font-size: 18px; opacity: .82; margin-bottom: 28px;
+    font-weight: 400;
+  }
+  .hero-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 99px; padding: 4px 14px;
+    font-size: 12px; font-family: system-ui, sans-serif;
+    backdrop-filter: blur(4px);
+  }
+  .hero-cross {
+    position: absolute; right: 56px; top: 32px;
+    font-size: 96px; opacity: .08; user-select: none;
+    font-family: Georgia, serif;
+  }
+
+  /* ── Main body grid ── */
+  .body { padding: 48px 64px; }
+
+  .lead {
+    font-size: 18px; line-height: 1.65;
+    color: var(--ink-mid); margin-bottom: 40px;
+    border-left: 4px solid var(--sage-light);
+    padding-left: 20px;
+    font-style: italic;
+  }
+
+  /* two-column sections */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 40px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+
+  .section-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--sage);
+    font-family: system-ui, sans-serif;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--sage-light);
+  }
+
+  h2 { font-size: 22px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
+
+  p { font-size: 15px; color: var(--ink-mid); margin-bottom: 10px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* feature cards */
+  .feat-card {
+    background: var(--parchment); border-radius: 12px;
+    border: 1px solid var(--parchment-mid);
+    padding: 20px;
+  }
+  .feat-icon { font-size: 28px; margin-bottom: 10px; }
+  .feat-title { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+  .feat-body { font-size: 14px; color: var(--ink-mid); line-height: 1.55; }
+
+  /* the "how it works" steps */
+  .steps { display: flex; gap: 0; margin-bottom: 40px; }
+  .step {
+    flex: 1; padding: 20px 16px; position: relative;
+    border-right: 1px solid var(--sage-light);
+    text-align: center;
+  }
+  .step:last-child { border-right: none; }
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--sage); color: white;
+    font-family: system-ui, sans-serif;
+    font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px;
+  }
+  .step-title { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+  .step-body { font-size: 12px; color: var(--ink-light); line-height: 1.5; }
+
+  /* tech details table */
+  .tech-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px; font-family: system-ui, sans-serif;
+    margin-bottom: 40px;
+  }
+  .tech-table th {
+    text-align: left; padding: 8px 12px;
+    background: var(--sage-light); color: var(--sage-dark);
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .tech-table td {
+    padding: 8px 12px; border-bottom: 1px solid var(--parchment-mid);
+    vertical-align: top;
+  }
+  .tech-table td:first-child { font-weight: 600; color: var(--ink); width: 35%; }
+  .tech-table td:last-child { color: var(--ink-mid); }
+
+  /* quote / callout */
+  .callout {
+    background: var(--faith-light); border-radius: 12px;
+    border-left: 4px solid var(--faith);
+    padding: 20px 24px; margin-bottom: 40px;
+  }
+  .callout-text {
+    font-size: 17px; font-style: italic;
+    color: var(--faith); line-height: 1.65;
+  }
+  .callout-source {
+    font-size: 12px; color: var(--faith); opacity: .7;
+    margin-top: 8px; font-style: normal;
+    font-family: system-ui, sans-serif;
+  }
+
+  /* privacy / security strip */
+  .security-strip {
+    background: var(--ink); border-radius: 12px;
+    padding: 24px 28px; color: white; margin-bottom: 40px;
+  }
+  .security-strip h3 { font-size: 18px; margin-bottom: 12px; }
+  .security-points {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+  }
+  .sec-point {
+    font-size: 13px; color: rgba(255,255,255,.8);
+    display: flex; align-items: flex-start; gap: 6px;
+    font-family: system-ui, sans-serif; line-height: 1.4;
+  }
+  .sec-dot { color: var(--sage-light); flex-shrink: 0; margin-top: 2px; }
+
+  /* footer strip */
+  .footer {
+    background: var(--parchment); border-top: 1px solid var(--parchment-mid);
+    padding: 24px 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 24px;
+  }
+  .footer-brand { font-size: 16px; font-weight: 700; color: var(--sage-dark); }
+  .footer-tagline { font-size: 13px; color: var(--ink-light); }
+  .footer-details { font-size: 12px; color: var(--ink-light); text-align: right; font-family: system-ui, sans-serif; }
+
+  /* Print styles */
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { max-width: 100%; }
+    .hero { padding: 40px 48px 36px; }
+    .body { padding: 36px 48px; }
+    .footer { padding: 20px 48px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── HERO ── -->
+  <div class="hero">
+    <div class="hero-cross">✝</div>
+    <div class="hero-eyebrow">Self-Hosted · LAN-Deployed · Catholic Homeschool</div>
+    <div class="hero-title">Agnus Dei<br/><em>Bede Tutor</em></div>
+    <div class="hero-subtitle">A Charlotte Mason AI tutor that lives on your home network — not in the cloud.</div>
+    <div class="hero-pills">
+      <span class="pill">🏠 Runs on your LAN</span>
+      <span class="pill">✝️ Catholic curriculum</span>
+      <span class="pill">🎤 Voice-biometric child auth</span>
+      <span class="pill">✏️ Stylus + handwriting input</span>
+      <span class="pill">🔒 AES-256-GCM encrypted</span>
+      <span class="pill">📱 iPad PWA</span>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- Lead paragraph -->
+    <div class="lead">
+      Bede is an AI tutor inspired by the Charlotte Mason method — conversational, Socratic, and grounded in faith.
+      Parents configure each child's daily plan on their own device; children connect from tablets and work through subjects
+      guided by Sage, a gentle tutor persona backed by Claude. All data stays on your network. Your children's conversations
+      are never sent to a third-party server.
+    </div>
+
+    <!-- Section: Core features -->
+    <div class="section-title">What it does</div>
+    <div class="three-col">
+      <div class="feat-card">
+        <div class="feat-icon">🧠</div>
+        <div class="feat-title">Socratic Tutoring</div>
+        <div class="feat-body">Sage never just gives answers. Through carefully timed hints, celebrations, and reflective questions, children arrive at understanding themselves.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">✝️</div>
+        <div class="feat-title">Faith-Woven Learning</div>
+        <div class="feat-body">Every session carries a configurable faith emphasis. Sage connects academic discoveries to Scripture, saints, and Catholic intellectual tradition.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📅</div>
+        <div class="feat-title">Daily Pod Planning</div>
+        <div class="feat-body">Parents build a "pod" — up to 10 students, each with their own subjects, grade, current unit, and faith focus — then hand out tablet links.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">✏️</div>
+        <div class="feat-title">Handwriting Input</div>
+        <div class="feat-body">Children draw diagrams and write answers with any stylus — Apple Pencil, Livescribe, or inq.shop pens. Pressure-sensitive, no special drivers.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⏱️</div>
+        <div class="feat-title">Grade-Aware Timers</div>
+        <div class="feat-body">K–3 students get 20-minute subject blocks. Grades 4–8 use 60-minute blocks with automatic 10-minute break overlays — no parent intervention needed.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📋</div>
+        <div class="feat-title">Session Summaries</div>
+        <div class="feat-body">At session end, Bede generates a concise parent report: what was covered, what clicked, what needs follow-up — in plain, readable prose.</div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="section-title">How a session works</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Parent configures</div>
+        <div class="step-body">Sets subjects, grade, current unit, and faith emphasis for each student via the web UI.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Child opens link</div>
+        <div class="step-body">Navigates to the tablet URL, enters PIN, and optionally confirms identity with a voice passphrase.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Sage opens the subject</div>
+        <div class="step-body">A subject-appropriate persona greets the child and begins a Socratic conversation — never lecturing, always asking.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-title">Child responds</div>
+        <div class="step-body">Text, voice (Whisper), or stylus drawing. Sage celebrates discoveries, offers hints, and weaves in faith connections.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-title">Parent reviews</div>
+        <div class="step-body">Session summary delivered after the last subject — a paragraph per subject with observations and suggestions.</div>
+      </div>
+    </div>
+
+    <!-- Charlotte Mason philosophy callout -->
+    <div class="callout">
+      <div class="callout-text">
+        "Education is an atmosphere, a discipline, a life." Bede is built around this principle:
+        Sage never lectures, the room is always safe for wrong answers, and every subject
+        connects to the living world — including the life of faith.
+      </div>
+      <div class="callout-source">— Charlotte Mason principle, applied to AI tutoring</div>
+    </div>
+
+    <!-- Tech stack -->
+    <div class="section-title">Technical overview</div>
+    <table class="tech-table">
+      <tr>
+        <th>Component</th>
+        <th>Technology</th>
+      </tr>
+      <tr>
+        <td>AI tutor</td>
+        <td>Claude claude-sonnet-4-6 · streaming SSE · prompt caching · 400 token brevity cap · 4 agentic tools</td>
+      </tr>
+      <tr>
+        <td>Session summaries</td>
+        <td>Claude Haiku · async, non-streaming · 600 tokens · delivered to parent at session end</td>
+      </tr>
+      <tr>
+        <td>Frontend</td>
+        <td>Vite · React · TypeScript · Tailwind · Zustand · PWA (manifest + service worker) · iPad-optimised</td>
+      </tr>
+      <tr>
+        <td>Backend</td>
+        <td>FastAPI · async SQLAlchemy · PostgreSQL · JWT (IP + UA fingerprinted) · rate limiting</td>
+      </tr>
+      <tr>
+        <td>Voice auth</td>
+        <td>Resemblyzer speaker embeddings + MFCC similarity · Whisper transcription for enrollment phrases</td>
+      </tr>
+      <tr>
+        <td>Encryption</td>
+        <td>AES-256-GCM · MASTER_SECRET → KEK → DATA_KEY hierarchy · all DB columns encrypted at rest</td>
+      </tr>
+      <tr>
+        <td>Deployment</td>
+        <td>Docker Compose · Caddy (local CA, LAN TLS/443) → nginx → FastAPI · read-only containers, no shell</td>
+      </tr>
+      <tr>
+        <td>Handwriting</td>
+        <td>HTML5 Canvas · Pointer Events API · pressure-sensitive · Apple Pencil / Livescribe / generic stylus</td>
+      </tr>
+    </table>
+
+    <!-- Security strip -->
+    <div class="security-strip">
+      <h3>🔒 Privacy &amp; Security</h3>
+      <div class="security-points">
+        <div class="sec-point"><span class="sec-dot">▸</span>All data stays on your LAN — no student data reaches external servers</div>
+        <div class="sec-point"><span class="sec-dot">▸</span>AES-256-GCM encryption on every database column at rest</div>
+        <div class="sec-point"><span class="sec-dot">▸</span>JWTs are bound to device IP + User-Agent; replay from another device = 401</div>
+        <div class="sec-point"><span class="sec-dot">▸</span>Voice biometrics verify child identity at session start — no passwords on tablets</div>
+        <div class="sec-point"><span class="sec-dot">▸</span>ExfiltrationGuard middleware strips prompt-injection attempts from AI stream</div>
+        <div class="sec-point"><span class="sec-dot">▸</span>Containers run read-only, no shell, all capabilities dropped</div>
+        <div class="sec-point"><span class="sec-dot">▸</span>Constant-time credential comparison (hmac.compare_digest) throughout</div>
+        <div class="sec-point"><span class="sec-dot">▸</span>Full encrypted audit log for every security event, independent of request transaction</div>
+      </div>
+    </div>
+
+    <!-- Two-column: what parents see vs. what children see -->
+    <div class="section-title">Two perspectives</div>
+    <div class="two-col" style="margin-bottom:0">
+      <div>
+        <h2>For Parents</h2>
+        <p>Log in once on your device. Configure each child's subjects, current unit, and faith emphasis. Copy a link for their tablet. Review the session summary each evening — a paragraph per subject, observations, suggestions for tomorrow.</p>
+        <p>The parent dashboard shows the whole pod at a glance. Voice enrollment for new children takes two minutes.</p>
+      </div>
+      <div>
+        <h2>For Children</h2>
+        <p>Open the link on your tablet, speak your passphrase, and Sage greets you by name. Work through each subject at your own pace — type your answers, speak them, or draw them with your pencil. A timer shows how long is left; a break overlay tells you when to step away.</p>
+        <p>Sage never makes children feel wrong. Every answer is a starting point for a question.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <div class="footer">
+    <div>
+      <div class="footer-brand">🕊️ Agnus Dei · Bede Tutor</div>
+      <div class="footer-tagline">Self-hosted Charlotte Mason AI for Catholic families</div>
+    </div>
+    <div class="footer-details">
+      Self-hosted · LAN only<br/>
+      Open source · MIT license<br/>
+      June 2026
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
