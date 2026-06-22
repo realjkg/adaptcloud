@@ -17,7 +17,7 @@ export default function PodDashboard() {
         <p className="text-sm text-gray-500">Set up today's pod first.</p>
         <button
           onClick={() => navigate('/setup')}
-          className="px-5 py-2.5 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors"
+          className="px-5 py-2.5 bg-navy-500 text-white rounded-xl text-sm font-medium hover:bg-navy-600 transition-colors"
         >
           Go to Setup
         </button>
@@ -42,13 +42,13 @@ export default function PodDashboard() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/progress')}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-sage-700 border border-sage-200 hover:bg-sage-50 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-navy-700 border border-navy-200 hover:bg-navy-50 rounded-lg transition-colors"
             >
               <BarChart2 size={14} /> View Progress
             </button>
             <button
               onClick={() => navigate('/setup')}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-200 hover:border-sage-300 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-200 hover:border-navy-300 rounded-lg transition-colors"
             >
               <Settings size={14} /> Edit Pod
             </button>
@@ -69,7 +69,7 @@ export default function PodDashboard() {
         </div>
 
         {/* Instructions */}
-        <div className="mt-8 p-5 bg-white rounded-xl border border-sage-100 shadow-sm">
+        <div className="mt-8 p-5 bg-white rounded-xl border border-navy-100 shadow-sm">
           <h2 className="text-sm font-semibold text-gray-700 mb-3">How to start a student's session</h2>
           <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
             <li>Copy the session link for that student.</li>
@@ -119,7 +119,7 @@ function StudentPodCard({ student }: { student: SessionConfig }) {
   const extraCount = student.subjects.length - 3
 
   return (
-    <div className="bg-white rounded-xl border border-sage-100 shadow-sm flex flex-col">
+    <div className="bg-white rounded-xl border border-navy-100 shadow-sm flex flex-col">
       {/* Header */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-start justify-between mb-1">
@@ -137,8 +137,8 @@ function StudentPodCard({ student }: { student: SessionConfig }) {
           {visibleSubjects.map((s) => {
             const info = SUBJECTS.find((x) => x.id === s)
             return (
-              <span key={s} className="text-xs bg-sage-50 text-sage-700 px-2 py-0.5 rounded-full">
-                {info?.icon} {info?.label}
+              <span key={s} className="text-xs bg-navy-50 text-navy-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                {info && <info.Icon size={10} />} {info?.label}
               </span>
             )
           })}
@@ -152,7 +152,7 @@ function StudentPodCard({ student }: { student: SessionConfig }) {
           <p className="text-xs text-gray-500 mt-2 italic">📖 {student.current_unit}</p>
         )}
         {student.faith_emphasis && (
-          <p className="text-xs text-faith-600 mt-1">🙏 {student.faith_emphasis}</p>
+          <p className="text-xs text-gold-600 mt-1">{student.faith_emphasis}</p>
         )}
       </div>
 
@@ -162,7 +162,7 @@ function StudentPodCard({ student }: { student: SessionConfig }) {
           href={sessionUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-2.5 bg-sage-500 text-white rounded-xl text-sm font-medium hover:bg-sage-600 transition-colors"
+          className="flex items-center justify-center gap-2 w-full py-2.5 bg-navy-500 text-white rounded-xl text-sm font-medium hover:bg-navy-600 transition-colors"
         >
           <ExternalLink size={14} /> Open on This Device
         </a>
@@ -170,8 +170,8 @@ function StudentPodCard({ student }: { student: SessionConfig }) {
           onClick={copyLink}
           className={`flex items-center justify-center gap-2 w-full py-2.5 border-2 rounded-xl text-sm font-medium transition-colors ${
             copied
-              ? 'border-sage-400 bg-sage-50 text-sage-700'
-              : 'border-sage-200 text-sage-700 hover:bg-sage-50'
+              ? 'border-navy-400 bg-navy-50 text-navy-700'
+              : 'border-navy-200 text-navy-700 hover:bg-navy-50'
           }`}
         >
           {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Link for Tablet</>}

@@ -7,7 +7,7 @@ import { useTextToSpeech } from '../hooks/useTextToSpeech'
 import { SUBJECT_MAP } from '../types'
 import HandwritingCanvas from './HandwritingCanvas'
 
-export default function SocraticChat({ breakActive = false }: { breakActive?: boolean }) {
+export default function SocraticChat({ breakActive = false, gradeStage }: { breakActive?: boolean; gradeStage?: string }) {
   const [input, setInput] = useState('')
   const [showCanvas, setShowCanvas] = useState(false)
   const [pendingDrawing, setPendingDrawing] = useState<string | null>(null)
@@ -184,41 +184,18 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
 
   const subjectInfo = SUBJECT_MAP[currentSubject]
 
-  return (
-    <div className="flex flex-col h-full bg-parchment-50 rounded-xl overflow-hidden border border-parchment-200 shadow-sm">
-      {/* Subject header with TTS toggle */}
-      <div className={`px-4 py-3 border-b ${subjectInfo?.color ?? 'bg-sage-50 border-sage-200'} flex items-center gap-2`}>
-        <span className="text-xl">{subjectInfo?.icon}</span>
-        <div className="flex-1">
-          <div className="font-semibold text-sm">{subjectInfo?.label}</div>
-          <div className="text-xs opacity-70">{subjectInfo?.description}</div>
-        </div>
-        {/* TTS toggle */}
-        {ttsSupported && (
-          <button
-            onClick={toggleTTS}
-            title={ttsEnabled ? 'Mute Bede' : 'Unmute Bede'}
-            className={`p-1.5 rounded-lg transition-colors ${
-              ttsEnabled ? 'text-sage-600 bg-white/50 hover:bg-white/80' : 'text-gray-400 hover:text-gray-600'
-            }`}
-          >
-            {ttsEnabled ? (
-              isSpeaking ? <Volume2 size={16} className="animate-pulse" /> : <Volume2 size={16} />
-            ) : (
-              <VolumeX size={16} />
-            )}
-          </button>
-        )}
-      </div>
+  const fontClass = gradeStage === 'K-2' ? 'text-base' : 'text-sm'
 
+  return (
+    <div className="flex flex-col h-full bg-parchment-50">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className={`flex-1 overflow-y-auto px-4 py-4 space-y-3 ${fontClass}`}>
         {displayMessages.map((msg) => (
           <MessageBubble key={msg.id} msg={msg} studentName={sessionConfig?.student_name ?? 'You'} />
         ))}
         {isStreaming &&
           displayMessages.find((m) => m.id === 'streaming-response')?.content === '' && (
-            <div className="flex items-center gap-2 text-sage-500 text-sm animate-pulse-soft">
+            <div className="flex items-center gap-2 text-navy-500 text-sm animate-pulse-soft">
               <Loader2 size={14} className="animate-spin" />
               <span>Bede is thinking…</span>
             </div>
@@ -226,7 +203,7 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
         {/* Interim speech-to-text preview */}
         {isListening && interim && (
           <div className="flex justify-end">
-            <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-sage-200/60 text-sage-800 italic border border-sage-200 animate-pulse-soft">
+            <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-navy-200/60 text-navy-800 italic border border-navy-200 animate-pulse-soft">
               {interim}…
             </div>
           </div>
@@ -237,8 +214,8 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
       {/* Drawing preview */}
       {pendingDrawing && (
         <div className="px-4 pb-2 flex items-center gap-2 bg-white border-t border-parchment-200 pt-2">
-          <img src={pendingDrawing} alt="Your drawing" className="h-16 w-auto rounded-lg border border-sage-200 shadow-sm" />
-          <div className="flex-1 text-xs text-sage-700">Drawing ready — add a note or send</div>
+          <img src={pendingDrawing} alt="Your drawing" className="h-16 w-auto rounded-lg border border-navy-200 shadow-sm" />
+          <div className="flex-1 text-xs text-navy-700">Drawing ready — add a note or send</div>
           <button onClick={() => setPendingDrawing(null)} className="text-gray-400 hover:text-gray-600">
             <X size={14} />
           </button>
@@ -253,10 +230,29 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
             onClick={() => setShowCanvas(true)}
             disabled={isStreaming || breakActive}
             title="Draw or write by hand"
-            className="p-2.5 rounded-lg bg-sage-100 text-sage-600 hover:bg-sage-200 disabled:opacity-40 transition-colors flex-shrink-0"
+            className="p-2.5 rounded-lg bg-navy-100 text-navy-600 hover:bg-navy-200 disabled:opacity-40 transition-colors flex-shrink-0"
           >
             <PenLine size={18} />
           </button>
+
+          {/* TTS toggle */}
+          {ttsSupported && (
+            <button
+              onClick={toggleTTS}
+              title={ttsEnabled ? 'Mute Bede' : 'Unmute Bede'}
+              className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${
+                ttsEnabled
+                  ? 'bg-navy-100 text-navy-600 hover:bg-navy-200'
+                  : 'bg-gray-100 text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {ttsEnabled ? (
+                isSpeaking ? <Volume2 size={18} className="animate-pulse" /> : <Volume2 size={18} />
+              ) : (
+                <VolumeX size={18} />
+              )}
+            </button>
+          )}
 
           {/* Mic button */}
           {sttSupported && (
@@ -267,7 +263,7 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
               className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${
                 isListening
                   ? 'bg-red-500 text-white animate-pulse'
-                  : 'bg-sage-100 text-sage-600 hover:bg-sage-200 disabled:opacity-40'
+                  : 'bg-navy-100 text-navy-600 hover:bg-navy-200 disabled:opacity-40'
               }`}
             >
               {isListening ? <MicOff size={18} /> : <Mic size={18} />}
@@ -281,27 +277,27 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
             disabled={isStreaming || breakActive}
             placeholder={
               breakActive
-                ? '☕ On a break — Bede will be here when you return'
+                ? 'On a break — Bede will be here when you return'
                 : isListening
-                ? '🎤 Listening… speak now'
+                ? 'Listening… speak now'
                 : sttSupported
                 ? 'Type or tap the mic to speak…'
                 : 'Share your thoughts or answer Bede\'s question…'
             }
             rows={2}
-            className="flex-1 resize-none rounded-lg border border-sage-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white placeholder-gray-400 disabled:bg-gray-50"
+            className="flex-1 resize-none rounded-lg border border-navy-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy-400 bg-white placeholder-gray-400 disabled:bg-gray-50"
           />
 
           <button
             onClick={send}
             disabled={isStreaming || breakActive || (!input.trim() && !pendingDrawing)}
-            className="p-2.5 rounded-lg bg-sage-500 text-white hover:bg-sage-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            className="p-2.5 rounded-lg bg-navy-500 text-white hover:bg-navy-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-1.5">
-          {sttSupported ? 'Enter to send · 🎤 mic for voice input' : 'Press Enter to send · Shift+Enter for new line'}
+          {sttSupported ? 'Enter to send · mic for voice input' : 'Press Enter to send · Shift+Enter for new line'}
         </p>
       </div>
 
@@ -336,15 +332,15 @@ function MessageBubble({ msg, studentName }: MsgProps) {
   }
 
   if (msg.tool) {
-    const toolColors: Record<string, string> = {
-      request_narration: 'bg-amber-50 border-amber-200 text-amber-800',
-      offer_socratic_hint: 'bg-blue-50 border-blue-200 text-blue-800',
-      celebrate_discovery: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-      connect_to_faith: 'bg-purple-50 border-purple-200 text-purple-800',
+    const toolAccent: Record<string, string> = {
+      request_narration:   'border-l-[3px] border-amber-400 bg-amber-50/70',
+      offer_socratic_hint: 'border-l-[3px] border-navy-300 bg-navy-50/70',
+      celebrate_discovery: 'border-l-[3px] border-emerald-400 bg-emerald-50/70',
+      connect_to_faith:    'border-l-[3px] border-gold-400 bg-gold-50/70',
     }
-    const cls = toolColors[msg.tool] ?? 'bg-gray-50 border-gray-200 text-gray-800'
+    const cls = toolAccent[msg.tool] ?? 'border-l-[3px] border-gray-300 bg-gray-50/70'
     return (
-      <div className={`rounded-xl border px-4 py-3 text-sm animate-slide-up ${cls}`}>
+      <div className={`pl-3 pr-4 py-2.5 rounded-r-xl text-sm leading-relaxed text-gray-700 animate-slide-up ${cls}`}>
         {msg.content}
       </div>
     )
@@ -356,12 +352,12 @@ function MessageBubble({ msg, studentName }: MsgProps) {
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser
-            ? 'bg-sage-500 text-white rounded-br-sm'
-            : 'bg-white border border-sage-100 text-gray-800 rounded-bl-sm shadow-sm'
+            ? 'bg-navy-500 text-white rounded-br-sm'
+            : 'bg-white border border-navy-100 text-gray-800 rounded-bl-sm shadow-sm'
         }`}
       >
-        {!isUser && <div className="text-xs font-semibold text-sage-600 mb-1">Bede</div>}
-        {isUser && <div className="text-xs font-semibold text-sage-100 mb-1">{studentName}</div>}
+        {!isUser && <div className="text-xs font-semibold text-navy-600 mb-1">Bede</div>}
+        {isUser && <div className="text-xs font-semibold text-navy-100 mb-1">{studentName}</div>}
         <div className="whitespace-pre-wrap">{msg.content}</div>
       </div>
     </div>

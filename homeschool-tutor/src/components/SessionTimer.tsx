@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Clock, Coffee } from 'lucide-react'
+import { Clock, Coffee, CheckCircle } from 'lucide-react'
 import { getPhase, fmtTime } from '../utils/gradeTimer'
 
 interface Props {
@@ -45,22 +45,22 @@ export default function SessionTimer({
         ? 'bg-amber-50 border-amber-200'
         : isWarning
         ? 'bg-red-50 border-red-200'
-        : 'bg-white border-sage-100'
+        : 'bg-white border-navy-100'
     }`}>
       {isBreak
         ? <Coffee size={16} className="text-amber-500 flex-shrink-0" />
-        : <Clock   size={16} className={`flex-shrink-0 ${isWarning ? 'text-red-500' : 'text-sage-500'}`} />
+        : <Clock   size={16} className={`flex-shrink-0 ${isWarning ? 'text-red-500' : 'text-navy-500'}`} />
       }
 
       <div className="flex flex-col gap-1 min-w-[150px]">
         <div className="flex justify-between text-xs">
           {isBreak ? (
             <>
-              <span className="font-medium text-amber-700">☕ Break time!</span>
+              <span className="font-medium text-amber-700">Break time!</span>
               <span className="text-amber-600">{fmtTime(remainingSecs)} left</span>
             </>
           ) : isDone ? (
-            <span className="text-sage-600 font-medium">🎉 Time's up!</span>
+            <span className="text-navy-600 font-medium flex items-center gap-1"><CheckCircle size={12} />Time's up!</span>
           ) : (
             <>
               <span className={isWarning ? 'text-red-600 font-medium' : 'text-gray-500'}>
@@ -73,11 +73,11 @@ export default function SessionTimer({
         </div>
 
         <div className={`h-1.5 rounded-full overflow-hidden ${
-          isBreak ? 'bg-amber-100' : isWarning ? 'bg-red-100' : 'bg-sage-100'
+          isBreak ? 'bg-amber-100' : isWarning ? 'bg-red-100' : 'bg-navy-100'
         }`}>
           <div
             className={`h-full rounded-full transition-all duration-1000 ${
-              isBreak ? 'bg-amber-400' : isWarning ? 'bg-red-400' : 'bg-sage-400'
+              isBreak ? 'bg-amber-400' : isWarning ? 'bg-red-400' : 'bg-navy-400'
             }`}
             style={{ width: `${progressPct}%` }}
           />

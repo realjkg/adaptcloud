@@ -1,3 +1,6 @@
+import { Sun, BookOpen, Calculator, Leaf, Globe, PenLine, FlaskConical, Palette, Star, Sparkles } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+
 export type GradeStage = 'K-2' | '3-5' | '6-8'
 
 export type Subject =
@@ -38,7 +41,7 @@ export interface StreamChunk {
 export interface SubjectInfo {
   id: Subject
   label: string
-  icon: string
+  Icon: LucideIcon
   durationMin: number
   color: string
   description: string
@@ -48,7 +51,7 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'morning_time',
     label: 'Morning Time',
-    icon: '☀️',
+    Icon: Sun,
     durationMin: 20,
     color: 'bg-amber-50 border-amber-200 text-amber-800',
     description: 'Bible, hymn, poetry & prayer',
@@ -56,7 +59,7 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'living_books',
     label: 'Living Books',
-    icon: '📚',
+    Icon: BookOpen,
     durationMin: 25,
     color: 'bg-emerald-50 border-emerald-200 text-emerald-800',
     description: 'Charlotte Mason literature & narration',
@@ -64,7 +67,7 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'mathematics',
     label: 'Mathematics',
-    icon: '🔢',
+    Icon: Calculator,
     durationMin: 20,
     color: 'bg-blue-50 border-blue-200 text-blue-800',
     description: 'Discovery-based mathematical thinking',
@@ -72,7 +75,7 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'nature_study',
     label: 'Nature Study',
-    icon: '🌿',
+    Icon: Leaf,
     durationMin: 20,
     color: 'bg-green-50 border-green-200 text-green-800',
     description: 'Observation, wonder & creation',
@@ -80,7 +83,7 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'history',
     label: 'History & Geography',
-    icon: '🗺️',
+    Icon: Globe,
     durationMin: 20,
     color: 'bg-orange-50 border-orange-200 text-orange-800',
     description: 'Story-based history & real places',
@@ -88,7 +91,7 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'language_arts',
     label: 'Language Arts',
-    icon: '✏️',
+    Icon: PenLine,
     durationMin: 15,
     color: 'bg-purple-50 border-purple-200 text-purple-800',
     description: 'Narration, copywork & grammar',
@@ -96,7 +99,7 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'science',
     label: 'Science',
-    icon: '🔬',
+    Icon: FlaskConical,
     durationMin: 20,
     color: 'bg-teal-50 border-teal-200 text-teal-800',
     description: 'Botany, zoology & earth science',
@@ -104,7 +107,7 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'art_music',
     label: 'Art & Music',
-    icon: '🎨',
+    Icon: Palette,
     durationMin: 15,
     color: 'bg-rose-50 border-rose-200 text-rose-800',
     description: 'Composer & artist study',
@@ -112,15 +115,15 @@ export const SUBJECTS: SubjectInfo[] = [
   {
     id: 'saints',
     label: 'Saints & Catechism',
-    icon: '✝️',
+    Icon: Star,
     durationMin: 15,
-    color: 'bg-faith-50 border-faith-200 text-faith-700',
+    color: 'bg-gold-50 border-gold-200 text-gold-700',
     description: 'Saints, catechism & virtue formation',
   },
   {
     id: 'free_study',
     label: 'Free Study',
-    icon: '🌟',
+    Icon: Sparkles,
     durationMin: 20,
     color: 'bg-yellow-50 border-yellow-200 text-yellow-800',
     description: 'Student-directed exploration',

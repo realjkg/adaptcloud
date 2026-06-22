@@ -181,7 +181,7 @@ export default function ParentSetup() {
         {students.length < 8 && (
           <button
             onClick={addStudent}
-            className="mt-4 w-full py-3 border-2 border-dashed border-sage-300 rounded-xl text-sage-600 hover:border-sage-400 hover:bg-sage-50 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+            className="mt-4 w-full py-3 border-2 border-dashed border-navy-300 rounded-xl text-navy-600 hover:border-navy-400 hover:bg-navy-50 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
           >
             <Plus size={16} /> Add Another Student
           </button>
@@ -193,7 +193,7 @@ export default function ParentSetup() {
             type="checkbox"
             checked={hitlConsent}
             onChange={(e) => setHitlConsent(e.target.checked)}
-            className="mt-0.5 w-4 h-4 accent-sage-600 flex-shrink-0"
+            className="mt-0.5 w-4 h-4 accent-navy-600 flex-shrink-0"
           />
           <span className="text-xs text-gray-600 leading-relaxed">
             I understand that Bede is an AI assistant that{' '}
@@ -212,7 +212,7 @@ export default function ParentSetup() {
         <button
           onClick={handleSavePod}
           disabled={!canSave || saving}
-          className="mt-6 w-full py-4 bg-sage-500 text-white rounded-xl font-semibold text-base hover:bg-sage-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="mt-6 w-full py-4 bg-navy-500 text-white rounded-xl font-semibold text-base hover:bg-navy-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
           {saving ? (
             <><Loader2 size={18} className="animate-spin" /> Saving…</>
@@ -251,10 +251,10 @@ function StudentCard({
   const label = student.student_name.trim() || `Student ${index + 1}`
 
   return (
-    <div className="bg-white rounded-xl border border-sage-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-navy-100 shadow-sm overflow-hidden">
       {/* Card header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-        <div className="w-8 h-8 rounded-full bg-sage-100 flex items-center justify-center text-sage-700 font-semibold text-sm flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-navy-100 flex items-center justify-center text-navy-700 font-semibold text-sm flex-shrink-0">
           {index + 1}
         </div>
         <span className="font-semibold text-gray-800 flex-1 truncate">{label}</span>
@@ -302,8 +302,8 @@ function StudentCard({
               onClick={() => onUpdate({ grade_stage: s.value })}
               className={`rounded-xl border-2 p-2.5 text-left transition-all ${
                 student.grade_stage === s.value
-                  ? 'border-sage-500 bg-sage-50'
-                  : 'border-gray-200 bg-white hover:border-sage-200'
+                  ? 'border-navy-500 bg-navy-50'
+                  : 'border-gray-200 bg-white hover:border-navy-200'
               }`}
             >
               <div className="text-lg mb-0.5">{s.emoji}</div>
@@ -327,10 +327,10 @@ function StudentCard({
                   key={s.id}
                   onClick={() => onToggleSubject(s.id)}
                   className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition-all ${
-                    active ? 'border-sage-400 bg-sage-50' : 'border-gray-200 bg-white opacity-50'
+                    active ? 'border-navy-400 bg-navy-50' : 'border-gray-200 bg-white opacity-50'
                   }`}
                 >
-                  <span className="text-base">{s.icon}</span>
+                  <s.Icon size={16} className="flex-shrink-0 text-current" />
                   <div>
                     <div className="text-xs font-medium text-gray-800">{s.label}</div>
                     <div className="text-xs text-gray-400">{s.durationMin} min</div>
@@ -354,7 +354,7 @@ function StudentCard({
           <button
             onClick={() => onUpdate({ voice_required: !student.voice_required })}
             className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-              student.voice_required ? 'bg-sage-500' : 'bg-gray-300'
+              student.voice_required ? 'bg-navy-500' : 'bg-gray-300'
             }`}
           >
             <span
@@ -370,12 +370,12 @@ function StudentCard({
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">
               {isEnrolled
-                ? <><CheckCircle size={13} className="inline text-sage-500 mr-1" />Voice enrolled</>
+                ? <><CheckCircle size={13} className="inline text-navy-500 mr-1" />Voice enrolled</>
                 : 'No voice profile yet'}
             </p>
             <button
               onClick={() => onUpdate({ showEnrollment: true })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-sage-300 text-sage-700 hover:bg-sage-50 text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-navy-300 text-navy-700 hover:bg-navy-50 text-xs font-medium transition-colors"
             >
               <Mic size={12} />
               {isEnrolled ? 'Re-enrol' : 'Enrol Voice'}
@@ -442,7 +442,7 @@ function StudentCard({
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-sage-100 shadow-sm p-5">
+    <div className="bg-white rounded-xl border border-navy-100 shadow-sm p-5">
       <h2 className="text-sm font-semibold text-gray-700 mb-4">{title}</h2>
       {children}
     </div>

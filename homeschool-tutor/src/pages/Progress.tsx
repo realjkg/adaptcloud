@@ -211,8 +211,8 @@ function AssessmentHistory({ assessments }: { assessments: NarrationAssessmentDa
             <div key={i} className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 items-center">
               {/* Row 1: subject + date | signal badge */}
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm font-medium text-gray-700 truncate">
-                  {subjectInfo?.icon} {subjectInfo?.label ?? a.subject}
+                <span className="text-sm font-medium text-gray-700 truncate flex items-center gap-1">
+                  {subjectInfo && <subjectInfo.Icon size={14} className="flex-shrink-0" />} {subjectInfo?.label ?? a.subject}
                 </span>
                 <span className="text-xs text-gray-400 shrink-0">{formatDate(a.assessed_at)}</span>
               </div>
@@ -264,8 +264,8 @@ function ConceptCoverage({ assessments }: { assessments: NarrationAssessmentData
           const concepts = Array.from(bySubject[subject])
           return (
             <div key={subject}>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                {subjectInfo?.icon} {subjectInfo?.label ?? subject}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                {subjectInfo && <subjectInfo.Icon size={12} className="flex-shrink-0" />} {subjectInfo?.label ?? subject}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {concepts.map((c) => (

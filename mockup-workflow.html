@@ -3,1078 +3,1440 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bede Tutor — UI Workflow Mockup</title>
+<title>Bede Tutor — UI Workflow</title>
 <style>
-  /* ── Design tokens (mirrored from tailwind.config.js) ── */
   :root {
-    --sage-50:#f0f5f2; --sage-100:#d9ece3; --sage-200:#b3d9c8;
-    --sage-300:#8dc6ad; --sage-400:#67b292; --sage-500:#5a8a72;
-    --sage-600:#4a7260; --sage-700:#3a5a4e; --sage-800:#2a423c;
-    --sage-900:#1a2a28;
-    --parchment-50:#faf8f0; --parchment-100:#f5f0dc;
-    --parchment-200:#ede4c4; --parchment-300:#e0d4a8;
-    --faith-100:#ede9f8; --faith-600:#7c5cbf; --faith-700:#63469a;
-    --amber-400:#fbbf24; --amber-500:#f59e0b; --amber-50:#fffbeb;
-    --font-display: 'Georgia', serif;
-    --font-body: system-ui, -apple-system, sans-serif;
+    --navy-50:  #f0f4fb;
+    --navy-100: #dce6f7;
+    --navy-200: #b9cdef;
+    --navy-300: #87a9e2;
+    --navy-400: #5585d5;
+    --navy-500: #1e3a8a;
+    --navy-600: #17306e;
+    --navy-700: #112252;
+    --gold-50:  #fefae8;
+    --gold-100: #fdf2c1;
+    --gold-200: #fbe585;
+    --gold-300: #f9d54a;
+    --gold-400: #f5c014;
+    --gold-500: #d4a106;
+    --gold-700: #7c5a03;
+    --parchment: #fefcf7;
+    --border: #b9cdef;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: #f0f0ee;
-    font-family: var(--font-body);
-    font-size: 13px;
-    color: #1a1a1a;
-    padding: 40px 24px 80px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f3f4f6;
+    color: #1a202c;
+    padding: 48px 24px 80px;
   }
-
-  /* ── Layout chrome ── */
-  .page-title {
-    font-family: var(--font-display);
-    font-size: 26px;
+  h1.page-title {
+    text-align: center;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: #1a2a28;
-    text-align: center;
-    margin-bottom: 6px;
+    color: var(--navy-700);
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
   }
-  .page-sub {
+  .page-subtitle {
     text-align: center;
-    color: #666;
-    font-size: 13px;
+    font-size: 0.85rem;
+    color: #6b7280;
     margin-bottom: 48px;
   }
+
+  /* Flow layout */
   .flow {
     display: flex;
     flex-direction: column;
-    gap: 64px;
-    max-width: 1200px;
-    margin: 0 auto;
+    align-items: center;
+    gap: 0;
   }
   .flow-row {
     display: flex;
     align-items: flex-start;
-    gap: 32px;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
   }
-  .flow-row.centered { justify-content: center; }
-
-  /* screen frames */
-  .frame {
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  .frame-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: #888;
-    margin-bottom: 10px;
-    text-align: center;
-  }
-  .frame-wrap { display: flex; flex-direction: column; }
-
-  /* arrow between screens */
-  .arrow {
+  .screen-wrap {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .screen-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+  .screen-num {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    color: #aaa;
-    font-size: 11px;
-    min-width: 56px;
-    padding-top: 80px;
-    flex-shrink: 0;
-  }
-  .arrow svg { display: block; }
-
-  /* section divider */
-  .section-label {
-    font-size: 10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--navy-500);
+    color: white;
+    font-size: 0.65rem;
     font-weight: 700;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: #bbb;
-    text-align: center;
-    margin-bottom: -32px;
+    margin-right: 5px;
   }
 
-  /* ── Common UI atoms ── */
-  .btn-primary {
-    background: var(--sage-500); color: white;
-    border: none; border-radius: 10px;
-    padding: 10px 20px; font-size: 13px; font-weight: 600;
-    cursor: pointer; width: 100%; display: block; text-align: center;
-  }
-  .btn-secondary {
-    background: white; color: var(--sage-600);
-    border: 1.5px solid var(--sage-300);
-    border-radius: 10px; padding: 8px 16px;
-    font-size: 12px; font-weight: 500; cursor: pointer;
-  }
-  .input-field {
-    width: 100%; border: 1.5px solid #e2e8f0;
-    border-radius: 10px; padding: 9px 12px;
-    font-size: 13px; background: white; color: #333;
-    outline: none;
-  }
-  .input-field:focus { border-color: var(--sage-400); }
-  .badge-now {
-    background: var(--sage-500); color: white;
-    border-radius: 99px; font-size: 10px;
-    font-weight: 600; padding: 1px 8px;
-  }
-  .chip {
-    background: var(--sage-100); color: var(--sage-700);
-    border-radius: 99px; font-size: 11px;
-    font-weight: 500; padding: 2px 10px; display: inline-block;
-  }
-  .check-circle {
-    width: 16px; height: 16px; border-radius: 50%;
-    background: var(--sage-500); color: white;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 9px; flex-shrink: 0;
-  }
-  .empty-circle {
-    width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid #d1d5db; flex-shrink: 0;
-  }
-  .active-circle {
-    width: 16px; height: 16px; border-radius: 50%;
-    background: var(--sage-500);
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    box-shadow: 0 0 0 3px var(--sage-100);
-  }
-  .active-circle::after {
-    content: ''; width: 6px; height: 6px;
-    border-radius: 50%; background: white;
-  }
-
-  /* ─────────────────────────────────────────
-     SCREEN 1 — Login
-  ───────────────────────────────────────── */
-  .login-screen {
-    width: 340px;
-    background: var(--parchment-50);
-    padding: 40px 24px 32px;
+  /* Arrow connectors */
+  .arrow-down {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
-    min-height: 420px;
+    padding: 6px 0;
+    gap: 2px;
+  }
+  .arrow-down .arrow-line {
+    width: 2px;
+    height: 22px;
+    background: var(--navy-300);
+  }
+  .arrow-down .arrow-label {
+    font-size: 0.65rem;
+    color: var(--navy-400);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .arrow-down .arrow-tip {
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid var(--navy-300);
+  }
+  .arrow-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 8px;
+    gap: 2px;
+    align-self: center;
+  }
+  .arrow-right .arrow-line {
+    width: 28px;
+    height: 2px;
+    background: var(--navy-300);
+  }
+  .arrow-right .arrow-label {
+    font-size: 0.62rem;
+    color: var(--navy-400);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    transform: rotate(-30deg);
+  }
+  .arrow-right .arrow-tip {
+    width: 0; height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 7px solid var(--navy-300);
+  }
+
+  /* Cards (the screens) */
+  .card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(30,58,138,0.08);
+    overflow: hidden;
+  }
+
+  /* ── SCREEN 1: Login Parent ── */
+  .login-card {
+    width: 340px;
+    padding: 32px 28px 28px;
+    background: var(--parchment);
   }
   .login-logo {
-    width: 56px; height: 56px;
-    background: var(--sage-100);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 24px;
+    gap: 6px;
   }
-  .login-title {
-    font-family: var(--font-display);
-    font-size: 22px; font-weight: 700;
-    color: var(--sage-800); text-align: center;
+  .login-logo-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--navy-700);
+    font-family: Georgia, "Times New Roman", serif;
   }
-  .login-sub { font-size: 12px; color: #888; text-align: center; margin-top: -12px; }
-  .tab-row {
-    display: flex; gap: 0;
-    background: var(--parchment-100);
-    border-radius: 10px; padding: 3px;
-    width: 100%;
+  .login-logo-sub {
+    font-size: 0.78rem;
+    color: #6b7280;
+  }
+  .tab-switcher {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 22px;
   }
   .tab {
-    flex: 1; text-align: center; padding: 6px 0;
-    border-radius: 8px; font-size: 13px; font-weight: 500;
-    color: #888; cursor: pointer;
+    flex: 1;
+    text-align: center;
+    padding: 8px 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #9ca3af;
+    cursor: pointer;
   }
   .tab.active {
-    background: white; color: var(--sage-700);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    color: var(--navy-500);
+    border-bottom: 2px solid var(--navy-500);
+    margin-bottom: -1px;
     font-weight: 600;
   }
-  .login-form { width: 100%; display: flex; flex-direction: column; gap: 12px; }
-  .input-wrap { position: relative; }
-  .input-icon {
-    position: absolute; left: 10px; top: 50%;
-    transform: translateY(-50%); color: #aaa; font-size: 14px;
+  .input-group {
+    position: relative;
+    margin-bottom: 14px;
   }
-  .input-field.with-icon { padding-left: 32px; }
-  .login-hint { font-size: 11px; color: #aaa; text-align: center; }
+  .input-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    width: 16px;
+    height: 16px;
+  }
+  .input-field {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px 10px 34px;
+    font-size: 0.85rem;
+    color: var(--navy-700);
+    background: white;
+    outline: none;
+  }
+  .btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 44px;
+    background: var(--navy-500);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-primary:hover { background: var(--navy-600); }
 
-  /* ─────────────────────────────────────────
-     SCREEN 2 — Parent Setup
-  ───────────────────────────────────────── */
-  .setup-screen {
-    width: 580px;
-    background: var(--parchment-50);
-    min-height: 480px;
+  /* ── SCREEN 2: Parent Setup ── */
+  .setup-card {
+    width: 560px;
   }
   .setup-header {
-    background: white;
-    border-bottom: 1px solid var(--sage-100);
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 14px 20px;
-    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border);
   }
-  .setup-header-logo { font-size: 20px; }
   .setup-header-title {
-    font-family: var(--font-display);
-    font-size: 16px; font-weight: 700; color: var(--sage-700); flex: 1;
+    flex: 1;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--navy-700);
   }
-  .setup-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-  .setup-intro { font-size: 13px; color: #666; }
-  .student-card {
-    background: white; border-radius: 12px;
-    border: 1.5px solid var(--sage-100);
-    padding: 16px; display: flex; flex-direction: column; gap: 10px;
+  .btn-outline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1.5px solid var(--navy-500);
+    border-radius: 7px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--navy-500);
+    background: white;
+    cursor: pointer;
   }
-  .student-card-header {
-    display: flex; align-items: center; gap: 8px;
+  .setup-body {
+    padding: 18px 20px;
   }
-  .student-avatar {
-    width: 32px; height: 32px; border-radius: 50%;
-    background: var(--sage-100); color: var(--sage-600);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; flex-shrink: 0;
+  .setup-student-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: white;
   }
-  .form-row { display: flex; gap: 10px; }
-  .form-col { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-  .form-label { font-size: 11px; font-weight: 600; color: #777; }
-  .subject-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-  .subject-chip {
-    background: var(--sage-100); color: var(--sage-700);
-    border-radius: 99px; font-size: 11px; font-weight: 500;
-    padding: 3px 10px; cursor: pointer; border: 1.5px solid transparent;
+  .setup-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
   }
-  .subject-chip.selected {
-    background: var(--sage-500); color: white;
-    border-color: var(--sage-500);
+  .setup-row input, .setup-row select {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.82rem;
+    color: var(--navy-700);
+    background: white;
+    outline: none;
   }
-  .add-student-btn {
-    background: transparent; border: 1.5px dashed var(--sage-300);
-    border-radius: 10px; padding: 12px;
-    color: var(--sage-500); font-size: 13px; font-weight: 500;
-    cursor: pointer; text-align: center; width: 100%;
+  .setup-row input { flex: 1; }
+  .setup-row select { width: 110px; }
+  .chips-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 7px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid var(--navy-200);
+    background: var(--navy-50);
+    color: var(--navy-700);
+    cursor: pointer;
+  }
+  .chip.selected {
+    background: var(--navy-500);
+    color: white;
+    border-color: var(--navy-500);
+  }
+  .chip svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .btn-dashed {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 10px;
+    border: 1.5px dashed var(--navy-300);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: var(--navy-400);
+    background: transparent;
+    cursor: pointer;
   }
 
-  /* ─────────────────────────────────────────
-     SCREEN 3 — Pod Dashboard
-  ───────────────────────────────────────── */
-  .dashboard-screen {
+  /* ── SCREEN 3: Pod Dashboard ── */
+  .pod-card {
     width: 480px;
-    background: var(--parchment-50);
-    min-height: 400px;
   }
-  .dash-header {
-    background: white; border-bottom: 1px solid var(--sage-100);
-    padding: 14px 20px; display: flex; align-items: center; gap: 10px;
+  .pod-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
   }
-  .dash-title {
-    font-family: var(--font-display);
-    font-size: 16px; font-weight: 700; color: var(--sage-700); flex: 1;
+  .pod-header-title {
+    flex: 1;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--navy-700);
   }
-  .dash-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .pod-body {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
   .student-row {
-    background: white; border-radius: 12px;
-    border: 1.5px solid var(--sage-100);
-    padding: 14px 16px;
-    display: flex; align-items: center; gap: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--navy-50);
   }
-  .s-avatar {
-    width: 40px; height: 40px; border-radius: 50%;
-    background: var(--sage-100); color: var(--sage-600);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px; font-weight: 700; flex-shrink: 0;
+  .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--navy-500);
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
-  .s-info { flex: 1; }
-  .s-name { font-size: 14px; font-weight: 700; color: #1a1a1a; }
-  .s-meta { font-size: 11px; color: #888; margin-top: 1px; }
-  .s-subjects { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
-  .s-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
-  .btn-open {
-    background: var(--sage-500); color: white;
-    border: none; border-radius: 8px;
-    padding: 6px 14px; font-size: 12px; font-weight: 600;
-    cursor: pointer; white-space: nowrap;
+  .student-info { flex: 1; }
+  .student-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--navy-700);
   }
-  .btn-link {
-    background: transparent; color: var(--sage-600);
-    border: 1px solid var(--sage-200);
-    border-radius: 8px; padding: 5px 12px;
-    font-size: 11px; font-weight: 500; cursor: pointer;
+  .student-grade {
+    font-size: 0.72rem;
+    color: #6b7280;
+    margin-bottom: 5px;
+  }
+  .student-chips {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .student-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    background: var(--navy-100);
+    color: var(--navy-700);
+  }
+  .student-chip svg { width: 10px; height: 10px; }
+  .student-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .btn-sm-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: var(--navy-500);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-sm-outline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border: 1.5px solid var(--navy-300);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--navy-600);
+    background: white;
+    cursor: pointer;
     white-space: nowrap;
   }
 
-  /* ─────────────────────────────────────────
-     SCREEN 4 — Tutor Session (full layout)
-  ───────────────────────────────────────── */
-  .session-screen {
+  /* ── SCREEN 4: Login Child ── */
+  .child-gold-box {
+    background: var(--gold-50);
+    border: 1px solid var(--gold-200);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    color: var(--gold-700);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-top: 10px;
+  }
+  .child-gold-box svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; }
+  .child-welcome {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--navy-700);
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .pin-input {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 14px;
+  }
+  .pin-dot {
+    width: 40px;
+    height: 40px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pin-dot.filled { background: var(--navy-500); border-color: var(--navy-500); }
+  .pin-dot-inner {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: white;
+  }
+
+  /* ── SCREEN 5: Tutor Session ── */
+  .session-card {
     width: 820px;
-    background: var(--parchment-50);
-    min-height: 560px;
-    display: flex; flex-direction: column;
   }
   .session-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
     background: white;
-    border-bottom: 1px solid var(--sage-100);
-    padding: 0 20px;
-    display: flex; align-items: center; gap: 10px;
-    min-height: 52px;
   }
-  .session-logo { font-size: 20px; flex-shrink: 0; }
   .breadcrumb {
-    font-size: 12px; color: #888; flex: 1;
-    display: flex; align-items: center; gap: 4px;
+    font-size: 0.82rem;
+    color: #6b7280;
+    flex: 1;
   }
-  .breadcrumb-sep { color: #ccc; }
-  .breadcrumb-current { color: var(--sage-700); font-weight: 600; }
+  .breadcrumb strong { color: var(--navy-700); }
   .timer-pill {
-    background: var(--sage-50); border: 1px solid var(--sage-200);
-    border-radius: 99px; padding: 4px 12px;
-    font-size: 12px; font-weight: 600; color: var(--sage-700);
-    font-family: monospace;
+    background: var(--navy-50);
+    color: var(--navy-700);
+    border: 1px solid var(--navy-200);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 0.82rem;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-weight: 600;
   }
-  .end-btn {
-    background: transparent; border: 1px solid #e2e8f0;
-    border-radius: 8px; padding: 6px 12px;
-    font-size: 11px; color: #666; cursor: pointer;
-    display: flex; align-items: center; gap: 4px;
+  .btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: white;
+    cursor: pointer;
+    color: var(--navy-600);
   }
-  .logout-btn {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: transparent; border: none;
-    color: #aaa; cursor: pointer; font-size: 16px;
-    display: flex; align-items: center; justify-content: center;
+  .btn-sm-secondary {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--navy-600);
+    background: white;
+    cursor: pointer;
   }
-
-  /* subject progress bar */
-  .subject-progress-bar {
-    height: 4px; width: 100%;
-    background: #f3f4f6;
+  /* Progress bar */
+  .progress-bar-full {
+    height: 4px;
+    background: #e5e7eb;
     display: flex;
   }
-  .spb-done { background: var(--sage-500); }
-  .spb-current { background: var(--sage-300); animation: pulse-bar 2s infinite; }
-  .spb-upcoming { background: transparent; }
-  @keyframes pulse-bar {
-    0%, 100% { opacity: 1; } 50% { opacity: .5; }
+  .pb-done { background: var(--navy-500); }
+  .pb-current {
+    background: var(--navy-300);
+    animation: pulse 1.5s ease-in-out infinite;
   }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .pb-upcoming { background: #e5e7eb; }
 
   .session-body {
-    flex: 1; display: flex; overflow: hidden;
-    min-height: 0;
+    display: flex;
+    height: 520px;
   }
-
-  /* sidebar */
+  /* Sidebar */
   .session-sidebar {
-    width: 220px; background: white;
-    border-right: 1px solid var(--sage-100);
-    padding: 16px; display: flex; flex-direction: column; gap: 12px;
-    flex-shrink: 0; overflow-y: auto;
+    width: 220px;
+    border-right: 1px solid var(--border);
+    padding: 14px 12px;
+    overflow-y: auto;
+    flex-shrink: 0;
+    background: var(--navy-50);
   }
-  .sidebar-progress-header {
-    font-size: 10px; font-weight: 700; color: #aaa;
-    text-transform: uppercase; letter-spacing: .08em;
+  .sidebar-heading {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    margin-bottom: 8px;
   }
-  .sidebar-progress-bar {
-    height: 6px; background: #f0f0f0; border-radius: 99px;
-    margin-top: 4px; overflow: hidden;
+  .mini-progress-bar {
+    height: 6px;
+    background: var(--navy-100);
+    border-radius: 3px;
+    margin-bottom: 4px;
+    overflow: hidden;
   }
-  .sidebar-progress-fill {
-    height: 100%; background: var(--sage-500); border-radius: 99px;
-    width: 40%;
+  .mini-pb-fill {
+    height: 100%;
+    background: var(--navy-500);
+    border-radius: 3px;
+    width: 33%;
   }
-  .sidebar-progress-count { font-size: 11px; color: #aaa; margin-top: 2px; }
+  .mini-progress-count {
+    font-size: 0.7rem;
+    color: #6b7280;
+    margin-bottom: 12px;
+  }
   .subject-list { display: flex; flex-direction: column; gap: 2px; }
-  .subj-row {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 8px 8px 4px;
-    border-left: 3px solid transparent;
-    border-radius: 0 8px 8px 0;
-    min-height: 44px;
+  .subject-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    color: var(--navy-700);
+    position: relative;
   }
-  .subj-row.active {
-    border-left-color: var(--sage-500);
-    background: var(--sage-50);
+  .subject-item.done { opacity: 0.6; }
+  .subject-item.active {
+    background: white;
+    border-left: 3px solid var(--navy-500);
+    padding-left: 5px;
+    font-weight: 600;
+    color: var(--navy-700);
   }
-  .subj-row.done { opacity: .55; }
-  .subj-info { flex: 1; min-width: 0; }
-  .subj-name { font-size: 12px; font-weight: 600; color: #333; }
-  .subj-dur { font-size: 10px; color: #aaa; }
-  .next-btn {
-    width: 100%; padding: 10px; background: var(--sage-500);
-    color: white; border: none; border-radius: 10px;
-    font-size: 13px; font-weight: 600; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    min-height: 44px;
+  .subject-item svg.subj-icon { width: 13px; height: 13px; flex-shrink: 0; color: var(--navy-500); }
+  .status-icon { width: 16px; height: 16px; flex-shrink: 0; }
+  .subj-label { flex: 1; }
+  .subj-dur { font-size: 0.65rem; color: #9ca3af; white-space: nowrap; }
+  /* Status circles */
+  .status-done { color: var(--navy-500); }
+  .status-circle-current {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--navy-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .status-circle-current::after {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: white;
+  }
+  .status-circle-upcoming {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--navy-200);
+    flex-shrink: 0;
   }
 
-  /* sidebar extra cards */
-  .info-card {
-    background: var(--parchment-100); border-radius: 10px;
-    padding: 10px; font-size: 11px; color: #666;
+  .sidebar-info-card {
+    margin-top: 12px;
+    background: var(--parchment);
+    border: 1px solid var(--navy-100);
+    border-radius: 8px;
+    padding: 10px 10px;
+    font-size: 0.75rem;
+    color: var(--navy-700);
   }
-  .info-card-title { font-weight: 700; color: #555; margin-bottom: 3px; font-size: 11px; }
+  .sidebar-info-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #9ca3af;
+    margin-bottom: 3px;
+  }
   .faith-card {
-    background: var(--faith-100); border-radius: 10px;
-    padding: 10px; font-size: 11px; color: var(--faith-700);
+    margin-top: 8px;
+    background: var(--gold-50);
+    border: 1px solid var(--gold-200);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    gap: 7px;
+    align-items: flex-start;
   }
-  .faith-card-title { font-weight: 700; color: var(--faith-700); margin-bottom: 3px; font-size: 11px; }
+  .faith-card svg { width: 13px; height: 13px; flex-shrink: 0; color: var(--gold-500); margin-top: 1px; }
+  .faith-text { font-size: 0.73rem; color: var(--gold-700); }
+  .faith-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--gold-500);
+    margin-bottom: 2px;
+  }
+  .btn-next-subject {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+    width: 100%;
+    padding: 8px;
+    background: var(--navy-500);
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-next-subject svg { width: 14px; height: 14px; }
 
-  /* main chat */
-  .session-main {
-    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  /* Chat area */
+  .session-chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .chat-messages {
-    flex: 1; overflow-y: auto; padding: 16px;
-    display: flex; flex-direction: column; gap: 12px;
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: white;
   }
-  .msg-sage {
-    display: flex; gap: 8px; align-items: flex-start;
-    max-width: 75%;
+  .msg-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--navy-600);
+    margin-bottom: 3px;
   }
-  .sage-avatar {
-    width: 28px; height: 28px; border-radius: 50%;
-    background: var(--sage-100);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; flex-shrink: 0; margin-top: 2px;
+  .msg-label.right { text-align: right; }
+  .bubble-bede {
+    max-width: 68%;
+    background: white;
+    border: 1px solid var(--navy-100);
+    border-radius: 0 12px 12px 12px;
+    padding: 10px 13px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #1a202c;
   }
-  .sage-bubble {
-    background: white; border: 1px solid var(--sage-100);
-    border-radius: 2px 14px 14px 14px;
-    padding: 10px 14px; font-size: 12px; line-height: 1.55;
-    color: #2a2a2a;
+  .bubble-user {
+    max-width: 60%;
+    align-self: flex-end;
+    background: var(--navy-500);
+    color: white;
+    border-radius: 12px 12px 0 12px;
+    padding: 10px 13px;
+    font-size: 0.82rem;
+    line-height: 1.5;
   }
-  .msg-user {
-    display: flex; justify-content: flex-end;
-  }
-  .user-bubble {
-    background: var(--sage-500); color: white;
-    border-radius: 14px 14px 2px 14px;
-    padding: 9px 14px; font-size: 12px;
-    max-width: 65%;
-  }
+  .msg-right { display: flex; flex-direction: column; align-items: flex-end; }
 
-  /* tool cards */
   .tool-card {
-    border-radius: 12px; padding: 12px 14px;
-    font-size: 12px; max-width: 80%;
-    margin: 0; margin-left: 36px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    max-width: 72%;
   }
-  .tool-socratic {
-    background: #fefce8; border: 1px solid #fde68a;
-    color: #78350f;
+  .tool-hint {
+    background: var(--navy-50);
+    border: 1px solid var(--navy-200);
+    color: var(--navy-700);
   }
   .tool-celebrate {
-    background: #f0fdf4; border: 1px solid #86efac;
-    color: #14532d;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
   }
   .tool-faith {
-    background: var(--faith-100); border: 1px solid #c4b5fd;
-    color: var(--faith-700);
+    background: var(--gold-50);
+    border: 1px solid var(--gold-200);
+    color: var(--gold-700);
+    display: flex;
+    gap: 7px;
+    align-items: flex-start;
   }
-  .tool-title { font-weight: 700; font-size: 11px; margin-bottom: 3px; }
-  .tool-body { font-size: 12px; line-height: 1.5; }
+  .tool-faith svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--gold-500); margin-top: 1px; }
+  .tool-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 4px;
+  }
 
-  /* drawing preview strip */
-  .drawing-preview {
-    padding: 8px 16px;
-    display: flex; align-items: center; gap: 10px;
-    background: white; border-top: 1px solid #f0f0f0;
+  .drawing-strip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--navy-50);
+    border: 1px solid var(--navy-200);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    color: var(--navy-700);
+    max-width: 72%;
   }
   .drawing-thumb {
-    width: 56px; height: 40px; background: var(--parchment-50);
-    border: 1px solid var(--sage-200); border-radius: 6px;
+    width: 48px;
+    height: 36px;
+    border: 1px solid var(--navy-200);
+    border-radius: 5px;
+    background: var(--parchment);
     flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
+    overflow: hidden;
   }
-  .drawing-note { flex: 1; font-size: 11px; color: var(--sage-700); }
 
-  /* input bar */
   .chat-input-bar {
-    border-top: 1px solid #f0f0f0;
-    padding: 12px 16px;
-    background: white;
-    display: flex; gap: 8px; align-items: flex-end;
-  }
-  .chat-textarea {
-    flex: 1; border: 1.5px solid #e2e8f0;
-    border-radius: 12px; padding: 8px 12px;
-    font-size: 13px; resize: none; height: 36px;
-    font-family: inherit; color: #333;
+    border-top: 1px solid var(--border);
+    padding: 10px 12px;
+    display: flex;
+    gap: 7px;
+    align-items: flex-end;
     background: white;
   }
-  .icon-btn {
-    width: 36px; height: 36px; border-radius: 10px;
-    border: none; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px; flex-shrink: 0;
+  .chat-input-bar textarea {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    resize: none;
+    min-height: 38px;
+    max-height: 80px;
+    outline: none;
+    font-family: inherit;
+    color: var(--navy-700);
   }
-  .icon-btn-pen { background: var(--sage-100); color: var(--sage-600); }
-  .icon-btn-mic { background: #f5f5f5; color: #555; }
-  .icon-btn-send { background: var(--sage-500); color: white; }
+  .btn-icon-sm {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--navy-100);
+    cursor: pointer;
+    color: var(--navy-600);
+    flex-shrink: 0;
+  }
+  .btn-send {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 7px;
+    background: var(--navy-500);
+    cursor: pointer;
+    color: white;
+    flex-shrink: 0;
+  }
 
-  /* ─────────────────────────────────────────
-     SCREEN 5 — HandwritingCanvas overlay
-  ───────────────────────────────────────── */
-  .canvas-screen {
-    width: 480px; height: 400px;
-    background: var(--parchment-50);
-    display: flex; flex-direction: column;
-    position: relative;
+  /* ── SCREEN 6: Handwriting Canvas ── */
+  .canvas-card {
+    width: 480px;
   }
   .canvas-toolbar {
-    background: white; border-bottom: 1px solid #e2e8f0;
-    padding: 10px 16px;
-    display: flex; align-items: center; gap: 10px;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
   }
-  .canvas-label {
-    flex: 1; text-align: center;
-    font-size: 13px; color: #888;
-    font-weight: 500;
+  .canvas-title {
+    flex: 1;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--navy-700);
   }
   .canvas-area {
-    flex: 1; position: relative; overflow: hidden;
-  }
-  .canvas-drawing {
-    width: 100%; height: 100%;
-    background: var(--parchment-50);
-    display: flex; align-items: center; justify-content: center;
-  }
-  /* simulate handwritten strokes */
-  .stroke {
-    position: absolute;
-    background: var(--sage-700);
-    border-radius: 99px;
-    transform-origin: left center;
-  }
-  .canvas-btn {
-    border: none; border-radius: 8px; cursor: pointer;
-    padding: 6px 14px; font-size: 12px; font-weight: 600;
-    display: flex; align-items: center; gap: 4px;
-    white-space: nowrap; min-height: 36px;
-  }
-  .canvas-btn-ghost { background: transparent; color: #888; }
-  .canvas-btn-icon { background: #f5f5f5; color: #555; font-size: 14px; }
-  .canvas-btn-done { background: var(--sage-500); color: white; }
-
-  /* ─────────────────────────────────────────
-     SCREEN 6 — Break overlay
-  ───────────────────────────────────────── */
-  .break-screen {
-    width: 340px;
-    background: rgba(250,248,240,0.94);
-    backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center;
-    min-height: 320px;
-    border-radius: 16px;
-  }
-  .break-card {
-    background: white; border-radius: 20px;
-    border: 1px solid #fde68a; box-shadow: 0 8px 32px rgba(0,0,0,.1);
-    padding: 32px 28px; text-align: center; width: 260px;
-  }
-  .break-icon { font-size: 36px; margin-bottom: 12px; }
-  .break-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #1a1a1a; }
-  .break-body { font-size: 12px; color: #666; margin: 8px 0 20px; line-height: 1.5; }
-  .break-ring {
-    width: 80px; height: 80px; margin: 0 auto 8px;
+    background: var(--parchment);
+    height: 300px;
     position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 12px;
   }
-  .break-ring svg { transform: rotate(-90deg); }
-  .break-time {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 700; font-family: monospace;
-    color: var(--amber-500);
+  .canvas-hint {
+    font-size: 0.68rem;
+    color: #9ca3af;
+    letter-spacing: 0.02em;
   }
-  .break-sub { font-size: 11px; color: #aaa; }
+  .canvas-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 14px;
+    background: var(--navy-500);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
 
-  /* ─────────────────────────────────────────
-     Connector arrows SVG
-  ───────────────────────────────────────── */
-  .connector {
-    display: flex; align-items: center; justify-content: center;
-    color: #bbb; font-size: 11px;
-    flex-direction: column; gap: 3px;
-    padding: 0 4px;
+  /* ── SCREEN 7: Break Time ── */
+  .break-card {
+    width: 320px;
+    padding: 32px 24px;
+    text-align: center;
+    border: 2px solid #fde68a;
+    background: #fffbeb;
   }
-  .connector-label { font-size: 10px; color: #ccc; white-space: nowrap; }
+  .break-icon { color: #d97706; margin-bottom: 12px; }
+  .break-title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #92400e;
+    margin-bottom: 20px;
+  }
+  .break-ring-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 14px;
+  }
+  .break-ring-wrap svg { transform: rotate(-90deg); }
+  .break-time {
+    position: absolute;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #b45309;
+  }
+  .break-sub {
+    font-size: 0.8rem;
+    color: #92400e;
+    opacity: 0.75;
+  }
+
+  /* ── SCREEN 8: Session Summary ── */
+  .summary-card {
+    width: 300px;
+    padding: 24px 22px;
+    text-align: center;
+  }
+  .summary-icon { color: var(--navy-500); margin-bottom: 10px; }
+  .summary-title {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--navy-700);
+    margin-bottom: 4px;
+  }
+  .summary-sub {
+    font-size: 0.72rem;
+    color: #6b7280;
+    margin-bottom: 14px;
+  }
+  .summary-body {
+    background: var(--parchment);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--navy-700);
+    text-align: left;
+    margin-bottom: 16px;
+  }
+
+  /* Misc utility */
+  .flex-center { display: flex; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
 
-<div class="page-title">Agnus Dei · Bede Tutor — UI Workflow</div>
-<div class="page-sub">Current interface · all screens in navigation order · June 2026</div>
+<h1 class="page-title">Bede Tutor — UI Workflow</h1>
+<p class="page-subtitle">8 screens · navy + gold · Agnus Dei</p>
 
 <div class="flow">
 
-  <!-- ── Row 1: Login → Setup ── -->
-  <div>
-    <div class="section-label">Parent onboarding</div>
-    <div class="flow-row" style="margin-top:48px">
-
-      <!-- Screen 1: Login (Parent tab) -->
-      <div class="frame-wrap">
-        <div class="frame-label">① Login — Parent</div>
-        <div class="frame">
-          <div class="login-screen">
-            <div class="login-logo">🕊️</div>
-            <div>
-              <div class="login-title">Agnus Dei</div>
-              <div class="login-sub">Bede Tutor</div>
-            </div>
-            <div class="tab-row">
-              <div class="tab active">Parent</div>
-              <div class="tab">Child</div>
-            </div>
-            <div class="login-form">
-              <div class="input-wrap">
-                <span class="input-icon">🔒</span>
-                <input class="input-field with-icon" type="password" placeholder="Parent password" value="••••••••" readonly />
-              </div>
-              <button class="btn-primary">Sign In</button>
-            </div>
-            <div class="login-hint">This device is for parents only.<br/>Children log in on their tablets.</div>
-          </div>
-        </div>
+  <!-- ══════════════════════ SCREEN 1: Login Parent ══════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label"><span class="screen-num">1</span> Login — Parent</div>
+    <div class="card login-card">
+      <div class="login-logo">
+        <img src="homeschool-tutor/public/agnus-dei.svg" width="40" height="40" alt="Agnus Dei" />
+        <span class="login-logo-name">Agnus Dei</span>
+        <span class="login-logo-sub">Bede Tutor</span>
       </div>
-
-      <!-- Arrow -->
-      <div class="connector">
-        <svg width="40" height="2"><line x1="0" y1="1" x2="34" y2="1" stroke="#ccc" stroke-width="1.5"/><polygon points="34,0 40,1 34,2" fill="#ccc"/></svg>
-        <div class="connector-label">authenticate</div>
+      <div class="tab-switcher">
+        <div class="tab active">Parent</div>
+        <div class="tab">Child</div>
       </div>
-
-      <!-- Screen 2: Parent Setup -->
-      <div class="frame-wrap">
-        <div class="frame-label">② Parent Setup — configure students</div>
-        <div class="frame">
-          <div class="setup-screen">
-            <div class="setup-header">
-              <span class="setup-header-logo">🕊️</span>
-              <span class="setup-header-title">Agnus Dei · Pod Setup</span>
-              <button class="btn-secondary">Save Pod</button>
-            </div>
-            <div class="setup-body">
-              <div class="setup-intro">Configure each student's daily learning plan.</div>
-
-              <!-- Student Card 1 -->
-              <div class="student-card">
-                <div class="student-card-header">
-                  <div class="student-avatar">E</div>
-                  <div style="flex:1; font-size:14px; font-weight:700;">Emma</div>
-                  <span class="chip">Grade 4</span>
-                </div>
-                <div class="form-row">
-                  <div class="form-col">
-                    <div class="form-label">Student Name</div>
-                    <input class="input-field" value="Emma" readonly />
-                  </div>
-                  <div class="form-col">
-                    <div class="form-label">Grade</div>
-                    <input class="input-field" value="4" readonly />
-                  </div>
-                </div>
-                <div class="form-col">
-                  <div class="form-label">Subjects</div>
-                  <div class="subject-chips">
-                    <span class="subject-chip selected">📖 Morning Time</span>
-                    <span class="subject-chip selected">✏️ Language Arts</span>
-                    <span class="subject-chip selected">🔢 Math</span>
-                    <span class="subject-chip selected">🌿 Nature Study</span>
-                    <span class="subject-chip">🎨 Art</span>
-                    <span class="subject-chip">🎵 Music</span>
-                  </div>
-                </div>
-                <div class="form-col">
-                  <div class="form-label">Current Unit</div>
-                  <input class="input-field" value="Medieval Europe — The Magna Carta" readonly />
-                </div>
-                <div class="form-col">
-                  <div class="form-label">Faith Emphasis</div>
-                  <input class="input-field" value="St. Thomas Aquinas: faith & reason" readonly />
-                </div>
-              </div>
-
-              <!-- Student Card 2 (compact) -->
-              <div class="student-card" style="opacity:.7">
-                <div class="student-card-header">
-                  <div class="student-avatar" style="background:var(--faith-100);color:var(--faith-700)">J</div>
-                  <div style="flex:1; font-size:14px; font-weight:700;">James</div>
-                  <span class="chip">Grade 1</span>
-                </div>
-                <div class="form-row">
-                  <div class="form-col">
-                    <input class="input-field" value="James" readonly />
-                  </div>
-                  <div class="form-col">
-                    <input class="input-field" value="1" readonly />
-                  </div>
-                </div>
-              </div>
-
-              <button class="add-student-btn">+ Add Student</button>
-            </div>
-          </div>
-        </div>
+      <div class="input-group">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <input class="input-field" type="password" value="••••••••••••" />
       </div>
-
-      <!-- Arrow -->
-      <div class="connector">
-        <svg width="40" height="2"><line x1="0" y1="1" x2="34" y2="1" stroke="#ccc" stroke-width="1.5"/><polygon points="34,0 40,1 34,2" fill="#ccc"/></svg>
-        <div class="connector-label">save</div>
-      </div>
-
-      <!-- Screen 3: Pod Dashboard -->
-      <div class="frame-wrap">
-        <div class="frame-label">③ Pod Dashboard</div>
-        <div class="frame">
-          <div class="dashboard-screen">
-            <div class="dash-header">
-              <span class="setup-header-logo">🕊️</span>
-              <span class="dash-title">Today's Pod</span>
-              <button class="btn-secondary" style="font-size:11px">⚙️ Edit</button>
-            </div>
-            <div class="dash-body">
-              <!-- Emma -->
-              <div class="student-row">
-                <div class="s-avatar">E</div>
-                <div class="s-info">
-                  <div class="s-name">Emma</div>
-                  <div class="s-meta">Grade 4 · 4 subjects today</div>
-                  <div class="s-subjects">
-                    <span class="chip" style="font-size:10px;padding:1px 8px">📖 Morning Time</span>
-                    <span class="chip" style="font-size:10px;padding:1px 8px">✏️ Language Arts</span>
-                    <span class="chip" style="font-size:10px;padding:1px 8px">+2</span>
-                  </div>
-                </div>
-                <div class="s-actions">
-                  <button class="btn-open">Open on This Device</button>
-                  <button class="btn-link">📋 Copy Tablet Link</button>
-                </div>
-              </div>
-              <!-- James -->
-              <div class="student-row">
-                <div class="s-avatar" style="background:var(--faith-100);color:var(--faith-700)">J</div>
-                <div class="s-info">
-                  <div class="s-name">James</div>
-                  <div class="s-meta">Grade 1 · 3 subjects today</div>
-                  <div class="s-subjects">
-                    <span class="chip" style="font-size:10px;padding:1px 8px">📖 Morning Time</span>
-                    <span class="chip" style="font-size:10px;padding:1px 8px">🔢 Math</span>
-                    <span class="chip" style="font-size:10px;padding:1px 8px">+1</span>
-                  </div>
-                </div>
-                <div class="s-actions">
-                  <button class="btn-open" style="background:var(--faith-700)">Open on This Device</button>
-                  <button class="btn-link">📋 Copy Tablet Link</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <button class="btn-primary">Sign In</button>
     </div>
   </div>
 
-  <!-- ── Row 2: Login Child → Session ── -->
-  <div>
-    <div class="section-label">Student session (on tablet)</div>
-    <div class="flow-row" style="margin-top:48px; align-items: flex-start;">
+  <div class="arrow-down">
+    <div class="arrow-line"></div>
+    <div class="arrow-label">authenticate</div>
+    <div class="arrow-tip"></div>
+  </div>
 
-      <!-- Screen: Child Login -->
-      <div class="frame-wrap">
-        <div class="frame-label">④ Login — Child (PIN)</div>
-        <div class="frame">
-          <div class="login-screen" style="min-height:360px;">
-            <div class="login-logo">🕊️</div>
-            <div>
-              <div class="login-title">Welcome, Emma!</div>
-              <div class="login-sub">Enter your PIN to start learning</div>
+  <!-- ══════════════════════ SCREEN 2: Parent Setup ══════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label"><span class="screen-num">2</span> Parent Setup</div>
+    <div class="card setup-card">
+      <div class="setup-header">
+        <img src="homeschool-tutor/public/agnus-dei.svg" width="26" height="26" alt="Agnus Dei" />
+        <span class="setup-header-title">Pod Setup</span>
+        <button class="btn-outline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Pod
+        </button>
+      </div>
+      <div class="setup-body">
+        <div class="setup-student-card">
+          <div class="setup-row">
+            <input value="Emma" />
+            <select><option>Grade 5</option></select>
+          </div>
+          <div class="chips-label">Subjects</div>
+          <div class="chips">
+            <div class="chip selected">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>
+              Morning Time
             </div>
-            <div class="tab-row">
-              <div class="tab">Parent</div>
-              <div class="tab active">Child</div>
+            <div class="chip selected">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              Living Books
             </div>
-            <div class="login-form">
-              <div class="input-wrap">
-                <span class="input-icon">🔒</span>
-                <input class="input-field with-icon" type="password" placeholder="Child PIN" value="••••" readonly />
-              </div>
-              <button class="btn-primary">Start Session</button>
+            <div class="chip selected">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+              Mathematics
             </div>
-            <!-- Voice verification hint -->
-            <div style="background:var(--faith-100);border-radius:10px;padding:10px;width:100%;text-align:center;">
-              <div style="font-size:11px;color:var(--faith-700);font-weight:600;">🎤 Voice check next</div>
-              <div style="font-size:11px;color:var(--faith-600);margin-top:2px;">Say your passphrase to verify</div>
+            <div class="chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+              Nature Study
+            </div>
+            <div class="chip selected">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              History
+            </div>
+            <div class="chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Language Arts
+            </div>
+            <div class="chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
+              Science
+            </div>
+            <div class="chip selected">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Saints &amp; Catechism
             </div>
           </div>
         </div>
+        <button class="btn-dashed">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+          Add Student
+        </button>
       </div>
+    </div>
+  </div>
 
-      <!-- Arrow -->
-      <div class="connector" style="padding-top:100px">
-        <svg width="40" height="2"><line x1="0" y1="1" x2="34" y2="1" stroke="#ccc" stroke-width="1.5"/><polygon points="34,0 40,1 34,2" fill="#ccc"/></svg>
-        <div class="connector-label">verify</div>
+  <div class="arrow-down">
+    <div class="arrow-line"></div>
+    <div class="arrow-label">save</div>
+    <div class="arrow-tip"></div>
+  </div>
+
+  <!-- ══════════════════════ SCREEN 3: Pod Dashboard ══════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label"><span class="screen-num">3</span> Pod Dashboard</div>
+    <div class="card pod-card">
+      <div class="pod-header">
+        <img src="homeschool-tutor/public/agnus-dei.svg" width="26" height="26" alt="Agnus Dei" />
+        <span class="pod-header-title">Pod Dashboard</span>
+        <button class="btn-outline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          Settings
+        </button>
       </div>
-
-      <!-- Screen: Tutor Session -->
-      <div class="frame-wrap">
-        <div class="frame-label">⑤ Tutor Session — chat with Sage</div>
-        <div class="frame">
-          <div class="session-screen">
-            <!-- Header -->
-            <div class="session-header">
-              <span class="session-logo">🕊️</span>
-              <div class="breadcrumb">
-                <span>Agnus Dei</span>
-                <span class="breadcrumb-sep">›</span>
-                <span>Emma</span>
-                <span class="breadcrumb-sep">›</span>
-                <span class="breadcrumb-current">Morning Time</span>
+      <div class="pod-body">
+        <!-- Student 1 -->
+        <div class="student-row">
+          <div class="avatar">E</div>
+          <div class="student-info">
+            <div class="student-name">Emma</div>
+            <div class="student-grade">Grade 5</div>
+            <div class="student-chips">
+              <div class="student-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>
+                Morning
               </div>
-              <div class="timer-pill">17:42</div>
-              <button class="end-btn">📋 End &amp; Summarize</button>
-              <button class="logout-btn">⟵</button>
+              <div class="student-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+                Math
+              </div>
+              <div class="student-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                History
+              </div>
             </div>
-            <!-- Subject progress bar -->
-            <div class="subject-progress-bar">
-              <div class="spb-done" style="flex:1"></div><!-- Morning Time done -->
-              <div class="spb-current" style="flex:1"></div><!-- Language Arts current -->
-              <div class="spb-upcoming" style="flex:1;background:#e5e7eb"></div>
-              <div class="spb-upcoming" style="flex:1;background:#e5e7eb"></div>
+          </div>
+          <div class="student-actions">
+            <button class="btn-sm-primary">Open Session</button>
+            <button class="btn-sm-outline">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              Copy Link
+            </button>
+          </div>
+        </div>
+        <!-- Student 2 -->
+        <div class="student-row">
+          <div class="avatar" style="background:var(--navy-400)">L</div>
+          <div class="student-info">
+            <div class="student-name">Liam</div>
+            <div class="student-grade">Grade 2</div>
+            <div class="student-chips">
+              <div class="student-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Books
+              </div>
+              <div class="student-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Saints
+              </div>
             </div>
+          </div>
+          <div class="student-actions">
+            <button class="btn-sm-primary">Open Session</button>
+            <button class="btn-sm-outline">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              Copy Link
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-            <!-- Body -->
-            <div class="session-body">
-              <!-- Sidebar -->
-              <div class="session-sidebar">
+  <div class="arrow-down">
+    <div class="arrow-line"></div>
+    <div class="arrow-label">open on tablet</div>
+    <div class="arrow-tip"></div>
+  </div>
+
+  <!-- ══════════════════════ SCREEN 4: Login Child ══════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label"><span class="screen-num">4</span> Login — Child / PIN</div>
+    <div class="card login-card">
+      <div class="login-logo">
+        <img src="homeschool-tutor/public/agnus-dei.svg" width="40" height="40" alt="Agnus Dei" />
+        <span class="login-logo-name">Agnus Dei</span>
+        <span class="login-logo-sub">Bede Tutor</span>
+      </div>
+      <div class="tab-switcher">
+        <div class="tab">Parent</div>
+        <div class="tab active">Child</div>
+      </div>
+      <div class="child-welcome">Welcome, Emma!</div>
+      <div class="pin-input">
+        <div class="pin-dot filled"><div class="pin-dot-inner"></div></div>
+        <div class="pin-dot filled"><div class="pin-dot-inner"></div></div>
+        <div class="pin-dot filled"><div class="pin-dot-inner"></div></div>
+        <div class="pin-dot"></div>
+      </div>
+      <button class="btn-primary">Sign In</button>
+      <div class="child-gold-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        Voice verification next — speak your passphrase
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">
+    <div class="arrow-line"></div>
+    <div class="arrow-label">verify</div>
+    <div class="arrow-tip"></div>
+  </div>
+
+  <!-- ══════════════════════ SCREEN 5: Tutor Session ══════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label"><span class="screen-num">5</span> Tutor Session</div>
+    <div class="card session-card">
+      <!-- Header -->
+      <div class="session-header">
+        <img src="homeschool-tutor/public/agnus-dei.svg" width="26" height="26" alt="Agnus Dei" />
+        <div class="breadcrumb">Agnus Dei &rsaquo; <strong>Emma</strong> &rsaquo; Morning Time</div>
+        <div class="timer-pill">42:17</div>
+        <button class="btn-sm-secondary">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+          End &amp; Summarize
+        </button>
+        <button class="btn-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+        </button>
+      </div>
+      <!-- Progress Bar -->
+      <div class="progress-bar-full">
+        <div class="pb-done" style="width:20%"></div>
+        <div class="pb-done" style="width:15%"></div>
+        <div class="pb-current" style="width:18%"></div>
+        <div class="pb-upcoming" style="width:47%"></div>
+      </div>
+      <!-- Body -->
+      <div class="session-body">
+        <!-- Sidebar -->
+        <div class="session-sidebar">
+          <div class="sidebar-heading">Today's Progress</div>
+          <div class="mini-progress-bar"><div class="mini-pb-fill" style="width:33%"></div></div>
+          <div class="mini-progress-count">2 of 6 complete</div>
+          <div class="subject-list">
+            <div class="subject-item done">
+              <svg class="status-icon status-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <svg class="subj-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>
+              <span class="subj-label">Morning Time</span>
+              <span class="subj-dur">20m</span>
+            </div>
+            <div class="subject-item done">
+              <svg class="status-icon status-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <svg class="subj-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              <span class="subj-label">Living Books</span>
+              <span class="subj-dur">20m</span>
+            </div>
+            <div class="subject-item active">
+              <div class="status-circle-current"></div>
+              <svg class="subj-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+              <span class="subj-label">Mathematics</span>
+              <span class="subj-dur">20m</span>
+            </div>
+            <div class="subject-item">
+              <div class="status-circle-upcoming"></div>
+              <svg class="subj-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span class="subj-label">History</span>
+              <span class="subj-dur">20m</span>
+            </div>
+            <div class="subject-item">
+              <div class="status-circle-upcoming"></div>
+              <svg class="subj-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span class="subj-label">Saints &amp; Catechism</span>
+              <span class="subj-dur">20m</span>
+            </div>
+            <div class="subject-item">
+              <div class="status-circle-upcoming"></div>
+              <svg class="subj-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+              <span class="subj-label">Free Study</span>
+              <span class="subj-dur">20m</span>
+            </div>
+          </div>
+
+          <div class="sidebar-info-card">
+            <div class="sidebar-info-label">Current Unit</div>
+            Fractions — Adding unlike denominators
+          </div>
+
+          <div class="faith-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <div>
+              <div class="faith-label">Faith Focus</div>
+              <div class="faith-text">St. Thomas Aquinas — patron of students and scholars</div>
+            </div>
+          </div>
+
+          <button class="btn-next-subject">
+            Next Subject
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+
+        <!-- Chat -->
+        <div class="session-chat">
+          <div class="chat-messages">
+            <div>
+              <div class="msg-label">Bede</div>
+              <div class="bubble-bede">Good morning, Emma! Today we are going to explore fractions. Before we dive in, can you tell me — when you share a pizza equally with three friends, what fraction does each person get?</div>
+            </div>
+            <div class="msg-right">
+              <div class="msg-label right">Emma</div>
+              <div class="bubble-user">Hmm, each person gets one quarter? So 1/4?</div>
+            </div>
+            <div>
+              <div class="msg-label">Bede</div>
+              <div class="tool-card tool-hint">
+                <div class="tool-label" style="color:var(--navy-500)">Socratic Hint</div>
+                Count the people at the table — you said "three friends." Don't forget yourself! How many total people are sharing?
+              </div>
+            </div>
+            <div class="msg-right">
+              <div class="msg-label right">Emma</div>
+              <div class="bubble-user">Oh! Four people — so each gets 1/4. I was right!</div>
+            </div>
+            <div>
+              <div class="msg-label">Bede</div>
+              <div class="tool-card tool-celebrate">
+                <div class="tool-label">Discovery!</div>
+                Excellent reasoning, Emma! You self-corrected by thinking carefully. That is the mark of a true mathematician.
+              </div>
+            </div>
+            <div>
+              <div class="msg-label">Bede</div>
+              <div class="tool-card tool-faith">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 <div>
-                  <div class="sidebar-progress-header">Today's Progress</div>
-                  <div class="sidebar-progress-bar">
-                    <div class="sidebar-progress-fill" style="width:25%"></div>
-                  </div>
-                  <div class="sidebar-progress-count">1 of 4 subjects</div>
-                </div>
-
-                <div class="subject-list">
-                  <!-- Morning Time — done -->
-                  <div class="subj-row done">
-                    <div class="check-circle">✓</div>
-                    <div class="subj-info">
-                      <div class="subj-name">📖 Morning Time</div>
-                      <div class="subj-dur">20 min</div>
-                    </div>
-                  </div>
-                  <!-- Language Arts — active -->
-                  <div class="subj-row active">
-                    <div class="active-circle"></div>
-                    <div class="subj-info">
-                      <div class="subj-name" style="color:var(--sage-800)">✏️ Language Arts</div>
-                      <div class="subj-dur">20 min</div>
-                    </div>
-                  </div>
-                  <!-- Math — upcoming -->
-                  <div class="subj-row">
-                    <div class="empty-circle"></div>
-                    <div class="subj-info">
-                      <div class="subj-name">🔢 Math</div>
-                      <div class="subj-dur">20 min</div>
-                    </div>
-                  </div>
-                  <!-- Nature Study — upcoming -->
-                  <div class="subj-row">
-                    <div class="empty-circle"></div>
-                    <div class="subj-info">
-                      <div class="subj-name">🌿 Nature Study</div>
-                      <div class="subj-dur">20 min</div>
-                    </div>
-                  </div>
-                </div>
-
-                <button class="next-btn">Next Subject →</button>
-
-                <div class="info-card">
-                  <div class="info-card-title">Current Unit</div>
-                  Medieval Europe — The Magna Carta
-                </div>
-                <div class="faith-card">
-                  <div class="faith-card-title">🙏 Faith Focus</div>
-                  St. Thomas Aquinas: faith & reason
-                </div>
-              </div>
-
-              <!-- Chat -->
-              <div class="session-main">
-                <div class="chat-messages">
-                  <!-- Sage opener -->
-                  <div class="msg-sage">
-                    <div class="sage-avatar">🌿</div>
-                    <div class="sage-bubble">
-                      Good morning, Emma! Today we're exploring Language Arts.
-                      I'd love to hear about the book you've been reading.
-                      What has stood out to you most so far?
-                    </div>
-                  </div>
-                  <!-- User response -->
-                  <div class="msg-user">
-                    <div class="user-bubble">
-                      I liked the part where the characters found the secret door!
-                    </div>
-                  </div>
-                  <!-- Sage follow-up with Socratic hint -->
-                  <div class="msg-sage">
-                    <div class="sage-avatar">🌿</div>
-                    <div class="sage-bubble">
-                      Oh, a secret door — how intriguing! What do you think the author
-                      was trying to make you feel in that moment?
-                    </div>
-                  </div>
-                  <!-- Tool card: Socratic -->
-                  <div class="tool-card tool-socratic">
-                    <div class="tool-title">💡 Gentle Hint</div>
-                    <div class="tool-body">Think about the words the author chose. Were they fast and exciting, or slow and mysterious? What feeling do those words create?</div>
-                  </div>
-                  <!-- Celebration -->
-                  <div class="tool-card tool-celebrate">
-                    <div class="tool-title">🌟 Discovery!</div>
-                    <div class="tool-body">Emma, you just identified the technique authors use called "mood" — the feeling a scene creates in the reader. That's a real literary insight!</div>
-                  </div>
-                  <!-- Faith connection -->
-                  <div class="tool-card tool-faith">
-                    <div class="tool-title">✝️ Faith Connection</div>
-                    <div class="tool-body">This reminds me of how St. Thomas Aquinas wrote that beauty itself draws us toward truth — the author's beautiful words are drawing you toward meaning.</div>
-                  </div>
-                </div>
-
-                <!-- Drawing preview (shown when pen drawing submitted) -->
-                <div class="drawing-preview">
-                  <div class="drawing-thumb">✏️</div>
-                  <div class="drawing-note">Drawing ready — add a note or send</div>
-                  <span style="color:#ccc;cursor:pointer;font-size:14px">✕</span>
-                </div>
-
-                <!-- Input bar -->
-                <div class="chat-input-bar">
-                  <textarea class="chat-textarea" placeholder="Write your response…" readonly></textarea>
-                  <button class="icon-btn icon-btn-pen" title="Draw / write by hand">✏️</button>
-                  <button class="icon-btn icon-btn-mic" title="Speak">🎤</button>
-                  <button class="icon-btn icon-btn-send" title="Send">➤</button>
+                  <div class="tool-label" style="color:var(--gold-500)">Faith Connection</div>
+                  St. Thomas Aquinas wrote that reason and faith work together — just as numerator and denominator must work together in a fraction.
                 </div>
               </div>
             </div>
+            <div>
+              <div class="drawing-strip">
+                <div class="drawing-thumb">
+                  <svg width="48" height="36" viewBox="0 0 48 36"><path d="M6 28 Q18 8 30 20 Q38 28 42 10" stroke="#1e3a8a" stroke-width="1.5" fill="none"/></svg>
+                </div>
+                <div>Drawing ready — add a note or send</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-bar">
+            <button class="btn-icon-sm">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
+            <button class="btn-icon-sm">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </button>
+            <textarea placeholder="Reply to Bede…"></textarea>
+            <button class="btn-send">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Row 3: Break + Canvas overlays ── -->
-  <div>
-    <div class="section-label">Overlays / special states</div>
-    <div class="flow-row centered" style="margin-top:48px; gap:48px">
+  <!-- Row: Screen 6 + 7 side by side -->
+  <div class="arrow-down">
+    <div class="arrow-line"></div>
+    <div class="arrow-label">draw / break</div>
+    <div class="arrow-tip"></div>
+  </div>
 
-      <!-- Handwriting canvas -->
-      <div class="frame-wrap">
-        <div class="frame-label">⑥ Handwriting Canvas (pen mode)</div>
-        <div class="frame">
-          <div class="canvas-screen">
-            <div class="canvas-toolbar">
-              <button class="canvas-btn canvas-btn-ghost">✕ Cancel</button>
-              <div class="canvas-label">✏️ Draw or write</div>
-              <button class="canvas-btn canvas-btn-icon">↩ Undo</button>
-              <button class="canvas-btn canvas-btn-icon">🗑 Clear</button>
-              <button class="canvas-btn canvas-btn-done">✓ Done</button>
-            </div>
-            <div class="canvas-area">
-              <div class="canvas-drawing">
-                <!-- Simulated handwriting strokes using SVG -->
-                <svg width="340" height="240" viewBox="0 0 340 240" style="opacity:.85">
-                  <!-- Simulated cursive-ish strokes in sage ink -->
-                  <path d="M 60 120 Q 80 100 100 115 Q 120 130 140 110 Q 160 90 180 115 Q 200 140 220 120 Q 240 100 260 120"
-                    stroke="#3d6b5c" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M 80 145 Q 100 135 120 140 Q 140 145 160 135 Q 180 125 200 140"
-                    stroke="#3d6b5c" stroke-width="2" fill="none" stroke-linecap="round"/>
-                  <path d="M 90 165 Q 110 158 130 162 Q 150 166 170 158 Q 185 150 200 162"
-                    stroke="#3d6b5c" stroke-width="2" fill="none" stroke-linecap="round"/>
-                  <!-- A few dots / period marks -->
-                  <circle cx="210" cy="162" r="2" fill="#3d6b5c"/>
-                  <!-- Second word-like stroke -->
-                  <path d="M 60 85 Q 75 78 90 84 Q 105 90 120 82"
-                    stroke="#3d6b5c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-                </svg>
-                <!-- Hint text if canvas is empty area -->
-                <div style="position:absolute;bottom:16px;right:16px;font-size:11px;color:#ccc;">
-                  Apple Pencil · Livescribe · any stylus
-                </div>
-              </div>
-            </div>
-          </div>
+  <div class="flow-row">
+    <!-- SCREEN 6: Handwriting Canvas -->
+    <div class="screen-wrap">
+      <div class="screen-label"><span class="screen-num">6</span> Handwriting Canvas</div>
+      <div class="card canvas-card">
+        <div class="canvas-toolbar">
+          <button class="btn-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <span class="canvas-title">Write or draw</span>
+          <button class="btn-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+          </button>
+          <button class="btn-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+          </button>
+          <button class="canvas-check">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Done
+          </button>
+        </div>
+        <div class="canvas-area">
+          <!-- Simulated handwriting strokes -->
+          <svg style="position:absolute;top:0;left:0;width:100%;height:100%" viewBox="0 0 480 300" fill="none">
+            <!-- Fraction work: 1/4 + 1/4 -->
+            <text x="60" y="80" font-family="Georgia,serif" font-size="28" fill="#1e3a8a" opacity="0.7">1</text>
+            <line x1="50" y1="92" x2="90" y2="92" stroke="#1e3a8a" stroke-width="2" opacity="0.7"/>
+            <text x="60" y="118" font-family="Georgia,serif" font-size="28" fill="#1e3a8a" opacity="0.7">4</text>
+            <text x="105" y="100" font-family="Georgia,serif" font-size="24" fill="#1e3a8a" opacity="0.7">+</text>
+            <text x="130" y="80" font-family="Georgia,serif" font-size="28" fill="#1e3a8a" opacity="0.7">1</text>
+            <line x1="122" y1="92" x2="162" y2="92" stroke="#1e3a8a" stroke-width="2" opacity="0.7"/>
+            <text x="130" y="118" font-family="Georgia,serif" font-size="28" fill="#1e3a8a" opacity="0.7">4</text>
+            <text x="175" y="100" font-family="Georgia,serif" font-size="24" fill="#1e3a8a" opacity="0.7">=</text>
+            <text x="200" y="80" font-family="Georgia,serif" font-size="28" fill="#1e3a8a" opacity="0.85">2</text>
+            <line x1="192" y1="92" x2="232" y2="92" stroke="#1e3a8a" stroke-width="2.5" opacity="0.85"/>
+            <text x="200" y="118" font-family="Georgia,serif" font-size="28" fill="#1e3a8a" opacity="0.85">4</text>
+            <!-- Pencil cursor suggestion -->
+            <path d="M300 180 Q320 160 340 180 Q360 200 380 165" stroke="#1e3a8a" stroke-width="1.5" opacity="0.3" fill="none" stroke-dasharray="4 3"/>
+          </svg>
+          <div class="canvas-hint">Apple Pencil · Livescribe · any stylus</div>
         </div>
       </div>
+    </div>
 
-      <!-- Break overlay -->
-      <div class="frame-wrap">
-        <div class="frame-label">⑦ Break Time overlay (grades 4–8)</div>
-        <div class="frame">
-          <div class="break-screen">
-            <div class="break-card">
-              <div class="break-icon">☕</div>
-              <div class="break-title">Break Time!</div>
-              <div class="break-body">
-                Emma, you've been working hard.<br/>
-                Step away, have a snack, and come back refreshed.
-              </div>
-              <div class="break-ring">
-                <svg width="80" height="80" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="#fde68a" stroke-width="6"/>
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="#f59e0b" stroke-width="6"
-                    stroke-dasharray="213.6" stroke-dashoffset="53.4"
-                    stroke-linecap="round"/>
-                </svg>
-                <div class="break-time">7:32</div>
-              </div>
-              <div class="break-sub">until your next learning block</div>
-            </div>
-          </div>
+    <div class="arrow-right">
+      <div class="arrow-line"></div>
+      <div class="arrow-label">or break</div>
+      <div class="arrow-tip"></div>
+    </div>
+
+    <!-- SCREEN 7: Break Time -->
+    <div class="screen-wrap">
+      <div class="screen-label"><span class="screen-num">7</span> Break Time</div>
+      <div class="card break-card">
+        <div class="flex-center break-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>
         </div>
-      </div>
-
-      <!-- Session Summary -->
-      <div class="frame-wrap">
-        <div class="frame-label">⑧ Session Summary (parent report)</div>
-        <div class="frame">
-          <div style="width:300px;background:var(--parchment-50);padding:24px;min-height:320px;display:flex;flex-direction:column;gap:16px;">
-            <div style="text-align:center;">
-              <div style="font-size:32px;margin-bottom:8px;">📋</div>
-              <div style="font-family:var(--font-display);font-size:17px;font-weight:700;color:#1a2a28;">Session Summary</div>
-              <div style="font-size:11px;color:#aaa;margin-top:2px;">Prepared by Bede · for your records</div>
-            </div>
-            <div style="background:white;border-radius:12px;border:1px solid var(--parchment-200);padding:14px;font-size:12px;color:#444;line-height:1.65;font-family:Georgia,serif;">
-              <strong>Emma</strong> completed 4 subjects today (85 minutes).<br/><br/>
-              In <strong>Language Arts</strong>, she demonstrated strong literary analysis skills, identifying the concept of authorial "mood" independently. Connected beautifully to the faith theme of St. Thomas Aquinas.<br/><br/>
-              <strong>Math</strong>: Solid work on long division. Suggest more practice on remainders.<br/><br/>
-              <strong>Notable moment:</strong> Emma submitted a hand-drawn diagram during Nature Study — showed genuine curiosity.
-            </div>
-            <button class="btn-primary">Done — Return Home</button>
-          </div>
+        <div class="break-title">Break Time!</div>
+        <div class="break-ring-wrap">
+          <svg width="90" height="90" viewBox="0 0 90 90">
+            <!-- Track -->
+            <circle cx="45" cy="45" r="36" stroke="#fde68a" stroke-width="8" fill="none"/>
+            <!-- Progress (about 73% of 10 min) -->
+            <circle cx="45" cy="45" r="36" stroke="#f59e0b" stroke-width="8" fill="none"
+              stroke-dasharray="226.2" stroke-dashoffset="61"
+              stroke-linecap="round"/>
+          </svg>
+          <div class="break-time">7:32</div>
         </div>
+        <div class="break-sub">until your next learning block</div>
       </div>
-
     </div>
   </div>
 
-</div>
+  <div class="arrow-down">
+    <div class="arrow-line"></div>
+    <div class="arrow-label">end session</div>
+    <div class="arrow-tip"></div>
+  </div>
 
-<!-- Footer -->
-<div style="text-align:center;margin-top:64px;font-size:11px;color:#bbb;">
-  Agnus Dei / Bede Tutor · Self-hosted Charlotte Mason AI · LAN deployment · June 2026
-</div>
+  <!-- ══════════════════════ SCREEN 8: Session Summary ══════════════════════ -->
+  <div class="screen-wrap">
+    <div class="screen-label"><span class="screen-num">8</span> Session Summary</div>
+    <div class="card summary-card">
+      <div class="flex-center summary-icon">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+      </div>
+      <div class="summary-title">Session Summary</div>
+      <div class="summary-sub">Prepared by Bede &middot; for your records</div>
+      <div class="summary-body">
+        Emma completed Morning Time, Living Books, and Mathematics today. She showed strong reasoning when working through fraction addition, self-correcting from 1/3 to 1/4 after careful reflection. She was engaged and asked a thoughtful question about equivalent fractions. Faith connection made to St. Thomas Aquinas. Recommend reviewing unlike denominators in the next session.
+      </div>
+      <button class="btn-primary">Done — Return Home</button>
+    </div>
+  </div>
 
+</div><!-- /.flow -->
 </body>
 </html>

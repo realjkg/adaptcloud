@@ -18,7 +18,7 @@ interface HandwritingCanvasProps {
   onCancel: () => void
 }
 
-const INK_COLOR = '#3d6b5c'
+const INK_COLOR = '#1b3a6b'
 const PARCHMENT_BG = '#faf8f0'
 
 export default function HandwritingCanvas({ onSubmit, onCancel }: HandwritingCanvasProps) {
@@ -232,7 +232,7 @@ export default function HandwritingCanvas({ onSubmit, onCancel }: HandwritingCan
 
         {/* Center label */}
         <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-sage-700">✏️ Draw</span>
+          <span className="text-sm font-semibold text-navy-700">Draw</span>
         </div>
 
         {/* Right actions */}
@@ -258,7 +258,7 @@ export default function HandwritingCanvas({ onSubmit, onCancel }: HandwritingCan
           <button
             onClick={handleDone}
             title="Send drawing"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sage-500 text-white hover:bg-sage-600 transition-colors font-medium text-sm min-h-[44px]"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-navy-500 text-white hover:bg-navy-600 transition-colors font-medium text-sm min-h-[44px]"
           >
             <Check size={16} />
             <span>Done</span>
