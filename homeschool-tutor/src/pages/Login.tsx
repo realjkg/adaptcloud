@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Lock } from 'lucide-react'
+import { Lock, User, Star, Mic } from 'lucide-react'
 import { login, fetchStudentConfig } from '../services/api'
 import { useSessionStore } from '../store/sessionStore'
 import VoiceVerification from '../components/VoiceVerification'
@@ -139,7 +139,10 @@ export default function Login() {
                 role === r ? 'bg-navy-500 text-white' : 'bg-white text-gray-600 hover:bg-navy-50'
               }`}
             >
-              {r === 'parent' ? '👨‍👩‍👧 Parent' : '🌟 Student'}
+              {r === 'parent'
+                ? <span className="flex items-center justify-center gap-1.5"><User size={13} /> Parent</span>
+                : <span className="flex items-center justify-center gap-1.5"><Star size={13} /> Student</span>
+              }
             </button>
           ))}
         </div>
@@ -165,7 +168,7 @@ export default function Login() {
 
           {role === 'child' && !studentFromUrl && (
             <div className="flex items-start gap-2.5 bg-navy-50 border border-navy-200 rounded-lg px-3 py-2.5">
-              <span className="text-lg mt-0.5">🎤</span>
+              <Mic size={16} className="text-navy-500 flex-shrink-0 mt-0.5" />
               <div className="text-xs text-navy-700">
                 <p className="font-semibold">Voice check required</p>
                 <p className="text-navy-600 mt-0.5">After your PIN, you'll say a short passphrase so Bede knows it's really you.</p>

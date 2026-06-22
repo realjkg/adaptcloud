@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Mic, CheckCircle, AlertTriangle, XCircle, RefreshCw } from 'lucide-react'
+import { Mic, CheckCircle, AlertTriangle, XCircle, RefreshCw, Loader2, ShieldCheck } from 'lucide-react'
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder'
 import { verifyVoice, parentOverrideVoice } from '../services/voiceApi'
 import type { VerifyResult } from '../services/voiceApi'
@@ -68,7 +68,7 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-sage-900/80 to-faith-600/60 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-gradient-to-br from-parchment-100 via-navy-50 to-gold-100 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
         {/* Parent password modal overlay */}
         {showParentModal && (
@@ -92,7 +92,7 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
               <button
                 type="submit"
                 disabled={!parentPw || parentAuthLoading}
-                className="w-full py-2.5 bg-faith-600 text-white rounded-xl font-medium hover:bg-faith-700 disabled:opacity-40 transition-colors"
+                className="w-full py-2.5 bg-navy-600 text-white rounded-xl font-medium hover:bg-navy-700 disabled:opacity-40 transition-colors"
               >
                 {parentAuthLoading ? 'Checking…' : 'Approve Session'}
               </button>
@@ -107,7 +107,11 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
           </div>
         )}
         <div className="text-center mb-5">
-          <div className="text-5xl mb-3">🎙️</div>
+          <div className="flex items-center justify-center mb-3">
+            <div className="w-16 h-16 rounded-full bg-navy-50 border-2 border-navy-200 flex items-center justify-center">
+              <Mic size={30} className="text-navy-500" />
+            </div>
+          </div>
           <h2 className="text-xl font-display font-bold text-gray-800">
             Hi, {studentName}!
           </h2>
@@ -124,7 +128,7 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
           <div className="text-center space-y-4">
             <button
               onClick={() => { setStep('recording'); setTimeout(startRecording, 300) }}
-              className="w-24 h-24 rounded-full bg-sage-500 hover:bg-sage-600 text-white flex items-center justify-center mx-auto shadow-xl transition-all active:scale-95"
+              className="w-24 h-24 rounded-full bg-navy-500 hover:bg-navy-600 text-white flex items-center justify-center mx-auto shadow-xl transition-all active:scale-95"
             >
               <Mic size={40} />
             </button>
@@ -144,7 +148,7 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
               {Array.from({ length: 24 }).map((_, i) => (
                 <div
                   key={i}
-                  className="w-1.5 bg-sage-400 rounded-full transition-all duration-75"
+                  className="w-1.5 bg-navy-400 rounded-full transition-all duration-75"
                   style={{
                     height: `${Math.max(4, level * 60 * (0.3 + Math.random() * 0.7))}px`,
                   }}
@@ -163,7 +167,7 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
 
         {step === 'processing' && (
           <div className="text-center py-8">
-            <div className="text-3xl animate-spin mb-3">🧠</div>
+            <Loader2 size={32} className="animate-spin text-navy-400 mx-auto mb-3" />
             <p className="text-gray-600 text-sm">Checking your voice…</p>
           </div>
         )}
@@ -175,7 +179,7 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
             {result.verified ? (
               <button
                 onClick={() => onVerified(result)}
-                className="w-full py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 bg-navy-500 text-white rounded-xl font-medium hover:bg-navy-600 transition-colors flex items-center justify-center gap-2"
               >
                 <CheckCircle size={18} /> Start Learning!
               </button>
@@ -192,9 +196,9 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
                 {/* Parent override always available */}
                 <button
                   onClick={handleParentOverride}
-                  className="w-full py-2.5 bg-faith-100 text-faith-600 rounded-xl font-medium hover:bg-faith-200 transition-colors text-sm"
+                  className="w-full py-2.5 bg-gold-50 text-gold-600 rounded-xl font-medium hover:bg-gold-100 transition-colors text-sm flex items-center justify-center gap-2"
                 >
-                  👨‍👩‍👧 Parent Approve Session
+                  <ShieldCheck size={15} /> Parent Approve Session
                 </button>
                 {attempts >= MAX_ATTEMPTS && (
                   <p className="text-xs text-center text-gray-400">
@@ -214,7 +218,7 @@ function ConfidenceDisplay({ result }: { result: VerifyResult }) {
   const pct = result.score !== null ? Math.round(result.score * 100) : null
 
   const config = {
-    high: { icon: <CheckCircle size={28} className="text-sage-500" />, color: 'text-sage-700', bg: 'bg-sage-50 border-sage-200' },
+    high: { icon: <CheckCircle size={28} className="text-emerald-500" />, color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
     medium: { icon: <AlertTriangle size={28} className="text-amber-500" />, color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
     low: { icon: <XCircle size={28} className="text-red-400" />, color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
   }[result.level]
@@ -234,7 +238,7 @@ function ConfidenceDisplay({ result }: { result: VerifyResult }) {
         <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              result.level === 'high' ? 'bg-sage-500' : result.level === 'medium' ? 'bg-amber-400' : 'bg-red-400'
+              result.level === 'high' ? 'bg-emerald-500' : result.level === 'medium' ? 'bg-amber-400' : 'bg-red-400'
             }`}
             style={{ width: `${pct}%` }}
           />
