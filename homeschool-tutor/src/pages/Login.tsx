@@ -168,7 +168,7 @@ export default function Login() {
               <span className="text-lg mt-0.5">🎤</span>
               <div className="text-xs text-sage-700">
                 <p className="font-semibold">Voice check required</p>
-                <p className="text-sage-600 mt-0.5">After your PIN, you'll say a short passphrase so Sage knows it's really you.</p>
+                <p className="text-sage-600 mt-0.5">After your PIN, you'll say a short passphrase so Bede knows it's really you.</p>
               </div>
             </div>
           )}

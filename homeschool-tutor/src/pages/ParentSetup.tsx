@@ -199,7 +199,7 @@ export default function ParentSetup() {
           {saving ? (
             <><Loader2 size={18} className="animate-spin" /> Saving…</>
           ) : students.length === 1 ? (
-            <>Begin Session with Sage</>
+            <>Begin Session with Bede</>
           ) : (
             <>Open Pod Dashboard — {students.length} Students</>
           )}
@@ -397,7 +397,7 @@ function StudentCard({
                 />
               </div>
               <div>
-                <label className="label">Note for Sage</label>
+                <label className="label">Note for Bede</label>
                 <textarea
                   value={student.lesson_focus}
                   onChange={(e) => onUpdate({ lesson_focus: e.target.value })}

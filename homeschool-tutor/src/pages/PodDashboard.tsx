@@ -69,7 +69,7 @@ export default function PodDashboard() {
             <li>Copy the session link for that student.</li>
             <li>Open the link on their tablet (or paste into their browser).</li>
             <li>The student logs in with the shared PIN, then says the voice passphrase.</li>
-            <li>Their Sage session starts automatically with their subjects.</li>
+            <li>Their Bede session starts automatically with their subjects.</li>
           </ol>
           <p className="text-xs text-gray-400 mt-3">
             All sessions run independently — multiple students can be active at the same time.

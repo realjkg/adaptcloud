@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="Sage Homeschool Tutor API",
+    title="Bede Homeschool Tutor API",
     description="Secure agentic AI tutor — Charlotte Mason + Socratic method",
     version="3.0.0",
     lifespan=lifespan,

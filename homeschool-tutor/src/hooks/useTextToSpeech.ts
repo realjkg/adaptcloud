@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 /**
- * Web Speech API hook for Sage's voice output.
+ * Web Speech API hook for Bede's voice output.
  *
  * Voice selection priority:
  *  1. "Google UK English Female" — warm, clear, good for children

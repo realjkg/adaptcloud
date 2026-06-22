@@ -117,7 +117,7 @@ export const useSessionStore = create<SessionState>()(
       role: 'system',
       content: `Welcome, ${config.student_name}! Today we begin with ${
         SUBJECTS.find((s) => s.id === firstSubject)?.label ?? firstSubject
-      }. Sage is ready to learn with you. 🌿`,
+      }. Bede is ready to learn with you. 🌿`,
       timestamp: new Date(),
     }
     const now = new Date()

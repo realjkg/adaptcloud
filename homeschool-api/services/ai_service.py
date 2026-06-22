@@ -178,7 +178,7 @@ _SUBJECT_CONTEXT = {
 
 def _build_static_prompt(config: SessionConfig) -> str:
     """Tutor persona, grade stage, and rules — constant within a session. Prompt-cacheable."""
-    return f"""You are Sage — a warm, wise, and patient Socratic tutor following the Charlotte Mason educational philosophy. You are tutoring {config.student_name}, a {config.grade}th-grade student.
+    return f"""You are Bede — a warm, wise, and patient Socratic tutor following the Charlotte Mason educational philosophy. You are tutoring {config.student_name}, a {config.grade}th-grade student.
 
 {_STAGE_GUIDANCE[config.grade_stage]}
 

@@ -27,7 +27,7 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
     setStreaming,
   } = useSessionStore()
 
-  // ── Text-to-speech: Sage speaks its responses ────────────────────────────
+  // ── Text-to-speech: Bede speaks its responses ────────────────────────────
   const { speak, stop: stopSpeech, toggle: toggleTTS, isSpeaking, enabled: ttsEnabled, isSupported: ttsSupported } = useTextToSpeech()
 
   // ── Speech recognition: child speaks instead of typing ──────────────────
@@ -180,7 +180,7 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
         {ttsSupported && (
           <button
             onClick={toggleTTS}
-            title={ttsEnabled ? 'Mute Sage' : 'Unmute Sage'}
+            title={ttsEnabled ? 'Mute Bede' : 'Unmute Bede'}
             className={`p-1.5 rounded-lg transition-colors ${
               ttsEnabled ? 'text-sage-600 bg-white/50 hover:bg-white/80' : 'text-gray-400 hover:text-gray-600'
             }`}
@@ -203,7 +203,7 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
           displayMessages.find((m) => m.id === 'streaming-response')?.content === '' && (
             <div className="flex items-center gap-2 text-sage-500 text-sm animate-pulse-soft">
               <Loader2 size={14} className="animate-spin" />
-              <span>Sage is thinking…</span>
+              <span>Bede is thinking…</span>
             </div>
           )}
         {/* Interim speech-to-text preview */}
@@ -243,12 +243,12 @@ export default function SocraticChat({ breakActive = false }: { breakActive?: bo
             disabled={isStreaming || breakActive}
             placeholder={
               breakActive
-                ? '☕ On a break — Sage will be here when you return'
+                ? '☕ On a break — Bede will be here when you return'
                 : isListening
                 ? '🎤 Listening… speak now'
                 : sttSupported
                 ? 'Type or tap the mic to speak…'
-                : 'Share your thoughts or answer Sage\'s question…'
+                : 'Share your thoughts or answer Bede\'s question…'
             }
             rows={2}
             className="flex-1 resize-none rounded-lg border border-sage-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white placeholder-gray-400 disabled:bg-gray-50"
@@ -317,7 +317,7 @@ function MessageBubble({ msg, studentName }: MsgProps) {
             : 'bg-white border border-sage-100 text-gray-800 rounded-bl-sm shadow-sm'
         }`}
       >
-        {!isUser && <div className="text-xs font-semibold text-sage-600 mb-1">Sage</div>}
+        {!isUser && <div className="text-xs font-semibold text-sage-600 mb-1">Bede</div>}
         {isUser && <div className="text-xs font-semibold text-sage-100 mb-1">{studentName}</div>}
         <div className="whitespace-pre-wrap">{msg.content}</div>
       </div>

@@ -265,14 +265,14 @@ function SessionSummaryView({
           <div className="text-4xl mb-3">📋</div>
           <h1 className="text-xl font-display font-bold text-gray-800">Session Summary</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Prepared by Sage · for your records
+            Prepared by Bede · for your records
           </p>
         </div>
 
         {loading ? (
           <div className="text-center py-12 text-sage-500 animate-pulse-soft">
             <div className="text-2xl mb-3">✍️</div>
-            <p className="text-sm">Sage is writing your summary…</p>
+            <p className="text-sm">Bede is writing your summary…</p>
           </div>
         ) : (
           <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap bg-parchment-50 rounded-xl p-5 border border-parchment-200 font-serif text-sm">

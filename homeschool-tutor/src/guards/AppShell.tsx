@@ -100,7 +100,7 @@ function SplashScreen() {
         <div className="inline-flex items-center justify-center w-16 h-16 bg-sage-100 rounded-2xl mb-4 animate-pulse-soft">
           <BookOpen size={32} className="text-sage-600" />
         </div>
-        <p className="text-sage-600 font-display text-lg font-semibold">Sage</p>
+        <p className="text-sage-600 font-display text-lg font-semibold">Bede</p>
         <p className="text-xs text-gray-400 mt-2">Verifying session…</p>
       </div>
     </div>
