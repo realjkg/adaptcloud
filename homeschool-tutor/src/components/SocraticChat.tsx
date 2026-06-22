@@ -4,7 +4,6 @@ import { streamTutorChat } from '../services/api'
 import { getApiMessages, useSessionStore } from '../store/sessionStore'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useTextToSpeech } from '../hooks/useTextToSpeech'
-import { SUBJECT_MAP } from '../types'
 import HandwritingCanvas from './HandwritingCanvas'
 
 export default function SocraticChat({ breakActive = false, gradeStage }: { breakActive?: boolean; gradeStage?: string }) {
@@ -181,8 +180,6 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
     if (isListening) stopListening()
     else startListening()
   }
-
-  const subjectInfo = SUBJECT_MAP[currentSubject]
 
   const fontClass = gradeStage === 'K-2' ? 'text-base' : 'text-sm'
 
