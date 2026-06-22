@@ -1,4 +1,4 @@
-import type { SessionConfig, Subject, ChatMessage, StreamChunk } from '../types'
+import type { SessionConfig, Subject, ChatMessage, StreamChunk, NarrationAssessmentData, LearnerProfileData } from '../types'
 
 const BASE = '/api'
 
@@ -148,8 +148,6 @@ export async function fetchSessionSummary(
 }
 
 // ── Narration assessments & learner profile ──────────────────────────────────
-
-import type { NarrationAssessmentData, LearnerProfileData } from '../types'
 
 export async function fetchNarrationAssessments(
   token: string,

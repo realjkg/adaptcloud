@@ -4,6 +4,7 @@ import AppShell from './guards/AppShell'
 import Login from './pages/Login'
 import ParentSetup from './pages/ParentSetup'
 import PodDashboard from './pages/PodDashboard'
+import Progress from './pages/Progress'
 import TutorSession from './pages/TutorSession'
 import { useSessionStore } from './store/sessionStore'
 
@@ -75,6 +76,14 @@ export default function App() {
             element={
               <RequireAuth allowedRole="parent">
                 <PodDashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/progress"
+            element={
+              <RequireAuth allowedRole="parent">
+                <Progress />
               </RequireAuth>
             }
           />

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Copy, Check, ExternalLink, Settings } from 'lucide-react'
+import { Copy, Check, ExternalLink, Settings, BarChart2 } from 'lucide-react'
 import { useSessionStore } from '../store/sessionStore'
 import { SUBJECTS } from '../types'
 import type { SessionConfig } from '../types'
@@ -40,6 +40,12 @@ export default function PodDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/progress')}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-sage-700 border border-sage-200 hover:bg-sage-50 rounded-lg transition-colors"
+            >
+              <BarChart2 size={14} /> View Progress
+            </button>
             <button
               onClick={() => navigate('/setup')}
               className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-200 hover:border-sage-300 rounded-lg transition-colors"
