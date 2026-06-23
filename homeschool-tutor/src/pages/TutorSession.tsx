@@ -4,6 +4,7 @@ import { LogOut, FileText, ChevronDown, Loader2, AlertCircle, PenLine } from 'lu
 import { getApiMessages, useSessionStore } from '../store/sessionStore'
 import SocraticChat from '../components/SocraticChat'
 import SubjectDrawer from '../components/SubjectDrawer'
+import SubjectNav from '../components/SubjectNav'
 import { fetchSessionSummary, fetchStudentConfig } from '../services/api'
 import { SUBJECT_MAP } from '../types'
 import { getTimerConfig, getPhase, fmtTime } from '../utils/gradeTimer'
@@ -96,7 +97,8 @@ export default function TutorSession() {
 
   return (
     <div className="h-screen flex flex-col bg-parchment-50 overflow-hidden">
-      {/* ── Minimal header ── */}
+
+      {/* ── Header ── */}
       <header className="pt-safe bg-white border-b border-navy-100 shrink-0 h-12 flex items-center px-4 gap-2">
         <img src="/agnus-dei.png" alt="Agnus Dei" className="w-6 h-6 shrink-0" />
 
@@ -104,19 +106,25 @@ export default function TutorSession() {
           {sessionConfig.student_name}
         </span>
 
-        {/* Subject pill — tap to open drawer */}
+        {/* Subject pill — phone/tablet small only; sidebar replaces this at lg */}
         <button
           onClick={() => setDrawerOpen(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-navy-50 text-navy-700 text-xs font-medium border border-navy-100 hover:bg-navy-100 transition-colors shrink-0"
+          className="lg:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-navy-50 text-navy-700 text-xs font-medium border border-navy-100 hover:bg-navy-100 transition-colors shrink-0"
         >
           {subjectInfo && <subjectInfo.Icon size={12} />}
           <span className="max-w-[120px] truncate">{subjectInfo?.label}</span>
           <ChevronDown size={11} />
         </button>
 
+        {/* Static subject label at lg — sidebar is the interactive list */}
+        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-navy-50 text-navy-700 text-xs font-medium border border-navy-100 shrink-0 pointer-events-none">
+          {subjectInfo && <subjectInfo.Icon size={12} />}
+          <span className="max-w-[160px] truncate">{subjectInfo?.label}</span>
+        </div>
+
         <div className="flex-1" />
 
-        {/* Timer — only visible in warning zone or on break */}
+        {/* Timer — warning zone or break only */}
         {(isWarning || isOnBreak) && (
           <div className={`text-xs font-mono font-semibold tabular-nums ${
             isOnBreak ? 'text-amber-600' : 'text-red-500'
@@ -145,25 +153,39 @@ export default function TutorSession() {
         </button>
       </header>
 
-      {/* ── Full-height chat ── */}
-      <main className="flex-1 overflow-hidden relative">
-        {/* Break overlay */}
-        {isOnBreak && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-parchment-50/90 backdrop-blur-sm p-6">
-            <div className="bg-white rounded-2xl border border-amber-200 shadow-xl p-8 max-w-sm w-full text-center">
-              <Coffee size={36} className="mx-auto mb-4 text-amber-500" />
-              <h2 className="text-xl font-display font-bold text-gray-800 mb-2">Break Time</h2>
-              <p className="text-sm text-gray-600 mb-1">{sessionConfig.student_name}, you've been working hard.</p>
-              <p className="text-sm text-gray-500 mb-6">Step away, have a snack, come back refreshed.</p>
-              <div className="text-3xl font-mono font-bold text-amber-600 mb-1">{fmtTime(remainingSecs)}</div>
-              <p className="text-xs text-gray-400">until your next learning block</p>
-            </div>
-          </div>
-        )}
-        <SocraticChat breakActive={isOnBreak} gradeStage={sessionConfig.grade_stage} />
-      </main>
+      {/* ── Body: sidebar (lg+) + chat ── */}
+      <div className="flex-1 flex overflow-hidden">
 
-      {/* ── Subject drawer ── */}
+        {/* Persistent sidebar — lg and above only */}
+        <SubjectNav
+          subjects={sessionConfig.subjects}
+          currentSubject={currentSubject}
+          completed={subjectsCompleted}
+          config={sessionConfig}
+          onNext={nextSubject}
+          disabled={isStreaming}
+          sessionStartedAt={sessionStartedAt}
+        />
+
+        {/* Chat column */}
+        <main className="flex-1 overflow-hidden relative">
+          {isOnBreak && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-parchment-50/90 backdrop-blur-sm p-6">
+              <div className="bg-white rounded-2xl border border-amber-200 shadow-xl p-8 max-w-sm w-full text-center">
+                <Coffee size={36} className="mx-auto mb-4 text-amber-500" />
+                <h2 className="text-xl font-display font-bold text-gray-800 mb-2">Break Time</h2>
+                <p className="text-sm text-gray-600 mb-1">{sessionConfig.student_name}, you've been working hard.</p>
+                <p className="text-sm text-gray-500 mb-6">Step away, have a snack, come back refreshed.</p>
+                <div className="text-3xl font-mono font-bold text-amber-600 mb-1">{fmtTime(remainingSecs)}</div>
+                <p className="text-xs text-gray-400">until your next learning block</p>
+              </div>
+            </div>
+          )}
+          <SocraticChat breakActive={isOnBreak} gradeStage={sessionConfig.grade_stage} />
+        </main>
+      </div>
+
+      {/* ── Subject drawer — small screens only ── */}
       <SubjectDrawer
         open={drawerOpen}
         subjects={sessionConfig.subjects}

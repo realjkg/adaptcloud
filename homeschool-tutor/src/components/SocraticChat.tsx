@@ -181,12 +181,12 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
     else startListening()
   }
 
-  const fontClass = gradeStage === 'K-2' ? 'text-base' : 'text-sm'
+  const fontClass = gradeStage === 'K-2' ? 'text-base lg:text-lg' : 'text-sm lg:text-base'
 
   return (
     <div className="flex flex-col h-full bg-parchment-50">
       {/* Messages */}
-      <div className={`flex-1 overflow-y-auto px-4 py-4 space-y-3 ${fontClass}`}>
+      <div className={`flex-1 overflow-y-auto px-4 lg:px-8 py-4 lg:py-6 space-y-3 lg:space-y-5 ${fontClass}`}>
         {displayMessages.map((msg) => (
           <MessageBubble key={msg.id} msg={msg} studentName={sessionConfig?.student_name ?? 'You'} />
         ))}
@@ -220,7 +220,7 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
       )}
 
       {/* Input bar */}
-      <div className="px-4 py-3 bg-white border-t border-parchment-200">
+      <div className="px-4 lg:px-8 py-3 lg:py-4 bg-white border-t border-parchment-200">
         <div className="flex gap-2 items-end">
           {/* Pen/drawing button */}
           <button
@@ -337,7 +337,7 @@ function MessageBubble({ msg, studentName }: MsgProps) {
     }
     const cls = toolAccent[msg.tool] ?? 'border-l-[3px] border-gray-300 bg-gray-50/70'
     return (
-      <div className={`pl-3 pr-4 py-2.5 rounded-r-xl text-sm leading-relaxed text-gray-700 animate-slide-up ${cls}`}>
+      <div className={`pl-3 pr-4 lg:pr-6 py-2.5 lg:py-3 rounded-r-xl text-sm lg:text-base leading-relaxed lg:leading-loose text-gray-700 max-w-[90%] lg:max-w-[70%] animate-slide-up ${cls}`}>
         {msg.content}
       </div>
     )
@@ -347,7 +347,7 @@ function MessageBubble({ msg, studentName }: MsgProps) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in`}>
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+        className={`max-w-[80%] lg:max-w-[66%] rounded-2xl px-4 py-3 lg:px-5 lg:py-3.5 text-sm lg:text-base leading-relaxed lg:leading-loose ${
           isUser
             ? 'bg-navy-500 text-white rounded-br-sm'
             : 'bg-white border border-navy-100 text-gray-800 rounded-bl-sm shadow-sm'
