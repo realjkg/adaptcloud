@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agnus Dei — Responsive Breakpoints</title>
+<style>
+:root {
+  --n50:#f0f4fb; --n100:#dce6f7; --n200:#b9cdef; --n300:#87a9e2;
+  --n400:#5585d5; --n500:#1e3a8a; --n600:#17306e;
+  --g50:#fefae8;  --g100:#fdf2c1; --g400:#f5c014; --g500:#d4a106;
+  --p:#fefcf7; --p100:#fdf8ee; --p200:#f9eecc;
+  --e50:#ecfdf5;  --e400:#34d399; --e500:#10b981;
+  --a50:#fffbeb;  --a400:#fbbf24; --a600:#d97706;
+  --r500:#ef4444;
+  --o50:#fff7ed;  --o200:#fed7aa;
+  --gy100:#f3f4f6; --gy200:#e5e7eb; --gy300:#d1d5db;
+  --gy400:#9ca3af; --gy500:#6b7280; --gy700:#374151; --gy800:#1f2937;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#e2e8f0;color:var(--gy800);padding:48px 24px 100px;font-size:14px;line-height:1.5}
+svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+h1.pg-title{font-size:23px;font-weight:700;color:var(--n500);margin-bottom:4px}
+p.pg-sub{font-size:13px;color:var(--gy500);margin-bottom:48px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--n400);margin-bottom:4px}
+.sec-title{font-size:18px;font-weight:700;color:var(--gy800);margin-bottom:24px}
+section{margin-bottom:72px}
+
+/* ── frames row ── */
+.frames-row{display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;justify-content:flex-start}
+
+/* ── frame wrappers ── */
+.frame-wrap{display:flex;flex-direction:column;align-items:center;gap:16px}
+.frame-lbl{font-size:13px;font-weight:700;color:var(--gy700);text-align:center}
+.frame-note{font-size:12px;color:var(--gy400);font-style:italic;text-align:center;max-width:340px;line-height:1.6}
+
+/* ── PHONE frame (375×780 display, 0.7 scale) ── */
+.phone-shell{
+  width:263px; /* 375 * 0.7 */
+  background:#1a1a2e;
+  border-radius:38px;
+  padding:8px;
+  box-shadow:0 20px 50px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.05);
+}
+.phone-inner{
+  border-radius:32px;overflow:hidden;background:var(--p);
+  display:flex;flex-direction:column;min-height:560px;position:relative;
+}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:70px;height:17px;background:#1a1a2e;border-radius:0 0 11px 11px;z-index:10}
+
+/* ── IPAD portrait frame (1024px layout shown at 640px display) ── */
+.ipad-p-shell{
+  width:640px;
+  background:#2a2a3e;
+  border-radius:28px;
+  padding:12px;
+  box-shadow:0 20px 50px rgba(0,0,0,.28);
+}
+.ipad-p-inner{
+  border-radius:18px;overflow:hidden;background:var(--p);
+  display:flex;flex-direction:column;height:854px;
+}
+
+/* ── IPAD landscape frame (1366px layout shown at 780px display) ── */
+.ipad-l-shell{
+  width:780px;
+  background:#2a2a3e;
+  border-radius:22px;
+  padding:12px;
+  box-shadow:0 20px 50px rgba(0,0,0,.28);
+}
+.ipad-l-inner{
+  border-radius:14px;overflow:hidden;background:var(--p);
+  display:flex;flex-direction:column;height:590px;
+}
+
+/* ── shared layout pieces ── */
+
+/* header */
+.s-hdr{height:48px;background:#fff;border-bottom:1px solid var(--n100);display:flex;align-items:center;padding:0 14px;gap:8px;flex-shrink:0;position:relative;z-index:5}
+.s-hdr.tall{height:56px}
+.logo-circle{width:26px;height:26px;border-radius:7px;background:var(--n50);border:1px solid var(--n200);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sname{font-size:13px;font-weight:600;color:var(--gy800)}
+.subj-pill{display:flex;align-items:center;gap:3px;padding:3px 8px 3px 6px;border-radius:20px;background:var(--o50);border:1px solid var(--o200);color:#9a3412;font-size:10px;font-weight:600}
+.subj-pill svg{width:9px;height:9px}
+.subj-static{display:flex;align-items:center;gap:3px;padding:3px 8px 3px 6px;border-radius:20px;background:var(--n50);border:1px solid var(--n100);color:var(--n600);font-size:10px;font-weight:500}
+.subj-static svg{width:9px;height:9px}
+.spacer{flex:1}
+.hbtn{width:26px;height:26px;border-radius:7px;background:var(--gy100);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn svg{width:13px;height:13px;color:var(--gy500)}
+
+/* sidebar */
+.sidebar{background:#fff;border-right:1px solid var(--n100);display:flex;flex-direction:column;flex-shrink:0;height:100%;overflow:hidden}
+.sidebar.w64{width:256px}
+.sidebar.w72{width:288px}
+.sb-sect{padding:14px 16px;border-bottom:1px solid var(--n50)}
+.sb-eyebrow{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--gy400);margin-bottom:2px}
+.sb-who{font-size:11px;font-weight:500;color:var(--gy500)}
+
+.sb-bar-row{display:flex;justify-content:space-between;font-size:10px;color:var(--gy400);margin-bottom:4px}
+.sb-bar-row .val{font-weight:600;color:var(--n500)}
+.sb-bar-track{height:5px;background:var(--n50);border-radius:3px;overflow:hidden}
+.sb-bar-fill{height:100%;border-radius:3px;background:var(--n300)}
+
+.sb-list{flex:1;overflow-y:auto;padding:10px 10px;display:flex;flex-direction:column;gap:1px}
+.sb-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px}
+.sb-item.cur{background:var(--n50)}
+.sb-dot-done{width:12px;height:12px;flex-shrink:0;color:var(--n400)}
+.sb-dot-done svg{width:12px;height:12px}
+.sb-dot-cur{width:12px;height:12px;border-radius:50%;background:var(--n500);flex-shrink:0;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--n200)}
+.sb-dot-up{width:12px;height:12px;border-radius:50%;border:2px solid var(--gy300);flex-shrink:0}
+.sb-icon svg{width:11px;height:11px}
+.sb-icon.cur-i svg{color:var(--n600)}
+.sb-icon.done-i svg{color:var(--gy300)}
+.sb-icon.up-i svg{color:var(--gy400)}
+.sb-label{flex:1;font-size:10px}
+.sb-label.cur-l{font-weight:700;color:var(--n700,#112252)}
+.sb-label.done-l{color:var(--gy300);text-decoration:line-through}
+.sb-label.up-l{color:var(--gy500)}
+.sb-dur{font-size:9px;color:var(--gy300);tabular-nums}
+
+.sb-ctx{padding:10px 14px;border-top:1px solid var(--n50);font-size:10px}
+.sb-unit{color:var(--gy400);line-height:1.5;margin-bottom:6px}
+.sb-unit strong{color:var(--gy600,#4b5563)}
+.sb-faith{background:var(--g50);border:1px solid var(--g100);border-radius:8px;padding:7px 9px;font-size:10px;color:var(--g500);line-height:1.5}
+
+.sb-next{padding:10px 14px;border-top:1px solid var(--n50)}
+.sb-next-btn{width:100%;padding:8px;border-radius:10px;background:var(--n500);color:#fff;font-size:10px;font-weight:700;text-align:center}
+
+/* body flex */
+.body-flex{flex:1;display:flex;overflow:hidden}
+
+/* chat */
+.chat-col{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--p)}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.chat-msgs.roomy{padding:20px 28px;gap:16px}
+.chat-msgs.roomier{padding:20px 32px;gap:18px}
+
+.b-bede{background:#fff;border:1px solid var(--n100);border-radius:14px 14px 14px 3px;padding:10px 12px;max-width:82%;align-self:flex-start;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.b-bede.wide{max-width:68%}
+.b-bede.wider{max-width:62%}
+.bede-lbl{font-size:9px;font-weight:700;color:var(--n500);margin-bottom:3px}
+.b-user{background:var(--n500);color:#fff;border-radius:14px 14px 3px 14px;padding:10px 12px;max-width:82%;align-self:flex-end}
+.b-user.wide{max-width:68%}
+.b-user.wider{max-width:62%}
+.user-lbl{font-size:9px;font-weight:700;color:var(--n300);margin-bottom:3px}
+.b-tool{padding:7px 10px 7px 9px;border-radius:0 10px 10px 0;max-width:88%;align-self:flex-start;font-size:11px;line-height:1.55;color:var(--gy700)}
+.b-tool.wide{max-width:72%}
+.b-tool.wider{max-width:68%}
+.tc-hint{border-left:3px solid var(--n300);background:rgba(135,169,226,.11)}
+.tc-faith{border-left:3px solid var(--g400);background:rgba(245,192,20,.08)}
+.msg-txt{font-size:12px;line-height:1.55;white-space:pre-wrap}
+.msg-txt.md{font-size:13px;line-height:1.6}
+.msg-txt.lg{font-size:14px;line-height:1.65}
+
+/* input bar */
+.i-bar{padding:10px 14px 13px;background:#fff;border-top:1px solid var(--p200);flex-shrink:0}
+.i-bar.roomy{padding:12px 28px 16px}
+.i-bar.roomier{padding:14px 32px 18px}
+.i-row{display:flex;gap:6px;align-items:flex-end}
+.ibtn{width:32px;height:32px;border-radius:8px;background:var(--n100);color:var(--n600);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ibtn svg{width:14px;height:14px}
+.itxt{flex:1;border:1px solid var(--n200);border-radius:8px;padding:6px 9px;font-size:11px;color:var(--gy400);background:#fff;min-height:32px;display:flex;align-items:center}
+.isend{width:32px;height:32px;border-radius:8px;background:var(--n500);color:#fff;display:flex;align-items:center;justify-content:center}
+.isend svg{width:14px;height:14px}
+.ibar-hint{font-size:9px;color:var(--gy400);margin-top:4px;text-align:center}
+
+/* drawer bottom sheet (phone) */
+.drawer-pill{display:flex;justify-content:center;padding:8px 0 4px}
+.drawer-handle{width:36px;height:4px;border-radius:2px;background:var(--gy200)}
+.drawer-content{padding:0 16px 20px}
+.drawer-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-top:6px}
+.drawer-lbl{font-size:10px;font-weight:700;color:var(--gy400);text-transform:uppercase;letter-spacing:.06em}
+
+/* ── PHILOSOPHY SECTION ── */
+.phil-card{background:#fff;border:1px solid var(--n100);border-radius:18px;padding:32px;max-width:860px;margin:0 auto}
+.phil-title{font-size:17px;font-weight:700;color:var(--gy800);margin-bottom:24px;text-align:center}
+.phil-cols{display:flex;flex-wrap:wrap;gap:24px}
+.phil-col{flex:1;min-width:200px}
+.phil-col-title{font-size:12px;font-weight:700;color:var(--n500);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.phil-col-title svg{width:14px;height:14px;color:var(--n400)}
+.phil-col p{font-size:13px;color:var(--gy500);line-height:1.7}
+.phil-divider{width:1px;background:var(--gy200);flex-shrink:0}
+
+/* lamb SVG shorthand */
+.lamb-svg{display:block}
+</style>
+</head>
+<body>
+
+<h1 class="pg-title">Agnus Dei — Responsive Breakpoints</h1>
+<p class="pg-sub">Same session, three screens. Emma · Grade 4 · History &amp; Geography · mid-Socratic conversation.</p>
+
+<!-- ══════════════ FRAMES ══════════════ -->
+<section>
+  <p class="eyebrow">Section 1</p>
+  <p class="sec-title">Session UI Across Device Sizes</p>
+
+  <div class="frames-row">
+
+    <!-- ════════ FRAME 1: PHONE 375px ════════ -->
+    <div class="frame-wrap">
+      <p class="frame-lbl">Phone — 375px</p>
+
+      <div class="phone-shell">
+        <div class="phone-inner">
+          <div class="notch"></div>
+
+          <!-- header -->
+          <div class="s-hdr" style="margin-top:17px;">
+            <div class="logo-circle">
+              <!-- lamb -->
+              <svg viewBox="0 0 20 20" width="14" height="14" stroke="none">
+                <ellipse cx="10" cy="13" rx="6" ry="4.5" fill="#dce6f7" stroke="#87a9e2" stroke-width=".7"/>
+                <circle cx="10" cy="7.5" r="3" fill="#dce6f7" stroke="#87a9e2" stroke-width=".7"/>
+                <circle cx="8.8" cy="6.9" r=".5" fill="#1e3a8a"/>
+                <line x1="14" y1="9" x2="14" y2="4" stroke="#d4a106" stroke-width=".8"/>
+                <rect x="14" y="4" width="3.5" height="2" fill="#d4a106" rx=".3"/>
+              </svg>
+            </div>
+            <span class="sname" style="font-size:12px;">Emma</span>
+            <!-- subject pill — tap to open drawer -->
+            <div class="subj-pill">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg>
+              History
+              <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="spacer"></div>
+            <div class="hbtn"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+          </div>
+
+          <!-- chat -->
+          <div class="chat-msgs">
+            <div class="b-bede">
+              <div class="bede-lbl">Bede</div>
+              <div class="msg-txt">Close your eyes — picture England in 1215. What do you think life was like for an ordinary farmer?</div>
+            </div>
+            <div class="b-user">
+              <div class="user-lbl">Emma</div>
+              <div class="msg-txt">Really hard. They had to grow all their own food.</div>
+            </div>
+            <div class="b-tool tc-hint">
+              Good start. Who did that farmer answer to — and what happened if he refused?
+            </div>
+            <div class="b-user">
+              <div class="user-lbl">Emma</div>
+              <div class="msg-txt">The lord? Or maybe the king?</div>
+            </div>
+            <div class="b-bede">
+              <div class="bede-lbl">Bede</div>
+              <div class="msg-txt">Both — that chain of ownership is the feudal system. Here's a harder question: if the king could take any lord's land overnight, what might the lords eventually do?</div>
+            </div>
+          </div>
+
+          <!-- input bar -->
+          <div class="i-bar">
+            <div class="i-row">
+              <div class="ibtn"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+              <div class="ibtn"><svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></div>
+              <div class="ibtn"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+              <div class="itxt">Share your thinking…</div>
+              <div class="isend"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
+            </div>
+            <p class="ibar-hint">Enter to send · mic for voice · pen to draw</p>
+          </div>
+
+        </div>
+      </div>
+
+      <p class="frame-note">
+        Drawer-only navigation. Subject list hidden until the history pill is tapped.<br>
+        Timer invisible until the 5-minute warning. Everything in one compact column.
+      </p>
+    </div>
+
+    <!-- ════════ FRAME 2: iPAD 13 PORTRAIT 1024px ════════ -->
+    <div class="frame-wrap">
+      <p class="frame-lbl">iPad 13 Portrait — 1024px <span style="font-weight:400;color:var(--gy400)">(shown at 640px)</span></p>
+
+      <div class="ipad-p-shell">
+        <div class="ipad-p-inner">
+
+          <!-- header -->
+          <div class="s-hdr">
+            <div class="logo-circle">
+              <svg viewBox="0 0 20 20" width="14" height="14" stroke="none">
+                <ellipse cx="10" cy="13" rx="6" ry="4.5" fill="#dce6f7" stroke="#87a9e2" stroke-width=".7"/>
+                <circle cx="10" cy="7.5" r="3" fill="#dce6f7" stroke="#87a9e2" stroke-width=".7"/>
+                <circle cx="8.8" cy="6.9" r=".5" fill="#1e3a8a"/>
+                <line x1="14" y1="9" x2="14" y2="4" stroke="#d4a106" stroke-width=".8"/>
+                <rect x="14" y="4" width="3.5" height="2" fill="#d4a106" rx=".3"/>
+              </svg>
+            </div>
+            <span class="sname">Emma</span>
+            <!-- static label at lg — no drawer trigger -->
+            <div class="subj-static">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg>
+              History &amp; Geography
+            </div>
+            <div class="spacer"></div>
+            <div class="hbtn" style="margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+            <div class="hbtn"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+          </div>
+
+          <!-- body: sidebar + chat -->
+          <div class="body-flex">
+
+            <!-- sidebar -->
+            <div class="sidebar w64">
+              <div class="sb-sect">
+                <div class="sb-eyebrow">Today's Plan</div>
+                <div class="sb-who">Emma · Grade 4</div>
+              </div>
+              <div class="sb-sect">
+                <div class="sb-bar-row"><span>Session</span><span class="val">39 / 120 min</span></div>
+                <div class="sb-bar-track"><div class="sb-bar-fill" style="width:32.5%"></div></div>
+              </div>
+              <div class="sb-list">
+                <!-- done -->
+                <div class="sb-item">
+                  <span class="sb-dot-done"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <span class="sb-icon done-i"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+                  <span class="sb-label done-l">Morning Time</span>
+                  <span class="sb-dur">20m</span>
+                </div>
+                <!-- current -->
+                <div class="sb-item cur">
+                  <span class="sb-dot-cur"></span>
+                  <span class="sb-icon cur-i"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg></span>
+                  <span class="sb-label cur-l">History</span>
+                  <span class="sb-dur" style="color:var(--n400);font-weight:700;">25m</span>
+                </div>
+                <!-- upcoming -->
+                <div class="sb-item">
+                  <span class="sb-dot-up"></span>
+                  <span class="sb-icon up-i"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="2" y1="9" x2="8" y2="9"/><line x1="2" y1="15" x2="8" y2="15"/></svg></span>
+                  <span class="sb-label up-l">Mathematics</span>
+                  <span class="sb-dur">20m</span>
+                </div>
+                <div class="sb-item">
+                  <span class="sb-dot-up"></span>
+                  <span class="sb-icon up-i"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                  <span class="sb-label up-l">Nature Study</span>
+                  <span class="sb-dur">20m</span>
+                </div>
+                <div class="sb-item">
+                  <span class="sb-dot-up"></span>
+                  <span class="sb-icon up-i"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+                  <span class="sb-label up-l">Language Arts</span>
+                  <span class="sb-dur">15m</span>
+                </div>
+              </div>
+              <div class="sb-ctx">
+                <div class="sb-unit"><strong>Unit:</strong> Medieval England &amp; Magna Carta</div>
+                <div class="sb-faith">Faith: connect the Church's role in limiting royal power — Becket, Innocent III</div>
+              </div>
+              <div class="sb-next">
+                <div class="sb-next-btn">Next Subject</div>
+              </div>
+            </div>
+
+            <!-- chat -->
+            <div class="chat-col">
+              <div class="chat-msgs roomy">
+                <div class="b-bede wide">
+                  <div class="bede-lbl">Bede</div>
+                  <div class="msg-txt md">Close your eyes for a moment — picture England in 1215. Muddy fields, stone castles, barons in iron armour. When you're ready, tell me: what do you think life was like for an ordinary farmer back then?</div>
+                </div>
+                <div class="b-user wide">
+                  <div class="user-lbl">Emma</div>
+                  <div class="msg-txt md">Really hard. They had to grow all their own food and couldn't go anywhere.</div>
+                </div>
+                <div class="b-tool tc-hint wide">
+                  Good start. Tell me more — who did that farmer answer to? Who owned the land he worked?
+                </div>
+                <div class="b-user wide">
+                  <div class="user-lbl">Emma</div>
+                  <div class="msg-txt md">The lord? Or maybe the king?</div>
+                </div>
+                <div class="b-bede wide">
+                  <div class="bede-lbl">Bede</div>
+                  <div class="msg-txt md">Both, actually — and that chain of ownership is what we call the feudal system. Here's a harder question: if the king could take any lord's land overnight, what might the lords eventually do about that?</div>
+                </div>
+              </div>
+              <div class="i-bar roomy">
+                <div class="i-row">
+                  <div class="ibtn"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+                  <div class="ibtn"><svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></div>
+                  <div class="ibtn"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+                  <div class="itxt" style="font-size:12px;">Share your thinking, Emma…</div>
+                  <div class="isend"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
+                </div>
+                <p class="ibar-hint">Enter to send · mic for voice · pen to draw</p>
+              </div>
+            </div>
+
+          </div><!-- /body-flex -->
+        </div>
+      </div>
+
+      <p class="frame-note">
+        Persistent sidebar — Today's Plan always visible, acts as a chapter list.<br>
+        Chat takes the remaining 768px. Subject pill becomes a static label; no drawer needed.<br>
+        Bubbles narrow to 68% max-width — readable like a paragraph, not a chat balloon.
+      </p>
+    </div>
+
+    <!-- ════════ FRAME 3: iPAD 13 LANDSCAPE 1366px ════════ -->
+    <div class="frame-wrap">
+      <p class="frame-lbl">iPad 13 Landscape — 1366px <span style="font-weight:400;color:var(--gy400)">(shown at 780px)</span></p>
+
+      <div class="ipad-l-shell">
+        <div class="ipad-l-inner">
+
+          <!-- header (slightly taller in landscape) -->
+          <div class="s-hdr tall">
+            <div class="logo-circle" style="width:28px;height:28px;">
+              <svg viewBox="0 0 20 20" width="15" height="15" stroke="none">
+                <ellipse cx="10" cy="13" rx="6" ry="4.5" fill="#dce6f7" stroke="#87a9e2" stroke-width=".7"/>
+                <circle cx="10" cy="7.5" r="3" fill="#dce6f7" stroke="#87a9e2" stroke-width=".7"/>
+                <circle cx="8.8" cy="6.9" r=".5" fill="#1e3a8a"/>
+                <line x1="14" y1="9" x2="14" y2="4" stroke="#d4a106" stroke-width=".8"/>
+                <rect x="14" y="4" width="3.5" height="2" fill="#d4a106" rx=".3"/>
+              </svg>
+            </div>
+            <span class="sname" style="font-size:14px;">Emma</span>
+            <div class="subj-static" style="font-size:11px;padding:4px 10px 4px 7px;">
+              <svg viewBox="0 0 24 24" width="10" height="10"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg>
+              History &amp; Geography
+            </div>
+            <div class="spacer"></div>
+            <div class="hbtn" style="margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+            <div class="hbtn"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+          </div>
+
+          <div class="body-flex">
+
+            <!-- wider sidebar in landscape -->
+            <div class="sidebar w72">
+              <div class="sb-sect" style="padding:16px 18px;">
+                <div class="sb-eyebrow">Today's Plan</div>
+                <div class="sb-who" style="font-size:12px;">Emma · Grade 4 · Tuesday 22 June</div>
+              </div>
+              <div class="sb-sect" style="padding:12px 18px;">
+                <div class="sb-bar-row" style="font-size:11px;"><span>Session time</span><span class="val" style="font-size:11px;">39 / 120 min</span></div>
+                <div class="sb-bar-track" style="height:6px;"><div class="sb-bar-fill" style="width:32.5%;"></div></div>
+              </div>
+              <div class="sb-list" style="padding:12px;">
+                <div class="sb-item">
+                  <span class="sb-dot-done"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+                  <span class="sb-icon done-i"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+                  <span class="sb-label done-l" style="font-size:11px;">Morning Time</span>
+                  <span class="sb-dur">20m</span>
+                </div>
+                <div class="sb-item cur">
+                  <span class="sb-dot-cur"></span>
+                  <span class="sb-icon cur-i"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg></span>
+                  <span class="sb-label cur-l" style="font-size:11px;">History &amp; Geography</span>
+                  <span class="sb-dur" style="color:var(--n400);font-weight:700;">25m</span>
+                </div>
+                <div class="sb-item">
+                  <span class="sb-dot-up"></span>
+                  <span class="sb-icon up-i"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="2" y1="9" x2="8" y2="9"/><line x1="2" y1="15" x2="8" y2="15"/></svg></span>
+                  <span class="sb-label up-l" style="font-size:11px;">Mathematics</span>
+                  <span class="sb-dur">20m</span>
+                </div>
+                <div class="sb-item">
+                  <span class="sb-dot-up"></span>
+                  <span class="sb-icon up-i"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                  <span class="sb-label up-l" style="font-size:11px;">Nature Study</span>
+                  <span class="sb-dur">20m</span>
+                </div>
+                <div class="sb-item">
+                  <span class="sb-dot-up"></span>
+                  <span class="sb-icon up-i"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+                  <span class="sb-label up-l" style="font-size:11px;">Language Arts</span>
+                  <span class="sb-dur">15m</span>
+                </div>
+              </div>
+              <div class="sb-ctx" style="padding:12px 16px;">
+                <div class="sb-unit" style="font-size:11px;"><strong>Unit:</strong> Medieval England &amp; Magna Carta</div>
+                <div class="sb-faith" style="font-size:11px;margin-top:6px;">Faith: connect the Church's role in limiting royal power — Becket, Innocent III</div>
+              </div>
+              <div class="sb-next" style="padding:12px 16px;">
+                <div class="sb-next-btn">Next Subject</div>
+              </div>
+            </div>
+
+            <!-- chat — landscape has more visible turns -->
+            <div class="chat-col">
+              <div class="chat-msgs roomier">
+                <div class="b-bede wider">
+                  <div class="bede-lbl">Bede</div>
+                  <div class="msg-txt lg">Close your eyes — picture England in 1215. Muddy fields, stone castles, barons in iron armour. What do you think life was like for an ordinary farmer?</div>
+                </div>
+                <div class="b-user wider">
+                  <div class="user-lbl">Emma</div>
+                  <div class="msg-txt lg">Really hard. They had to grow all their own food and couldn't go anywhere.</div>
+                </div>
+                <div class="b-tool tc-hint wider">
+                  Good start. Who did that farmer answer to — who owned the land he worked?
+                </div>
+                <div class="b-user wider">
+                  <div class="user-lbl">Emma</div>
+                  <div class="msg-txt lg">The lord? Or maybe the king?</div>
+                </div>
+                <div class="b-bede wider">
+                  <div class="bede-lbl">Bede</div>
+                  <div class="msg-txt lg">Both — that chain is the feudal system. If the king could take any lord's land overnight, what might the lords eventually do?</div>
+                </div>
+                <div class="b-user wider">
+                  <div class="user-lbl">Emma</div>
+                  <div class="msg-txt lg">Maybe fight back? Or refuse to pay taxes?</div>
+                </div>
+                <div class="b-bede wider">
+                  <div class="bede-lbl">Bede</div>
+                  <div class="msg-txt lg">Precisely — and in 1215 that's exactly what 25 barons did. They marched to London and forced King John to the table. What document do you think came out of that confrontation?</div>
+                </div>
+                <div class="b-tool tc-faith wider">
+                  This moment is one of the great examples of law limiting power — a theme that winds through Scripture too. No one, not even a king, stands above justice.
+                </div>
+              </div>
+              <div class="i-bar roomier">
+                <div class="i-row">
+                  <div class="ibtn"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+                  <div class="ibtn"><svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></div>
+                  <div class="ibtn"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+                  <div class="itxt" style="font-size:13px;">Share your thinking, Emma…</div>
+                  <div class="isend"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
+                </div>
+                <p class="ibar-hint" style="font-size:10px;">Enter to send · mic for voice · pen to draw</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <p class="frame-note">
+        Landscape canvas. Wider sidebar (288px), more subject context visible.<br>
+        Chat bubbles at 62% max-width — paragraph margins, not chat balloons.<br>
+        Faith tool card feels like a margin note in a great book. More conversation turns visible.
+      </p>
+    </div>
+
+  </div><!-- /frames-row -->
+</section>
+
+<!-- ══════════════ PHILOSOPHY ══════════════ -->
+<section>
+  <p class="eyebrow">Design Principle</p>
+  <p class="sec-title">Designed for families who distrust screens</p>
+
+  <div class="phil-card">
+    <div class="phil-cols">
+
+      <div class="phil-col">
+        <div class="phil-col-title">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Screen as enabler, not destination
+        </div>
+        <p>Sessions have a hard 2-hour limit enforced server-side. There is no "one more subject" hook. When Emma's session ends, Bede says goodbye and the screen goes quiet — the same way a book closes. The sidebar's session bar is the only timer a student sees, and only when approaching the limit.</p>
+      </div>
+
+      <div class="phil-divider"></div>
+
+      <div class="phil-col">
+        <div class="phil-col-title">
+          <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          No dopamine engineering
+        </div>
+        <p>No streaks. No badges. No sound effects for correct answers. No celebration animations. The celebrate_discovery tool card appears quietly — a thin left-border accent on a parchment background. The reward is understanding, not the interface. A child who answered well will know it from Bede's words, not a fireworks display.</p>
+      </div>
+
+      <div class="phil-divider"></div>
+
+      <div class="phil-col">
+        <div class="phil-col-title">
+          <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          The books are the point
+        </div>
+        <p>Bede exists to extend the living books shelf, not replace it. Every subject opener references the actual books, poems, and nature observations that happened offline. The sidebar's unit card and faith emphasis are reminders that this conversation is downstream of a morning that started with a walk and a chapter read aloud.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ BREAKPOINT TABLE ══════════════ -->
+<section>
+  <p class="eyebrow">Reference</p>
+  <p class="sec-title">Breakpoint Behaviour Summary</p>
+
+  <div style="background:#fff;border:1px solid var(--n100);border-radius:14px;overflow:hidden;max-width:760px;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:var(--n500);color:#fff;">
+          <th style="text-align:left;padding:10px 16px;font-weight:600;">Feature</th>
+          <th style="text-align:center;padding:10px 12px;font-weight:600;">Phone &lt; 640px</th>
+          <th style="text-align:center;padding:10px 12px;font-weight:600;">iPad portrait 1024px</th>
+          <th style="text-align:center;padding:10px 12px;font-weight:600;">Landscape 1366px</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--gy100);">
+          <td style="padding:9px 16px;color:var(--gy700);">Subject navigation</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">Bottom drawer</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--n500);font-weight:600;">Persistent sidebar 256px</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--n500);font-weight:600;">Persistent sidebar 288px</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gy100);background:var(--gy100);">
+          <td style="padding:9px 16px;color:var(--gy700);">Subject pill in header</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">Button (opens drawer)</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">Static label (no button)</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">Static label (no button)</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gy100);">
+          <td style="padding:9px 16px;color:var(--gy700);">Chat bubble max-width</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">80%</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">66%</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">62%</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gy100);background:var(--gy100);">
+          <td style="padding:9px 16px;color:var(--gy700);">Base font size (3-5 grade)</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">14px (text-sm)</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">16px (text-base)</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">16px (text-base)</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gy100);">
+          <td style="padding:9px 16px;color:var(--gy700);">Chat area padding</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">px-4 py-4</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">px-8 py-6</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">px-8 py-6</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--gy100);background:var(--gy100);">
+          <td style="padding:9px 16px;color:var(--gy700);">2-hour session bar</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">Hidden (in drawer)</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--n500);font-weight:600;">Always visible in sidebar</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--n500);font-weight:600;">Always visible in sidebar</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 16px;color:var(--gy700);">Timer in header</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">Warning zone only</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">Warning zone only</td>
+          <td style="text-align:center;padding:9px 12px;color:var(--gy500);">Warning zone only</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</body>
+</html>
