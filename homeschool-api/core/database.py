@@ -27,13 +27,25 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 def _build_engine():
     url = os.environ.get("DATABASE_URL", "")
     if not url:
-        raise RuntimeError(
-            "DATABASE_URL is not set. "
-            "Provide a postgresql+asyncpg://... connection string."
+        # Desktop / offline mode — use a local SQLite database
+        db_path = os.environ.get("SQLITE_PATH", "./bede.db")
+        url = f"sqlite+aiosqlite:///{db_path}"
+
+    is_sqlite = url.startswith("sqlite")
+
+    if is_sqlite:
+        # StaticPool keeps one connection; WAL mode set via connect event below
+        from sqlalchemy.pool import StaticPool
+        return create_async_engine(
+            url,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
         )
+
+    # PostgreSQL — connection pooling for LAN server mode
     return create_async_engine(
         url,
-        pool_pre_ping=True,   # verify connection health before each use
+        pool_pre_ping=True,
         pool_size=5,
         max_overflow=5,
     )
@@ -41,6 +53,16 @@ def _build_engine():
 
 engine = _build_engine()
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def _enable_wal() -> None:
+    """Enable WAL mode for SQLite — better concurrent reads during streaming."""
+    url = str(engine.url)
+    if not url.startswith("sqlite"):
+        return
+    async with engine.begin() as conn:
+        await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
+        await conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
 
 
 class Base(DeclarativeBase):
@@ -162,6 +184,7 @@ class SessionTranscript(Base):
 
 async def create_tables() -> None:
     """Idempotent table creation — safe to call on every startup."""
+    await _enable_wal()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

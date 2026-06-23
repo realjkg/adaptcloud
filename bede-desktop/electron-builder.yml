@@ -1,0 +1,51 @@
+appId: com.bede.tutor
+productName: Bede Tutor
+copyright: Agnus Dei Homeschool
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - dist/**
+  - dist-electron/**
+  - "!**/*.{map,ts}"
+
+extraResources:
+  - from: ../homeschool-api
+    to: api
+    filter:
+      - "**/*"
+      - "!__pycache__"
+      - "!*.pyc"
+      - "!.env*"
+      - "!*.db"
+  - from: build/bede-api
+    to: bede-api
+    filter: "**/*"
+
+mac:
+  category: public.app-category.education
+  icon: build/icon.icns
+  target:
+    - target: pkg
+      arch: [universal]
+    - target: dmg
+      arch: [universal]
+  notarize: false
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+publish: null
