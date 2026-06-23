@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agnus Dei — Classical Style Guide & UI Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet" />
+
+<style>
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Navy */
+  --navy-50:  #f0f4fb;
+  --navy-100: #dce6f7;
+  --navy-200: #b9cdef;
+  --navy-300: #87a9e2;
+  --navy-400: #5585d5;
+  --navy-500: #1e3a8a;
+  --navy-600: #17306e;
+  --navy-700: #112252;
+
+  /* Gold */
+  --gold-50:  #fefae8;
+  --gold-100: #fdf2c1;
+  --gold-200: #fbe585;
+  --gold-400: #f5c014;
+  --gold-500: #d4a106;
+  --gold-600: #a67d05;
+  --gold-700: #7c5a03;
+
+  /* Parchment */
+  --parchment-50:  #fefcf7;
+  --parchment-100: #fdf7e8;
+  --parchment-200: #faedc6;
+
+  /* Verdigris — oxidised copper, classical accent */
+  --verdigris-50:  #f0f5f2;
+  --verdigris-100: #d6e8e0;
+  --verdigris-300: #7eb39f;
+  --verdigris-500: #3d7a68;
+  --verdigris-600: #2f6153;
+  --verdigris-700: #234a3f;
+
+  /* Claret — liturgical deep red, use sparingly */
+  --claret-50:  #fdf0f2;
+  --claret-100: #f9d6db;
+  --claret-500: #b83049;
+  --claret-700: #6b1b2a;
+
+  /* Ink — warm near-black for text */
+  --ink-800: #2d1f14;
+  --ink-900: #1a1008;
+
+  /* Fonts */
+  --font-display: 'Cinzel', 'Trajan Pro', serif;
+  --font-body:    'EB Garamond', Garamond, Georgia, serif;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.65;
+  background: #f5f0e8;
+  color: #1a1008;
+}
+
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0.04em; }
+
+/* ── Layout ── */
+.page { max-width: 1280px; margin: 0 auto; padding: 48px 32px; }
+
+.section-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--navy-400);
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--navy-100);
+}
+
+.section { margin-bottom: 64px; }
+
+/* ── Type specimen ── */
+.type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.type-block { background: white; border: 1px solid var(--navy-100); border-radius: 12px; padding: 28px; }
+.type-block.parchment-bg { background: var(--parchment-50); }
+
+.specimen-display {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--navy-700);
+  line-height: 1.2;
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+.specimen-sub {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--gold-600);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.specimen-body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.7;
+  color: #3a2d22;
+}
+.specimen-body em { color: var(--navy-600); }
+.type-meta {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--navy-50);
+  font-size: 12px;
+  color: #888;
+  font-family: var(--font-body);
+  font-style: italic;
+}
+
+/* ── Palette swatches ── */
+.palette-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.swatch-chip {
+  width: 56px;
+  height: 48px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.swatch-label {
+  font-size: 10px;
+  font-family: var(--font-body);
+  font-style: italic;
+  color: #666;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* ── Device frames ── */
+.device-row {
+  display: grid;
+  grid-template-columns: 280px 1fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.device-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--navy-400);
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.phone-frame {
+  background: #111;
+  border-radius: 44px;
+  padding: 12px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.06);
+  width: 280px;
+}
+.phone-screen {
+  background: var(--parchment-50);
+  border-radius: 34px;
+  overflow: hidden;
+  height: 560px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tablet-frame {
+  background: #1a1a1a;
+  border-radius: 24px;
+  padding: 10px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+.tablet-screen {
+  background: var(--parchment-50);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tablet-portrait-screen { height: 520px; }
+.tablet-landscape-screen { height: 420px; }
+
+/* ── App chrome ── */
+.app-header {
+  background: white;
+  border-bottom: 1px solid var(--navy-100);
+  height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.app-header-logo {
+  width: 22px; height: 22px;
+  background: var(--navy-500);
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: white;
+}
+.app-header-name {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--navy-700);
+  letter-spacing: 0.06em;
+  flex: 1;
+}
+.subject-pill {
+  background: var(--navy-50);
+  border: 1px solid var(--navy-100);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--navy-600);
+  display: flex; align-items: center; gap: 4px;
+}
+.header-icon {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: #aaa;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+/* ── Body: sidebar + chat ── */
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 192px;
+  border-right: 1px solid var(--navy-100);
+  background: white;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.sidebar-narrow { width: 160px; }
+
+.sidebar-identity {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--navy-50);
+}
+.sidebar-eyebrow {
+  font-family: var(--font-display);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #aaa;
+  margin-bottom: 3px;
+}
+.sidebar-student {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--navy-700);
+  letter-spacing: 0.04em;
+}
+
+.session-bar-wrap {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--navy-50);
+}
+.session-bar-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  margin-bottom: 5px;
+  font-family: var(--font-body);
+}
+.session-bar-label { color: #aaa; }
+.session-bar-time { color: var(--navy-500); font-weight: 500; }
+.session-bar-track {
+  height: 3px;
+  background: var(--navy-50);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.session-bar-fill {
+  height: 100%;
+  background: var(--navy-300);
+  border-radius: 2px;
+}
+
+.subject-list { flex: 1; overflow-y: auto; padding: 8px; }
+.subject-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  margin-bottom: 1px;
+}
+.subject-item.current { background: var(--navy-50); }
+
+.subject-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.subject-dot.done { background: var(--navy-300); }
+.subject-dot.current {
+  background: var(--navy-500);
+  box-shadow: 0 0 0 2px white, 0 0 0 3.5px var(--navy-200);
+}
+.subject-dot.upcoming {
+  background: transparent;
+  border: 2px solid #ddd;
+}
+
+.subject-name {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+.subject-name.current { color: var(--navy-700); font-weight: 600; }
+.subject-name.done { color: #ccc; text-decoration: line-through; }
+.subject-name.upcoming { color: #aaa; }
+
+.subject-dur {
+  font-family: var(--font-body);
+  font-size: 8px;
+  color: #ccc;
+}
+
+.faith-card {
+  margin: 8px;
+  padding: 8px 10px;
+  background: var(--gold-50);
+  border: 1px solid var(--gold-200);
+  border-radius: 8px;
+}
+.faith-card-text {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--gold-700);
+}
+
+.sidebar-footer {
+  padding: 10px;
+  border-top: 1px solid var(--navy-50);
+}
+.next-btn {
+  width: 100%;
+  padding: 7px;
+  background: var(--navy-500);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+/* ── Chat area ── */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bubble-wrap { display: flex; }
+.bubble-wrap.user { justify-content: flex-end; }
+.bubble-wrap.assistant { justify-content: flex-start; }
+
+.bubble {
+  max-width: 68%;
+  padding: 10px 14px;
+  border-radius: 18px;
+}
+.bubble-sender {
+  font-family: var(--font-display);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.bubble-text {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.bubble.user {
+  background: var(--navy-500);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.bubble.user .bubble-sender { color: var(--navy-200); }
+
+.bubble.assistant {
+  background: white;
+  border: 1px solid var(--navy-100);
+  color: #2a1d10;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.bubble.assistant .bubble-sender { color: var(--navy-500); }
+
+/* Tool cards */
+.tool-card {
+  max-width: 85%;
+  padding: 10px 12px;
+  border-radius: 0 12px 12px 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.6;
+  font-style: italic;
+}
+.tool-card.narration {
+  border-left: 3px solid var(--gold-500);
+  background: var(--gold-50);
+  color: var(--gold-700);
+}
+.tool-card.hint {
+  border-left: 3px solid var(--navy-300);
+  background: var(--navy-50);
+  color: var(--navy-700);
+}
+.tool-card.celebrate {
+  border-left: 3px solid #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+}
+.tool-card.faith {
+  border-left: 3px solid var(--gold-500);
+  background: var(--gold-50);
+  color: var(--gold-700);
+}
+
+/* Chat input bar */
+.chat-input-bar {
+  padding: 10px 12px;
+  background: white;
+  border-top: 1px solid var(--parchment-200);
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+.chat-icon-btn {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  background: var(--navy-50);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--navy-500);
+  font-size: 13px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.chat-textarea {
+  flex: 1;
+  border: 1px solid var(--navy-200);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  resize: none;
+  background: white;
+  color: #2a1d10;
+  height: 52px;
+}
+.chat-send-btn {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  background: var(--navy-500);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  color: white;
+  font-size: 13px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.chat-hint {
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: #bbb;
+  font-style: italic;
+  padding: 2px 12px 6px;
+  background: white;
+  flex-shrink: 0;
+}
+
+/* ── Phone-specific ── */
+.phone-chat-messages { padding: 10px 12px; gap: 10px; }
+.phone-bubble { max-width: 82%; }
+.phone-bubble .bubble-text { font-size: 13px; }
+.phone-tool-card { max-width: 90%; font-size: 12px; }
+
+/* ── Colour anatomy section ── */
+.anatomy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.anatomy-card {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.07);
+}
+.anatomy-header {
+  padding: 14px 16px 12px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+.anatomy-body {
+  padding: 12px 16px;
+  background: white;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.6;
+  color: #555;
+}
+.anatomy-body strong { color: #333; }
+
+/* ── Login screen ── */
+.login-screen {
+  background: var(--parchment-50);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px 20px;
+  gap: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+.login-logo-ring {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--navy-500);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 4px var(--navy-100), 0 4px 16px rgba(30,58,138,0.25);
+}
+.login-logo-text { color: white; font-size: 22px; }
+.login-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--navy-800);
+  letter-spacing: 0.06em;
+  text-align: center;
+  line-height: 1.3;
+}
+.login-subtitle {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: #888;
+  font-style: italic;
+  text-align: center;
+}
+.login-tabs {
+  display: flex;
+  background: var(--parchment-100);
+  border-radius: 8px;
+  padding: 3px;
+  width: 100%;
+  max-width: 240px;
+}
+.login-tab {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 6px;
+  border: none;
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: transparent;
+  color: #aaa;
+}
+.login-tab.active {
+  background: white;
+  color: var(--navy-600);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.login-pin-label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #aaa;
+  align-self: flex-start;
+  width: 100%;
+  max-width: 240px;
+}
+.login-pin-dots {
+  display: flex;
+  gap: 10px;
+}
+.pin-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--navy-300);
+}
+.pin-dot.filled { background: var(--navy-500); border-color: var(--navy-500); }
+.login-pin-btn {
+  padding: 9px;
+  background: var(--navy-500);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  width: 100%;
+  max-width: 240px;
+  cursor: pointer;
+}
+.voice-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--navy-50);
+  border: 1px solid var(--navy-100);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 240px;
+}
+.voice-chip-text {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--navy-700);
+}
+
+/* ── Divider / ornament ── */
+.ornament {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+.ornament-line { flex: 1; height: 1px; background: var(--navy-100); }
+.ornament-mark {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--gold-400);
+  letter-spacing: 0.3em;
+}
+
+/* ── Philosophy section ── */
+.philosophy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.philosophy-card {
+  padding: 24px;
+  background: white;
+  border: 1px solid var(--navy-100);
+  border-radius: 12px;
+}
+.philosophy-icon {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--gold-500);
+  margin-bottom: 10px;
+  letter-spacing: 0.2em;
+}
+.philosophy-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--navy-700);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.philosophy-body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.65;
+  color: #555;
+  font-style: italic;
+}
+
+/* ── Page title area ── */
+.page-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--navy-500);
+  margin-bottom: 4px;
+}
+.page-subtitle {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: #555;
+  font-style: italic;
+  margin-bottom: 40px;
+  max-width: 680px;
+}
+.page-hero {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--navy-700);
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  margin-bottom: 10px;
+}
+
+svg { display: block; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE HEADER -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+
+  <div class="ornament" style="margin-bottom:32px">
+    <div class="ornament-line"></div>
+    <div class="ornament-mark">✦ ✦ ✦</div>
+    <div class="ornament-line"></div>
+  </div>
+
+  <div style="text-align:center; margin-bottom:56px">
+    <div class="page-title">Agnus Dei · Bede Tutor</div>
+    <div class="page-hero">Classical Visual Identity</div>
+    <div class="page-subtitle">
+      Navy &amp; gold with verdigris and claret — the palette of illuminated manuscripts,
+      monastic libraries, and Roman stone. Cinzel for display; EB Garamond for prose.
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: TYPOGRAPHY SPECIMEN -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+
+  <div class="section">
+    <div class="section-label">I — Typography</div>
+    <div class="type-grid">
+
+      <div class="type-block">
+        <div class="specimen-display">Cinzel</div>
+        <div class="specimen-sub">Roman Inscriptional · Display</div>
+        <div class="specimen-body">
+          Used for all headings, navigation labels, subject names, and UI chrome.
+          Derives from Roman stone-carved capitals — the letterforms of classical education
+          and Catholic liturgical texts. Nothing like Inter or any modern sans-serif.
+        </div>
+        <div class="type-meta">
+          ABCDEFGHIJKLMNOPQRSTUVWXYZ · 0123456789<br/>
+          Weights: 400 · 500 · 600 · 700
+        </div>
+      </div>
+
+      <div class="type-block parchment-bg">
+        <div style="font-family:'EB Garamond',serif; font-size:30px; color:#1e3a8a; line-height:1.2; margin-bottom:6px;">EB Garamond</div>
+        <div style="font-family:'EB Garamond',serif; font-size:13px; color:#a67d05; letter-spacing:0.1em; margin-bottom:14px; font-style:italic;">Renaissance Scholarship · Body</div>
+        <div class="specimen-body">
+          Used for all body text, chat bubbles, and prose — including Bede's dialogue and the student's responses.
+          Based on Claude Garamond's 1530 typeface; this is <em>the font of Catholic printing houses</em>,
+          Greek lexicons, and great books curricula. Reads like ink on vellum.
+        </div>
+        <div style="font-family:'EB Garamond',serif; margin-top:14px; padding-top:10px; border-top:1px solid #dce6f7; font-size:13px; color:#888; font-style:italic;">
+          AaBbCcDdEeFf · abcdefghijklmnopqrstuvwxyz<br/>
+          <span style="font-style:normal;">Roman</span> · <em>Italic</em> · <span style="font-weight:600;">Semibold</span> · <em style="font-weight:600;">Semibold Italic</em>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: COLOUR PALETTE -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+
+  <div class="section">
+    <div class="section-label">II — Colour Palette</div>
+
+    <div style="background:white; border:1px solid var(--navy-100); border-radius:14px; padding:28px; margin-bottom:20px;">
+
+      <div style="font-family:var(--font-display); font-size:10px; letter-spacing:0.14em; color:#aaa; margin-bottom:14px;">PRIMARY</div>
+      <div class="palette-row">
+        <div class="swatch"><div class="swatch-chip" style="background:#060c1e"></div><div class="swatch-label">Navy 900</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#112252"></div><div class="swatch-label">Navy 700</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#17306e"></div><div class="swatch-label">Navy 600</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#1e3a8a"></div><div class="swatch-label">Navy 500<br/><em>Primary</em></div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#5585d5"></div><div class="swatch-label">Navy 400</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#87a9e2"></div><div class="swatch-label">Navy 300</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#b9cdef"></div><div class="swatch-label">Navy 200</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#dce6f7"></div><div class="swatch-label">Navy 100</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#f0f4fb"></div><div class="swatch-label">Navy 50</div></div>
+      </div>
+
+      <div style="font-family:var(--font-display); font-size:10px; letter-spacing:0.14em; color:#aaa; margin-bottom:14px; margin-top:20px;">GOLD · ILLUMINATED ACCENT</div>
+      <div class="palette-row">
+        <div class="swatch"><div class="swatch-chip" style="background:#503b02"></div><div class="swatch-label">Gold 800</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#7c5a03"></div><div class="swatch-label">Gold 700</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#a67d05"></div><div class="swatch-label">Gold 600</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#d4a106"></div><div class="swatch-label">Gold 500<br/><em>Faith UI</em></div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#f5c014"></div><div class="swatch-label">Gold 400</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#fbe585"></div><div class="swatch-label">Gold 200</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#fdf2c1"></div><div class="swatch-label">Gold 100</div></div>
+        <div class="swatch"><div class="swatch-chip" style="background:#fefae8"></div><div class="swatch-label">Gold 50</div></div>
+      </div>
+
+      <div style="font-family:var(--font-display); font-size:10px; letter-spacing:0.14em; color:#aaa; margin-bottom:14px; margin-top:20px;">COMPLEMENTARY ACCENTS</div>
+      <div class="palette-row">
+        <div class="swatch">
+          <div class="swatch-chip" style="background:#fefcf7; border:1px solid #e8e0d0;"></div>
+          <div class="swatch-label">Parchment 50<br/><em>Background</em></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-chip" style="background:#fdf7e8;"></div>
+          <div class="swatch-label">Parchment 100</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-chip" style="background:#faedc6;"></div>
+          <div class="swatch-label">Parchment 200</div>
+        </div>
+        <div class="swatch" style="margin-left:16px;">
+          <div class="swatch-chip" style="background:#234a3f;"></div>
+          <div class="swatch-label">Verdigris 700<br/><em>Deep</em></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-chip" style="background:#3d7a68;"></div>
+          <div class="swatch-label">Verdigris 500<br/><em>Accent</em></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-chip" style="background:#7eb39f;"></div>
+          <div class="swatch-label">Verdigris 300</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-chip" style="background:#d6e8e0;"></div>
+          <div class="swatch-label">Verdigris 100</div>
+        </div>
+        <div class="swatch" style="margin-left:16px;">
+          <div class="swatch-chip" style="background:#6b1b2a;"></div>
+          <div class="swatch-label">Claret 700<br/><em>Sparingly</em></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-chip" style="background:#b83049;"></div>
+          <div class="swatch-label">Claret 500</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-chip" style="background:#f9d6db;"></div>
+          <div class="swatch-label">Claret 100</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Colour anatomy -->
+    <div class="anatomy-grid">
+      <div class="anatomy-card">
+        <div class="anatomy-header" style="background:var(--navy-500); color:white;">Navy — Scholarly Authority</div>
+        <div class="anatomy-body">
+          Primary interactive color. <strong>Buttons, sidebar active states, chat bubble (user), links.</strong>
+          The blue of monastery scriptoria and academic regalia. Dignified, not corporate.
+        </div>
+      </div>
+      <div class="anatomy-card">
+        <div class="anatomy-header" style="background:var(--gold-500); color:white;">Gold — Sacred Emphasis</div>
+        <div class="anatomy-body">
+          <strong>Faith integration cards, <em>connect_to_faith</em> tool responses, ornamental dividers.</strong>
+          The gold of illuminated capitals and Byzantine icon halos. Never used for success/completion — that is emerald.
+        </div>
+      </div>
+      <div class="anatomy-card">
+        <div class="anatomy-header" style="background:var(--verdigris-500); color:white;">Verdigris — Natural World</div>
+        <div class="anatomy-body">
+          New soft complement to navy + gold. <strong>Nature study subjects, outdoor-learning prompts, secondary borders.</strong>
+          Oxidised copper — the color of bronze bells, garden gates, vellum edges. Not sage; richer, classical.
+        </div>
+      </div>
+      <div class="anatomy-card">
+        <div class="anatomy-header" style="background:var(--parchment-100); color:var(--navy-700);">Parchment — The Page</div>
+        <div class="anatomy-body">
+          Background for the entire app. <strong>Warm cream, not cold white.</strong>
+          Signals "printed book" not "software screen." The same warm hue as aged laid paper.
+        </div>
+      </div>
+      <div class="anatomy-card">
+        <div class="anatomy-header" style="background:#10b981; color:white;">Emerald — Discovery</div>
+        <div class="anatomy-body">
+          Reserved exclusively for <strong><em>celebrate_discovery</em> tool responses</strong> — the moment a student genuinely understands something.
+          Not used for streaks, scores, or any gamification mechanism.
+        </div>
+      </div>
+      <div class="anatomy-card">
+        <div class="anatomy-header" style="background:var(--claret-700); color:white;">Claret — Rare Emphasis</div>
+        <div class="anatomy-body">
+          New deep liturgical red. Use only for <strong>error states and cautionary notices.</strong>
+          Never for success, never decorative. The color of a serious marginal note.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: UI SCREENS — ALL THREE BREAKPOINTS -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+
+  <div class="section">
+    <div class="section-label">III — UI Screens at Three Breakpoints</div>
+
+    <div class="device-row">
+
+      <!-- ── Phone 375px ── -->
+      <div>
+        <div class="device-label">Phone · 375px · Login</div>
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <div class="login-screen">
+              <div class="login-logo-ring">
+                <div class="login-logo-text" style="font-family:'Cinzel',serif; font-weight:700; font-size:18px;">✦</div>
+              </div>
+              <div class="login-title">Agnus Dei<br/>Bede Tutor</div>
+              <div class="login-subtitle">A faith-rooted AI tutor<br/>built on Charlotte Mason</div>
+              <div class="ornament" style="width:100%; max-width:240px;">
+                <div class="ornament-line"></div>
+                <div class="ornament-mark" style="font-size:10px;">✦</div>
+                <div class="ornament-line"></div>
+              </div>
+              <div class="login-tabs">
+                <button class="login-tab">Parent</button>
+                <button class="login-tab active">Student</button>
+              </div>
+              <div class="login-pin-label">Enter your pin</div>
+              <div class="login-pin-dots">
+                <div class="pin-dot filled"></div>
+                <div class="pin-dot filled"></div>
+                <div class="pin-dot filled"></div>
+                <div class="pin-dot"></div>
+              </div>
+              <button class="login-pin-btn">Open My Session</button>
+              <div class="voice-chip">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <div class="voice-chip-text">Voice identity required</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── iPad 13 Portrait 1024px ── -->
+      <div>
+        <div class="device-label">iPad 13" Portrait · 1024px · Active Session</div>
+        <div class="tablet-frame">
+          <div class="tablet-screen tablet-portrait-screen">
+            <!-- Header -->
+            <div class="app-header">
+              <div class="app-header-logo">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </div>
+              <div class="app-header-name">Emma</div>
+              <div style="flex:1"></div>
+              <div class="header-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div class="app-body">
+              <!-- Sidebar -->
+              <div class="sidebar sidebar-narrow">
+                <div class="sidebar-identity">
+                  <div class="sidebar-eyebrow">Today's Plan</div>
+                  <div class="sidebar-student">Emma · Grade 4</div>
+                </div>
+                <div class="session-bar-wrap">
+                  <div class="session-bar-row">
+                    <span class="session-bar-label">Session</span>
+                    <span class="session-bar-time" style="font-family:'Cinzel',serif;">42 / 120 min</span>
+                  </div>
+                  <div class="session-bar-track"><div class="session-bar-fill" style="width:35%"></div></div>
+                </div>
+                <div class="subject-list">
+                  <div class="subject-item">
+                    <div class="subject-dot done"></div>
+                    <div class="subject-name done" style="font-size:8px;">Morning Prayer</div>
+                    <div class="subject-dur">10m</div>
+                  </div>
+                  <div class="subject-item current">
+                    <div class="subject-dot current"></div>
+                    <div class="subject-name current" style="font-size:8px;">History</div>
+                    <div class="subject-dur">30m</div>
+                  </div>
+                  <div class="subject-item">
+                    <div class="subject-dot upcoming"></div>
+                    <div class="subject-name upcoming" style="font-size:8px;">Literature</div>
+                    <div class="subject-dur">30m</div>
+                  </div>
+                  <div class="subject-item">
+                    <div class="subject-dot upcoming"></div>
+                    <div class="subject-name upcoming" style="font-size:8px;">Arithmetic</div>
+                    <div class="subject-dur">25m</div>
+                  </div>
+                  <div class="subject-item">
+                    <div class="subject-dot upcoming"></div>
+                    <div class="subject-name upcoming" style="font-size:8px;">Nature Study</div>
+                    <div class="subject-dur">20m</div>
+                  </div>
+                </div>
+                <div class="faith-card" style="font-size:8px;">
+                  <div class="faith-card-text">"The fear of the Lord is the beginning of wisdom." — Proverbs 9:10</div>
+                </div>
+                <div class="sidebar-footer">
+                  <button class="next-btn" style="font-size:8px;">Next Subject</button>
+                </div>
+              </div>
+
+              <!-- Chat -->
+              <div class="chat-area">
+                <div class="chat-messages phone-chat-messages" style="flex:1; overflow-y:auto;">
+                  <div class="bubble-wrap assistant">
+                    <div class="bubble assistant phone-bubble">
+                      <div class="bubble-sender">Bede</div>
+                      <div class="bubble-text">Good morning, Emma. Before we begin today's history, I have a question for you — what do you suppose made Rome so different from the city-states that came before it?</div>
+                    </div>
+                  </div>
+                  <div class="bubble-wrap user">
+                    <div class="bubble user phone-bubble">
+                      <div class="bubble-sender" style="color:var(--navy-200);">Emma</div>
+                      <div class="bubble-text">Maybe because Rome had a big army?</div>
+                    </div>
+                  </div>
+                  <div class="tool-card hint phone-tool-card">
+                    You're pointing at something real. But think about what kept an army together across hundreds of miles — what would soldiers need besides weapons?
+                  </div>
+                  <div class="bubble-wrap user">
+                    <div class="bubble user phone-bubble">
+                      <div class="bubble-sender" style="color:var(--navy-200);">Emma</div>
+                      <div class="bubble-text">Roads? And food maybe.</div>
+                    </div>
+                  </div>
+                  <div class="tool-card celebrate phone-tool-card" style="font-size:12px;">
+                    Exactly right! Roads were the arteries of Roman power — and that is precisely what made Rome endure when others could not. You found it yourself.
+                  </div>
+                </div>
+
+                <div class="chat-input-bar">
+                  <div class="chat-icon-btn" style="width:30px;height:30px;font-size:11px;">✏</div>
+                  <div class="chat-icon-btn" style="width:30px;height:30px;font-size:11px;">🔊</div>
+                  <div class="chat-icon-btn" style="width:30px;height:30px;font-size:11px;">🎤</div>
+                  <div style="flex:1; border:1px solid var(--navy-200); border-radius:7px; padding:5px 8px; background:white; font-family:'EB Garamond',serif; font-size:12px; color:#aaa; height:44px;">What else made Rome strong…</div>
+                  <div class="chat-send-btn" style="width:30px;height:30px;font-size:11px;background:var(--navy-500);">→</div>
+                </div>
+                <div class="chat-hint">Enter to send · mic for voice</div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── iPad 13 Landscape 1366px ── -->
+      <div>
+        <div class="device-label">iPad 13" Landscape · 1366px · Faith Integration</div>
+        <div class="tablet-frame">
+          <div class="tablet-screen tablet-landscape-screen">
+            <!-- Header -->
+            <div class="app-header">
+              <div class="app-header-logo">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </div>
+              <div class="app-header-name">Emma</div>
+              <div class="subject-pill">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Literature
+              </div>
+              <div style="flex:1"></div>
+              <div style="font-family:'Cinzel',serif; font-size:9px; color:#aaa; letter-spacing:0.08em;">72 / 120 min</div>
+              <div class="header-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <div class="header-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div class="app-body">
+              <!-- Wider sidebar in landscape -->
+              <div class="sidebar">
+                <div class="sidebar-identity">
+                  <div class="sidebar-eyebrow">Today's Plan</div>
+                  <div class="sidebar-student">Emma · Grade 4</div>
+                </div>
+                <div class="session-bar-wrap">
+                  <div class="session-bar-row">
+                    <span class="session-bar-label">Session</span>
+                    <span class="session-bar-time" style="font-family:'Cinzel',serif; color:var(--gold-600);">72 / 120 min</span>
+                  </div>
+                  <div class="session-bar-track"><div class="session-bar-fill" style="width:60%; background:var(--gold-400);"></div></div>
+                  <div style="font-size:9px; color:var(--gold-600); margin-top:3px; font-family:'EB Garamond',serif; font-style:italic;">Approaching session limit</div>
+                </div>
+                <div class="subject-list">
+                  <div class="subject-item">
+                    <div class="subject-dot done"></div>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <div class="subject-name done">Morning Prayer</div>
+                    <div class="subject-dur">10m</div>
+                  </div>
+                  <div class="subject-item">
+                    <div class="subject-dot done"></div>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <div class="subject-name done">History</div>
+                    <div class="subject-dur">30m</div>
+                  </div>
+                  <div class="subject-item current">
+                    <div class="subject-dot current"></div>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    <div class="subject-name current">Literature</div>
+                    <div class="subject-dur">30m</div>
+                  </div>
+                  <div class="subject-item">
+                    <div class="subject-dot upcoming"></div>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <div class="subject-name upcoming">Arithmetic</div>
+                    <div class="subject-dur">25m</div>
+                  </div>
+                  <div class="subject-item">
+                    <div class="subject-dot upcoming"></div>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <div class="subject-name upcoming">Nature Study</div>
+                    <div class="subject-dur">20m</div>
+                  </div>
+                </div>
+                <div style="padding:8px; border-top:1px solid var(--navy-50);">
+                  <div style="padding:8px 10px; background:var(--gold-50); border:1px solid var(--gold-200); border-radius:8px; margin-bottom:8px;">
+                    <div style="font-family:'Cinzel',serif; font-size:8px; letter-spacing:0.1em; color:var(--gold-600); margin-bottom:4px;">Unit</div>
+                    <div style="font-family:'EB Garamond',serif; font-size:9px; color:var(--gold-700); line-height:1.5;">Medieval Saints &amp; Their Times</div>
+                  </div>
+                </div>
+                <div class="sidebar-footer">
+                  <button class="next-btn">Next Subject</button>
+                </div>
+              </div>
+
+              <!-- Chat — wider in landscape -->
+              <div class="chat-area">
+                <div class="chat-messages" style="flex:1; overflow-y:auto; padding:12px 16px; gap:10px; display:flex; flex-direction:column;">
+                  <div class="bubble-wrap assistant">
+                    <div class="bubble assistant" style="max-width:62%;">
+                      <div class="bubble-sender">Bede</div>
+                      <div class="bubble-text" style="font-size:14px;">We are reading about Francis of Assisi. He was a wealthy young man who gave everything away. What do you think he was searching for that gold could not give him?</div>
+                    </div>
+                  </div>
+                  <div class="bubble-wrap user">
+                    <div class="bubble user" style="max-width:62%;">
+                      <div class="bubble-sender" style="color:var(--navy-200);">Emma</div>
+                      <div class="bubble-text" style="font-size:14px;">Maybe he wanted to be happy in a different way? Like money didn't make him feel good.</div>
+                    </div>
+                  </div>
+                  <div class="tool-card faith" style="max-width:72%; font-size:13px;">
+                    <div style="font-family:'Cinzel',serif; font-size:8px; letter-spacing:0.1em; color:var(--gold-600); margin-bottom:4px;">✦ Connect to Faith</div>
+                    Scripture says "where your treasure is, there your heart will be also." Francis discovered that his heart was restless — and that only God could still it. Augustine wrote nearly the same thing eight centuries before Francis was born.
+                  </div>
+                  <div class="bubble-wrap user">
+                    <div class="bubble user" style="max-width:62%;">
+                      <div class="bubble-sender" style="color:var(--navy-200);">Emma</div>
+                      <div class="bubble-text" style="font-size:14px;">Augustine — is that the one we read before? "Our heart is restless until it rests in thee."</div>
+                    </div>
+                  </div>
+                  <div class="tool-card celebrate" style="max-width:72%; font-size:13px;">
+                    You remembered. And you have now connected two saints across eight centuries without anyone asking you to. That is real history.
+                  </div>
+                </div>
+                <div class="chat-input-bar">
+                  <div class="chat-icon-btn">✏</div>
+                  <div class="chat-icon-btn">🔊</div>
+                  <div class="chat-icon-btn">🎤</div>
+                  <div style="flex:1; border:1px solid var(--navy-200); border-radius:8px; padding:6px 10px; background:white; font-family:'EB Garamond',serif; font-size:13px; color:#aaa; height:46px;">What else did Francis do…</div>
+                  <div class="chat-send-btn">→</div>
+                </div>
+                <div class="chat-hint">Enter to send · mic for voice · pen for handwriting</div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: AGENTIC TOOL CARDS -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+
+  <div class="section">
+    <div class="section-label">IV — Agentic Tool Cards (Bede's Four Interventions)</div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+
+      <div style="background:var(--parchment-50); border:1px solid var(--parchment-200); border-radius:12px; padding:24px;">
+        <div style="font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.14em; color:#aaa; margin-bottom:16px;">request_narration</div>
+        <div class="tool-card narration" style="max-width:100%; font-size:14px; padding:12px 16px;">
+          <div style="font-family:'Cinzel',serif; font-size:8px; letter-spacing:0.1em; color:var(--gold-600); margin-bottom:5px;">Narration Prompt</div>
+          Emma, close your eyes for a moment. Now tell me — in your own words, just as if you were telling a friend — what happened to Cincinnatus after they came to his farm?
+        </div>
+        <div style="font-family:'EB Garamond',serif; font-style:italic; font-size:12px; color:#888; margin-top:12px;">Amber border · Gold-50 background · Requests oral narration à la Charlotte Mason</div>
+      </div>
+
+      <div style="background:var(--parchment-50); border:1px solid var(--parchment-200); border-radius:12px; padding:24px;">
+        <div style="font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.14em; color:#aaa; margin-bottom:16px;">offer_socratic_hint</div>
+        <div class="tool-card hint" style="max-width:100%; font-size:14px; padding:12px 16px;">
+          <div style="font-family:'Cinzel',serif; font-size:8px; letter-spacing:0.1em; color:var(--navy-500); margin-bottom:5px;">A Thought to Consider</div>
+          You said Rome had a big army — you're pointing at something real. But think about what kept an army together across hundreds of miles. What would soldiers need besides weapons?
+        </div>
+        <div style="font-family:'EB Garamond',serif; font-style:italic; font-size:12px; color:#888; margin-top:12px;">Navy border · Navy-50 background · Guides without giving the answer</div>
+      </div>
+
+      <div style="background:var(--parchment-50); border:1px solid var(--parchment-200); border-radius:12px; padding:24px;">
+        <div style="font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.14em; color:#aaa; margin-bottom:16px;">celebrate_discovery</div>
+        <div class="tool-card celebrate" style="max-width:100%; font-size:14px; padding:12px 16px;">
+          <div style="font-family:'Cinzel',serif; font-size:8px; letter-spacing:0.1em; color:#065f46; margin-bottom:5px;">You Found It</div>
+          You remembered. And you connected two saints across eight centuries without anyone asking you to. That is real history — not memorised, but understood.
+        </div>
+        <div style="font-family:'EB Garamond',serif; font-style:italic; font-size:12px; color:#888; margin-top:12px;">Emerald border · Green-50 background · Marks genuine intellectual discovery</div>
+      </div>
+
+      <div style="background:var(--parchment-50); border:1px solid var(--parchment-200); border-radius:12px; padding:24px;">
+        <div style="font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.14em; color:#aaa; margin-bottom:16px;">connect_to_faith</div>
+        <div class="tool-card faith" style="max-width:100%; font-size:14px; padding:12px 16px;">
+          <div style="font-family:'Cinzel',serif; font-size:8px; letter-spacing:0.1em; color:var(--gold-600); margin-bottom:5px;">✦ Connect to Faith</div>
+          Scripture says "where your treasure is, there your heart will be also." Francis discovered that his heart was restless — and that only God could still it. Augustine wrote nearly the same thing eight centuries earlier.
+        </div>
+        <div style="font-family:'EB Garamond',serif; font-style:italic; font-size:12px; color:#888; margin-top:12px;">Gold border · Gold-50 background · Weaves Catholic faith into subject content naturally</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5: PHILOSOPHY -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+
+  <div class="section">
+    <div class="section-label">V — Design Philosophy</div>
+
+    <div class="philosophy-grid">
+      <div class="philosophy-card">
+        <div class="philosophy-icon">I</div>
+        <div class="philosophy-title">The Screen as Enabler</div>
+        <div class="philosophy-body">
+          Cinzel is stone-carved, EB Garamond is ink on vellum. Neither looks like software.
+          A parent who loves great books should feel they are opening a well-made volume,
+          not launching an app. The screen should feel like a servant of learning, not its master.
+        </div>
+      </div>
+      <div class="philosophy-card">
+        <div class="philosophy-icon">II</div>
+        <div class="philosophy-title">No Dopamine Engineering</div>
+        <div class="philosophy-body">
+          Emerald <em>celebrate_discovery</em> marks genuine understanding — it is never automatic,
+          never scheduled, never tied to a streak. No progress bars that fill with confetti.
+          No badges. The session ends at two hours, hard. It closes like a book.
+        </div>
+      </div>
+      <div class="philosophy-card">
+        <div class="philosophy-icon">III</div>
+        <div class="philosophy-title">Books Are the Point</div>
+        <div class="philosophy-body">
+          The sidebar reads like a table of contents. Bede has no face, no mascot, no cartoon.
+          He is a voice — the voice of a scholar who has read everything and asks the best
+          questions. This is Charlotte Mason: Bede gives the Socratic prod; the great books
+          give the content.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ornament footer -->
+  <div class="ornament" style="margin-top:40px;">
+    <div class="ornament-line"></div>
+    <div class="ornament-mark">✦ Agnus Dei · Bede Tutor · Est. MMXXVI ✦</div>
+    <div class="ornament-line"></div>
+  </div>
+
+</div>
+</body>
+</html>
