@@ -86,7 +86,7 @@ export default function Login() {
 
   if (phase === 'voice-verify') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-parchment-100 via-navy-50 to-gold-100">
+      <div className="min-h-screen bg-midnight-900">
         <VoiceVerification
           studentName={knownStudentName || 'Student'}
           token={pendingToken}
@@ -95,13 +95,13 @@ export default function Login() {
         />
         {!knownStudentName && (
           <div className="fixed bottom-6 left-0 right-0 text-center">
-            <div className="inline-block bg-white/90 rounded-xl border border-navy-200 px-4 py-3 shadow">
+            <div className="inline-block bg-white/90 rounded-xl border border-midnight-200 px-4 py-3 shadow">
               <p className="text-xs text-gray-500 mb-2">Enter your name for the voice check:</p>
               <input
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
                 placeholder="Emma"
-                className="text-sm border border-navy-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-navy-400"
+                className="text-sm border border-midnight-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-300"
               />
             </div>
           </div>
@@ -111,8 +111,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-parchment-100 via-navy-50 to-gold-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg border border-navy-100 w-full max-w-md p-8">
+    <div className="min-h-screen bg-midnight-900 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-midnight-100 w-full max-w-md p-8">
         {/* Header */}
         <div className="text-center mb-8">
           <img
@@ -123,7 +123,7 @@ export default function Login() {
           <h1 className="text-2xl font-display font-bold text-gray-800">Agnus Dei</h1>
           <p className="text-sm text-gray-500 mt-1">Your Charlotte Mason Homeschool Tutor</p>
           {studentFromUrl && (
-            <p className="text-sm font-medium text-navy-700 mt-2">
+            <p className="text-sm font-medium text-midnight-700 mt-2">
               Welcome, {studentFromUrl}!
             </p>
           )}
@@ -136,7 +136,7 @@ export default function Login() {
               key={r}
               onClick={() => { setRole(r); setCredential('') }}
               className={`flex-1 py-2.5 text-sm font-medium transition-colors capitalize ${
-                role === r ? 'bg-navy-500 text-white' : 'bg-white text-gray-600 hover:bg-navy-50'
+                role === r ? 'bg-midnight-800 text-amber-300' : 'bg-white text-gray-600 hover:bg-midnight-50'
               }`}
             >
               {r === 'parent'
@@ -160,18 +160,18 @@ export default function Login() {
                 onChange={(e) => setCredential(e.target.value)}
                 placeholder={role === 'parent' ? 'Enter password' : 'Enter PIN'}
                 inputMode={role === 'child' ? 'numeric' : 'text'}
-                className="w-full pl-9 pr-4 py-2.5 border border-navy-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy-400"
+                className="w-full pl-9 pr-4 py-2.5 border border-midnight-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
                 required
               />
             </div>
           </div>
 
           {role === 'child' && !studentFromUrl && (
-            <div className="flex items-start gap-2.5 bg-navy-50 border border-navy-200 rounded-lg px-3 py-2.5">
-              <Mic size={16} className="text-navy-500 flex-shrink-0 mt-0.5" />
-              <div className="text-xs text-navy-700">
+            <div className="flex items-start gap-2.5 bg-midnight-50 border border-midnight-200 rounded-lg px-3 py-2.5">
+              <Mic size={16} className="text-sky-500 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-midnight-700">
                 <p className="font-semibold">Voice check required</p>
-                <p className="text-navy-600 mt-0.5">After your PIN, you'll say a short passphrase so Bede knows it's really you.</p>
+                <p className="text-midnight-600 mt-0.5">After your PIN, you'll say a short passphrase so Bede knows it's really you.</p>
               </div>
             </div>
           )}
@@ -185,7 +185,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading || !credential}
-            className="w-full py-3 bg-navy-500 text-white rounded-lg font-medium hover:bg-navy-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 bg-midnight-800 text-amber-300 rounded-lg font-medium hover:bg-midnight-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Checking…' : role === 'parent' ? 'Enter as Parent' : 'Continue →'}
           </button>

@@ -99,17 +99,17 @@ export default function TutorSession() {
     <div className="h-screen flex flex-col bg-parchment-50 overflow-hidden">
 
       {/* ── Header ── */}
-      <header className="pt-safe bg-white border-b border-navy-100 shrink-0 h-12 flex items-center px-4 gap-2">
+      <header className="pt-safe bg-midnight-900 border-b border-midnight-700 shrink-0 h-12 flex items-center px-4 gap-2">
         <img src="/agnus-dei.png" alt="Agnus Dei" className="w-6 h-6 shrink-0" />
 
-        <span className="text-navy-700 font-semibold text-sm truncate max-w-[100px]">
+        <span className="font-display text-xs tracking-wider text-amber-300 truncate max-w-[100px]">
           {sessionConfig.student_name}
         </span>
 
         {/* Subject pill — phone/tablet small only; sidebar replaces this at lg */}
         <button
           onClick={() => setDrawerOpen(true)}
-          className="lg:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-navy-50 text-navy-700 text-xs font-medium border border-navy-100 hover:bg-navy-100 transition-colors shrink-0"
+          className="lg:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-midnight-700 text-amber-300 font-display text-[10px] tracking-wider border border-midnight-500 hover:bg-midnight-600 transition-colors shrink-0"
         >
           {subjectInfo && <subjectInfo.Icon size={12} />}
           <span className="max-w-[120px] truncate">{subjectInfo?.label}</span>
@@ -117,7 +117,7 @@ export default function TutorSession() {
         </button>
 
         {/* Static subject label at lg — sidebar is the interactive list */}
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-navy-50 text-navy-700 text-xs font-medium border border-navy-100 shrink-0 pointer-events-none">
+        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-midnight-700 text-amber-300 font-display text-[10px] tracking-wider border border-midnight-500 shrink-0 pointer-events-none">
           {subjectInfo && <subjectInfo.Icon size={12} />}
           <span className="max-w-[160px] truncate">{subjectInfo?.label}</span>
         </div>
@@ -126,8 +126,8 @@ export default function TutorSession() {
 
         {/* Timer — warning zone or break only */}
         {(isWarning || isOnBreak) && (
-          <div className={`text-xs font-mono font-semibold tabular-nums ${
-            isOnBreak ? 'text-amber-600' : 'text-red-500'
+          <div className={`text-xs font-display tracking-wider tabular-nums ${
+            isOnBreak ? 'text-amber-400' : 'text-coral-400'
           }`}>
             {fmtTime(remainingSecs)}
           </div>
@@ -138,7 +138,7 @@ export default function TutorSession() {
             onClick={handleEndSession}
             disabled={isStreaming}
             title="End session & generate summary"
-            className="p-2 text-gray-400 hover:text-navy-600 rounded-lg hover:bg-navy-50 transition-colors disabled:opacity-40"
+            className="p-2 text-midnight-300 hover:text-amber-300 rounded-lg hover:bg-midnight-700 transition-colors disabled:opacity-40"
           >
             <FileText size={15} />
           </button>
@@ -147,7 +147,7 @@ export default function TutorSession() {
         <button
           onClick={() => { logout(); navigate('/') }}
           title="Log out"
-          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+          className="p-2 text-midnight-300 hover:text-midnight-100 rounded-lg hover:bg-midnight-800 transition-colors"
         >
           <LogOut size={15} />
         </button>
