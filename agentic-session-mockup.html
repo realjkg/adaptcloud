@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agnus Dei — Agentic Session UI</title>
+<style>
+:root {
+  --navy-50:#f0f4fb; --navy-100:#dce6f7; --navy-200:#b9cdef; --navy-300:#87a9e2;
+  --navy-400:#5585d5; --navy-500:#1e3a8a; --navy-600:#17306e;
+  --gold-50:#fefae8;  --gold-100:#fdf2c1; --gold-400:#f5c014; --gold-500:#d4a106; --gold-600:#a67d05;
+  --parchment:#fefcf7; --parchment-100:#fdf8ee; --parchment-200:#f9eecc;
+  --emerald-50:#ecfdf5; --emerald-400:#34d399; --emerald-500:#10b981;
+  --amber-50:#fffbeb;  --amber-400:#fbbf24; --amber-600:#d97706;
+  --red-50:#fef2f2; --red-200:#fecaca; --red-500:#ef4444;
+  --orange-50:#fff7ed; --orange-200:#fed7aa;
+  --blue-50:#eff6ff;   --blue-200:#bfdbfe;
+  --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-400:#9ca3af;
+  --gray-500:#6b7280; --gray-700:#374151; --gray-800:#1f2937;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:#e8edf5; color:var(--gray-800);
+  padding:48px 24px 100px; font-size:14px; line-height:1.5;
+}
+svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── typography ── */
+h1.title{font-size:24px;font-weight:700;color:var(--navy-500);margin-bottom:4px}
+p.subtitle{font-size:13px;color:var(--gray-500);margin-bottom:56px}
+.sec-eyebrow{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--navy-400);margin-bottom:4px}
+.sec-title{font-size:18px;font-weight:700;color:var(--gray-800);margin-bottom:20px}
+section{margin-bottom:72px}
+
+/* ── layout helpers ── */
+.row{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.cols3{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.note{max-width:280px;font-size:13px;color:var(--gray-500);line-height:1.65}
+.callout{background:#fff;border:1px solid var(--navy-100);border-radius:10px;padding:10px 13px;margin-top:10px;font-size:12px;color:var(--gray-600);line-height:1.6}
+.callout strong{color:var(--navy-500)}
+.callout ul{margin:4px 0 0 14px}
+.callout li{margin-bottom:2px}
+
+/* ── phone frame ── */
+.phone{width:320px;flex-shrink:0;background:#1a1a2e;border-radius:44px;padding:10px;
+  box-shadow:0 20px 60px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.06)}
+.phone.sm{width:240px;border-radius:38px}
+.phone-inner{border-radius:36px;overflow:hidden;background:var(--parchment);position:relative;min-height:540px;display:flex;flex-direction:column}
+.phone.sm .phone-inner{border-radius:30px;min-height:420px}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:88px;height:22px;background:#1a1a2e;border-radius:0 0 14px 14px;z-index:10}
+
+/* ── session header ── */
+.s-header{height:48px;border-bottom:1px solid var(--navy-100);background:#fff;display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;position:relative;z-index:5}
+.logo-sm{width:26px;height:26px;border-radius:6px;background:var(--navy-50);border:1px solid var(--navy-200);display:flex;align-items:center;justify-content:center}
+.student-name{font-size:13px;font-weight:600;color:var(--gray-800);flex:1}
+.subj-pill{display:flex;align-items:center;gap:4px;border-radius:20px;padding:3px 8px 3px 6px;font-size:10px;font-weight:600;cursor:pointer;border-width:1px;border-style:solid}
+.subj-hist{background:var(--orange-50);border-color:var(--orange-200);color:#9a3412}
+.h-btn{width:28px;height:28px;border-radius:8px;background:var(--gray-100);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.h-btn svg{width:14px;height:14px;color:var(--gray-500)}
+
+/* ── chat ── */
+.chat-area{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px}
+.bede{background:#fff;border:1px solid var(--navy-100);border-radius:16px 16px 16px 4px;padding:10px 12px;max-width:85%;font-size:14px;line-height:1.6;color:var(--gray-800);box-shadow:0 1px 4px rgba(0,0,0,.06);align-self:flex-start}
+.bede-name{font-size:10px;font-weight:700;color:var(--navy-500);margin-bottom:4px}
+.user-bubble{background:var(--navy-500);color:#fff;border-radius:16px 16px 4px 16px;padding:10px 12px;max-width:85%;font-size:14px;line-height:1.6;align-self:flex-end}
+.user-name{font-size:10px;font-weight:700;color:var(--navy-200);margin-bottom:4px}
+.tool-card{padding:8px 12px 8px 10px;border-radius:0 12px 12px 0;font-size:13px;line-height:1.6;color:var(--gray-700);max-width:92%;align-self:flex-start}
+.tc-hint   {border-left:3px solid var(--navy-300);background:rgba(135,169,226,.12)}
+.tc-faith  {border-left:3px solid var(--gold-400);background:rgba(245,192,20,.08)}
+.tc-narrate{border-left:3px solid var(--amber-400);background:rgba(251,191,36,.09)}
+.tc-win    {border-left:3px solid var(--emerald-400);background:rgba(52,211,153,.1)}
+
+/* ── input bar ── */
+.ibar{padding:10px 10px 14px;background:#fff;border-top:1px solid var(--parchment-200);flex-shrink:0}
+.irow{display:flex;gap:6px;align-items:flex-end}
+.ibtn{width:34px;height:34px;border-radius:9px;background:var(--navy-100);color:var(--navy-600);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer}
+.ibtn.mic-on{background:var(--red-500);color:#fff;animation:mpulse .9s ease-in-out infinite alternate}
+.ibtn svg{width:16px;height:16px}
+.itxt{flex:1;border:1px solid var(--navy-200);border-radius:9px;padding:6px 10px;font-size:12px;color:var(--gray-400);background:#fff;min-height:34px;display:flex;align-items:center}
+.itxt.listen{border-color:var(--red-500);background:var(--red-50);color:var(--red-500);font-style:italic}
+.isend{width:34px;height:34px;border-radius:9px;background:var(--navy-500);color:#fff;display:flex;align-items:center;justify-content:center}
+.isend svg{width:16px;height:16px}
+.ibar-hint{font-size:10px;color:var(--gray-400);margin-top:5px;text-align:center}
+@keyframes mpulse{from{opacity:.8}to{opacity:1;box-shadow:0 0 0 4px rgba(239,68,68,.25)}}
+
+/* ── win ring on subject pill ── */
+.win-ring{outline:2px solid var(--emerald-400);outline-offset:2px;border-radius:20px;animation:wring 1.2s ease-out 1}
+@keyframes wring{0%{outline-offset:0;opacity:1}100%{outline-offset:6px;opacity:0}}
+
+/* ─────────────── SECTION 1 — flow diagram ─────────────── */
+.flow-wrap{background:#fff;border:1px solid var(--navy-100);border-radius:16px;padding:28px 24px;max-width:900px}
+.flow-nodes{display:flex;align-items:stretch;gap:0}
+.flow-node{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
+.fn-box{background:var(--navy-500);color:#fff;border-radius:10px;padding:9px 10px;text-align:center;font-size:11px;font-weight:600;width:100%;min-height:52px;display:flex;align-items:center;justify-content:center;line-height:1.3}
+.fn-box.gold{background:var(--gold-500)}
+.fn-sub{font-size:10px;color:var(--gray-400);text-align:center;margin-top:7px;line-height:1.4;padding:0 4px}
+.flow-arrow{width:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding-bottom:40px}
+.flow-arrow svg{width:16px;height:16px;color:var(--gold-500)}
+
+.session-bar-wrap{margin-top:24px;border-top:1px solid var(--gray-200);padding-top:20px}
+.session-bar-label{font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;display:flex;justify-content:space-between}
+.session-bar{height:22px;background:var(--gray-100);border-radius:8px;overflow:hidden;display:flex;position:relative;border:1px solid var(--gray-200)}
+.sb-block{height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden}
+.sb-morning {background:#d97706}
+.sb-history {background:#ea580c}
+.sb-math    {background:#2563eb}
+.sb-nature  {background:#16a34a}
+.sb-lang    {background:#7c3aed}
+.sb-break   {background:var(--gray-300);color:var(--gray-600)}
+.sb-limit{position:absolute;right:0;top:0;bottom:0;width:2px;background:var(--red-500)}
+.sb-limit-label{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;color:var(--red-500);white-space:nowrap}
+.sb-warn{position:absolute;right:calc(100%/12);top:0;bottom:0;width:1px;background:var(--amber-400)}
+.bar-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:10px}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--gray-500)}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+.bar-note{font-size:11px;color:var(--gray-400);margin-top:8px;font-style:italic}
+
+/* ─────────────── SECTION 3 — 3 feedback frames ─────────────── */
+.three-col{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.frame-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px}
+.frame-surface{color:var(--gray-500)}
+.frame-win    {color:var(--emerald-500)}
+.frame-mis    {color:var(--navy-400)}
+
+/* ─────────────── SECTION 4 — session summary ─────────────── */
+.summary-card{background:#fff;border:1px solid var(--navy-100);border-radius:16px;padding:24px;max-width:720px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.sum-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--gray-100)}
+.sum-title{font-size:16px;font-weight:700;color:var(--gray-800)}
+.sum-meta{font-size:12px;color:var(--gray-400)}
+.subj-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.subj-chip{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid}
+.chip-done{background:var(--emerald-50);border-color:#a7f3d0;color:#065f46}
+.chip-partial{background:var(--amber-50);border-color:#fde68a;color:#92400e}
+.chip-icon svg{width:11px;height:11px}
+
+.narr-card{background:var(--parchment-100);border:1px solid var(--parchment-200);border-radius:12px;padding:16px;margin-bottom:16px}
+.narr-title{font-size:12px;font-weight:700;color:var(--navy-500);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.narr-bars{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.narr-row{display:flex;align-items:center;gap:10px}
+.narr-lbl{font-size:11px;color:var(--gray-500);width:140px;flex-shrink:0}
+.narr-track{flex:1;height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden}
+.narr-fill{height:100%;border-radius:3px;background:var(--navy-400)}
+.narr-fill.highlight{background:var(--emerald-400)}
+.narr-val{font-size:11px;font-weight:700;color:var(--gray-700);width:28px;text-align:right}
+
+.signal-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.sig-advance{background:var(--emerald-50);color:#065f46;border:1px solid #a7f3d0}
+.sig-repeat {background:var(--amber-50); color:#92400e;border:1px solid #fde68a}
+
+.bede-obs{background:var(--parchment);border:1px solid var(--parchment-200);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--gray-600);font-style:italic;line-height:1.7;margin-top:12px}
+.bede-obs-label{font-size:10px;font-weight:700;color:var(--gray-400);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;font-style:normal}
+
+.partial-note{background:var(--amber-50);border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:12px;color:#92400e;margin-bottom:16px}
+
+.sum-footer{display:flex;align-items:center;gap:12px;padding-top:14px;border-top:1px solid var(--gray-100)}
+.btn-ghost{padding:7px 14px;border-radius:8px;border:1px solid var(--navy-200);font-size:12px;font-weight:600;color:var(--navy-500);cursor:pointer;background:#fff}
+.btn-text{font-size:12px;color:var(--gray-400);cursor:pointer;text-decoration:underline}
+
+/* ─────────────── SECTION 5 — parent oversight ─────────────── */
+.oversight-wrap{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;max-width:900px}
+.parent-panel{background:#fff;border:1px solid var(--navy-200);border-radius:16px;padding:20px;flex:1;min-width:300px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.pp-header{display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--gray-100)}
+.pp-title{font-size:14px;font-weight:700;color:var(--gray-800);flex:1}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--emerald-500);animation:ldot 1.4s ease-in-out infinite}
+@keyframes ldot{0%,100%{opacity:1}50%{opacity:.3}}
+.live-label{font-size:11px;font-weight:600;color:var(--emerald-500)}
+
+.session-progress{margin-bottom:16px}
+.prog-label{display:flex;justify-content:space-between;font-size:11px;color:var(--gray-500);margin-bottom:5px}
+.prog-track{height:10px;background:var(--gray-100);border-radius:5px;overflow:visible;position:relative;border:1px solid var(--gray-200)}
+.prog-fill{height:100%;background:var(--navy-400);border-radius:5px}
+.prog-warn-mark{position:absolute;left:75%;top:-3px;bottom:-3px;width:2px;background:var(--amber-400);border-radius:1px}
+.prog-limit-mark{position:absolute;right:0;top:-3px;bottom:-3px;width:2px;background:var(--red-500);border-radius:1px}
+
+.subj-queue{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.sq-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;font-size:12px}
+.sq-done{background:var(--emerald-50);color:#065f46}
+.sq-active{background:var(--navy-50);border:1px solid var(--navy-200);color:var(--navy-600)}
+.sq-next{background:var(--gray-50);color:var(--gray-500)}
+.sq-icon svg{width:12px;height:12px}
+.sq-name{flex:1;font-weight:600}
+.sq-bar-wrap{width:60px}
+.sq-bar{height:4px;background:var(--gray-200);border-radius:2px;overflow:hidden}
+.sq-fill{height:100%;border-radius:2px}
+
+.note-area{margin-bottom:14px}
+.note-label{font-size:11px;font-weight:600;color:var(--gray-700);margin-bottom:5px}
+.note-box{width:100%;border:1px solid var(--navy-200);border-radius:9px;padding:8px 10px;font-size:12px;color:var(--gray-500);min-height:64px;font-family:inherit;resize:none;background:#fff;line-height:1.5}
+.note-sub{font-size:10px;color:var(--gray-400);margin-top:4px}
+.btn-send{padding:7px 14px;border-radius:8px;background:var(--navy-500);color:#fff;font-size:12px;font-weight:600;cursor:pointer;border:none;display:flex;align-items:center;gap:5px}
+.btn-send svg{width:13px;height:13px}
+
+.ctrl-row{display:flex;gap:8px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--gray-100)}
+.ctrl-btn{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid;display:flex;align-items:center;gap:4px}
+.ctrl-btn svg{width:11px;height:11px}
+.ctrl-extend{border-color:var(--gold-500);color:var(--gold-600);background:var(--gold-50)}
+.ctrl-end   {border-color:var(--red-500);color:var(--red-500);background:var(--red-50)}
+.ctrl-pause {border-color:var(--gray-300);color:var(--gray-600);background:var(--gray-50)}
+
+/* live read-only phone overlay */
+.readonly-overlay{position:absolute;inset:0;z-index:20;cursor:not-allowed}
+.readonly-badge{position:absolute;top:28px;right:10px;background:rgba(30,58,138,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.04em;z-index:25}
+
+/* ─────────────── SECTION 6 — security layers ─────────────── */
+.sec-diagram{max-width:760px}
+.sec-layer{display:flex;align-items:flex-start;gap:16px;padding:14px 16px;border-radius:12px;margin-bottom:8px}
+.sec-l1{background:var(--navy-500);color:#fff}
+.sec-l2{background:var(--navy-400);color:#fff}
+.sec-l3{background:var(--navy-300);color:#fff}
+.sec-l4{background:var(--gold-500);color:#fff}
+.sec-l5{background:var(--emerald-500);color:#fff}
+.sec-l6{background:var(--amber-400);color:#fff}
+.sec-icon{width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.2);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.sec-icon svg{width:18px;height:18px;color:#fff}
+.sec-text strong{font-size:12px;font-weight:700;display:block;margin-bottom:2px}
+.sec-text span{font-size:11px;opacity:.9;line-height:1.5}
+
+.threat-box{background:var(--red-50);border:1px solid var(--red-200);border-radius:12px;padding:14px 16px;margin:10px 0;display:flex;gap:12px;align-items:flex-start}
+.threat-icon svg{width:18px;height:18px;color:var(--red-500)}
+.threat-text strong{font-size:12px;font-weight:700;color:#991b1b;display:block;margin-bottom:4px}
+.threat-text p{font-size:11px;color:#991b1b;line-height:1.6}
+
+.sec-footer{background:var(--parchment-100);border:1px solid var(--parchment-200);border-radius:10px;padding:12px 14px;font-size:11px;color:var(--gray-500);margin-top:10px;line-height:1.6;text-align:center}
+
+/* lamb SVG logo */
+.lamb{display:block}
+</style>
+</head>
+<body>
+
+<h1 class="title">Agnus Dei — Agentic Session Design</h1>
+<p class="subtitle">Outcome-based learning · 2-hour session limit · Remote parent oversight · Child safety architecture</p>
+
+<!-- ══════════════════════════ SECTION 1 ══════════════════════════ -->
+<section>
+  <p class="sec-eyebrow">Section 1</p>
+  <p class="sec-title">Agentic Session Flow — Bede Drives Everything</p>
+
+  <div class="flow-wrap">
+    <div class="flow-nodes">
+
+      <div class="flow-node">
+        <div class="fn-box">Voice Auth</div>
+        <p class="fn-sub">PIN + voiceprint — identity confirmed before any session begins</p>
+      </div>
+      <div class="flow-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+
+      <div class="flow-node">
+        <div class="fn-box">Bede Opens Subject</div>
+        <p class="fn-sub">[START] sentinel fires automatically — student arrives to Bede already speaking</p>
+      </div>
+      <div class="flow-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+
+      <div class="flow-node">
+        <div class="fn-box">Student Responds</div>
+        <p class="fn-sub">Type, speak, or draw — Bede waits; no time pressure, no game loop</p>
+      </div>
+      <div class="flow-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+
+      <div class="flow-node">
+        <div class="fn-box">Bede Adapts</div>
+        <p class="fn-sub">Hint, celebrate, redirect, or request narration — agent tools fire silently</p>
+      </div>
+      <div class="flow-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+
+      <div class="flow-node">
+        <div class="fn-box gold">Subject Complete</div>
+        <p class="fn-sub">Assessment score recorded server-side. Child never sees a number.</p>
+      </div>
+      <div class="flow-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+
+      <div class="flow-node">
+        <div class="fn-box">Next Subject</div>
+        <p class="fn-sub">Student taps Next in drawer, or Bede transitions after a break</p>
+      </div>
+      <div class="flow-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+
+      <div class="flow-node">
+        <div class="fn-box gold">Session Summary</div>
+        <p class="fn-sub">Haiku generates parent report. Adaptive signal shapes tomorrow's plan.</p>
+      </div>
+
+    </div>
+
+    <!-- 2-hour session bar -->
+    <div class="session-bar-wrap">
+      <div class="session-bar-label">
+        <span>Session timeline (2-hour max)</span>
+        <span style="color:var(--red-500);font-weight:700;">2hr hard limit</span>
+      </div>
+      <div class="session-bar">
+        <div class="sb-block sb-morning" style="width:14%">Morning 20m</div>
+        <div class="sb-block sb-history" style="width:17%">History 25m</div>
+        <div class="sb-block sb-break"   style="width:7%;color:var(--gray-500)">Break</div>
+        <div class="sb-block sb-math"    style="width:14%">Math 20m</div>
+        <div class="sb-block sb-nature"  style="width:14%">Nature 20m</div>
+        <div class="sb-block sb-break"   style="width:7%;color:var(--gray-500)">Break</div>
+        <div class="sb-block sb-lang"    style="width:11%">Language</div>
+        <div class="sb-block"            style="width:16%;background:var(--gray-100);color:var(--gray-400);font-size:9px;">buffer / summary</div>
+        <div class="sb-warn"></div>
+        <div class="sb-limit"></div>
+        <div class="sb-limit-label">2 hr</div>
+      </div>
+      <div class="bar-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#d97706"></div> Morning Time</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#ea580c"></div> History</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#2563eb"></div> Mathematics</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#16a34a"></div> Nature Study</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7c3aed"></div> Language Arts</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--amber-400);"></div> 90-min parent alert</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--red-500);"></div> 2-hr hard stop</div>
+      </div>
+      <p class="bar-note">At 90 minutes the parent receives a notification. At 2 hours the session ends gracefully — Bede wraps the current topic and triggers session summary. No override without parent password.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ SECTION 2 ══════════════════════════ -->
+<section>
+  <p class="sec-eyebrow">Section 2</p>
+  <p class="sec-title">Student View — Emma, Grade 4 · History &amp; Geography</p>
+
+  <div class="row">
+    <div class="phone">
+      <div class="phone-inner">
+        <div class="notch"></div>
+
+        <div class="s-header" style="margin-top:22px;">
+          <div class="logo-sm">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="none">
+              <ellipse cx="12" cy="15" rx="7" ry="5" fill="#dce6f7" stroke="#87a9e2" stroke-width=".8"/>
+              <circle cx="12" cy="9" r="3.5" fill="#dce6f7" stroke="#87a9e2" stroke-width=".8"/>
+              <circle cx="10.6" cy="8.3" r=".55" fill="#1e3a8a"/>
+              <line x1="17" y1="10.5" x2="17" y2="5.5" stroke="#d4a106" stroke-width=".9"/>
+              <rect x="17" y="5.5" width="4" height="2.5" fill="#d4a106" rx=".3"/>
+            </svg>
+          </div>
+          <span class="student-name">Emma</span>
+          <div class="subj-pill subj-hist">
+            <svg viewBox="0 0 24 24" width="9" height="9"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            History
+            <svg viewBox="0 0 24 24" width="9" height="9"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="h-btn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div class="h-btn"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+        </div>
+
+        <div class="chat-area">
+          <div class="bede">
+            <div class="bede-name">Bede</div>
+            Good morning, Emma. Close your eyes for a moment — picture England in 1215. Muddy fields, stone castles, barons in iron armour. When you're ready, tell me: what do you think life was like for an ordinary farmer back then?
+          </div>
+          <div class="user-bubble">
+            <div class="user-name">Emma</div>
+            Probably really hard? They had to grow all their own food and couldn't go anywhere.
+          </div>
+          <div class="tool-card tc-hint">
+            That's a strong start. Tell me more — who did that farmer answer to? Who owned the land he worked?
+          </div>
+          <div class="user-bubble">
+            <div class="user-name">Emma</div>
+            The lord? Or maybe the king?
+          </div>
+          <div class="bede">
+            <div class="bede-name">Bede</div>
+            Both, actually — and that chain of ownership is what we call the feudal system. Here's a question: if the king could take any lord's land whenever he felt like it, what do you think the lords might eventually do?
+          </div>
+        </div>
+
+        <div class="ibar">
+          <div class="irow">
+            <div class="ibtn" title="Draw"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+            <div class="ibtn" title="Bede voice on"><svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></div>
+            <div class="ibtn" title="Speak"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+            <div class="itxt">Share your thinking…</div>
+            <div class="isend"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
+          </div>
+          <p class="ibar-hint">Enter to send · mic for voice · pen to draw</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--navy-400);margin-bottom:4px;">What makes this agentic</p>
+      <p style="margin-bottom:12px;">Bede's opener fired the moment Emma's session loaded — she never tapped "Start Lesson." The session is already in motion when she arrives.</p>
+      <div class="callout">
+        <strong>No content library</strong><br>
+        There's no menu to browse, no video to pick, no exercise to select. Bede chose the approach (close-your-eyes visualization) and the Socratic question sequence entirely.
+      </div>
+      <div class="callout">
+        <strong>Tool cards are invisible actions</strong><br>
+        The amber hint card wasn't a UI button Emma tapped — Bede's AI decided to call <code style="font-size:10px;background:var(--gray-100);padding:1px 4px;border-radius:3px;">offer_socratic_hint</code> and the card appeared automatically. Emma just sees a nudge; she doesn't know it's a tool.
+      </div>
+      <div class="callout">
+        <strong>Grade 4 (3-5 stage)</strong><br>
+        <ul>
+          <li>text-base (16px) — readable but not K-2 oversized</li>
+          <li>Standard Socratic pacing</li>
+          <li>Mic + TTS available but not forced</li>
+          <li>Timer hidden until final 5 minutes</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ SECTION 3 ══════════════════════════ -->
+<section>
+  <p class="sec-eyebrow">Section 3</p>
+  <p class="sec-title">Interactive Feedback — How Bede Adapts to Emma's Answers</p>
+  <p style="font-size:13px;color:var(--gray-500);margin-bottom:24px;max-width:600px;">Same Bede question, three different student responses. Bede never says "wrong." The tool card that fires changes based on what Emma said.</p>
+
+  <div class="three-col">
+
+    <!-- Frame A: Surface -->
+    <div>
+      <p class="frame-label frame-surface">A — Surface Answer</p>
+      <div class="phone" style="width:260px;">
+        <div class="phone-inner" style="min-height:460px;">
+          <div class="notch"></div>
+          <div class="chat-area" style="padding-top:30px;">
+            <div class="bede">
+              <div class="bede-name">Bede</div>
+              What do you think the barons were most afraid of losing?
+            </div>
+            <div class="user-bubble">
+              <div class="user-name">Emma</div>
+              Their money.
+            </div>
+            <div class="tool-card tc-hint">
+              Money matters, yes. But there's something barons prized even more than coins — something you can see, walk across, and pass to your children. What might that be?
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout" style="max-width:260px;margin-top:10px;">
+        <strong>offer_socratic_hint fires</strong><br>
+        Navy left border. Bede redirects without correcting — surfaces a more precise question.
+      </div>
+    </div>
+
+    <!-- Frame B: Breakthrough -->
+    <div>
+      <p class="frame-label frame-win">B — Breakthrough</p>
+      <div class="phone" style="width:260px;">
+        <div class="phone-inner" style="min-height:460px;">
+          <div class="notch"></div>
+          <div class="chat-area" style="padding-top:30px;">
+            <div class="bede">
+              <div class="bede-name">Bede</div>
+              What do you think the barons were most afraid of losing?
+            </div>
+            <div class="user-bubble">
+              <div class="user-name">Emma</div>
+              Their land — and their power to make the rules on it.
+            </div>
+            <div class="tool-card tc-win">
+              Yes — exactly that. Land meant power, justice, income, and legacy all at once. That's precisely why Magna Carta's first demand was about the rights of the Church and the land.
+            </div>
+          </div>
+          <!-- Win ring on subject pill — simulated with a note in the header area -->
+          <div style="position:absolute;top:26px;right:52px;background:rgba(52,211,153,.15);border:1.5px solid var(--emerald-400);border-radius:20px;padding:2px 7px;font-size:9px;font-weight:700;color:#065f46;display:flex;align-items:center;gap:3px;">
+            <svg viewBox="0 0 24 24" width="9" height="9" color="var(--emerald-500)"><polyline points="20 6 9 17 4 12"/></svg>
+            History
+          </div>
+        </div>
+      </div>
+      <div class="callout" style="max-width:260px;margin-top:10px;">
+        <strong>celebrate_discovery fires</strong><br>
+        Emerald left border. Subject pill gets a brief emerald pulse ring. Assessment score increments silently. No badge, no points.
+      </div>
+    </div>
+
+    <!-- Frame C: Misconception -->
+    <div>
+      <p class="frame-label frame-mis">C — Misconception Redirected</p>
+      <div class="phone" style="width:260px;">
+        <div class="phone-inner" style="min-height:460px;">
+          <div class="notch"></div>
+          <div class="chat-area" style="padding-top:30px;">
+            <div class="bede">
+              <div class="bede-name">Bede</div>
+              What do you think the barons were most afraid of losing?
+            </div>
+            <div class="user-bubble">
+              <div class="user-name">Emma</div>
+              Being forced to fight wars for the king.
+            </div>
+            <div class="tool-card tc-hint">
+              Wars were certainly dangerous — but the barons were actually powerful fighters themselves. What did a baron have that a knight didn't, that could be taken away by a king's decision overnight?
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout" style="max-width:260px;margin-top:10px;">
+        <strong>offer_socratic_hint fires</strong><br>
+        Misconception is acknowledged ("Wars were certainly dangerous") then a narrower question steers Emma without telling her she was wrong.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════ SECTION 4 ══════════════════════════ -->
+<section>
+  <p class="sec-eyebrow">Section 4</p>
+  <p class="sec-title">Outcome-Based Learning — Session Summary (Parent View)</p>
+
+  <div class="summary-card">
+    <div class="sum-header">
+      <div>
+        <div class="sum-title">Emma's Session — Tuesday 22 June</div>
+        <div class="sum-meta">47 minutes · 3 subjects attempted · Grade 4 · History &amp; Geography focus</div>
+      </div>
+      <div style="text-align:right">
+        <div class="sum-meta">Ended 10:47 am</div>
+        <div class="sum-meta" style="color:var(--emerald-500);font-weight:600;">Below 2hr limit</div>
+      </div>
+    </div>
+
+    <!-- Subject chips -->
+    <div class="subj-row">
+      <div class="subj-chip chip-done">
+        <span class="chip-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+        Morning Time — 20 min
+      </div>
+      <div class="subj-chip chip-done">
+        <span class="chip-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+        History &amp; Geography — 25 min
+      </div>
+      <div class="subj-chip chip-partial">
+        <span class="chip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        Mathematics — 18 min (paused)
+      </div>
+    </div>
+
+    <!-- Math partial note -->
+    <div class="partial-note">
+      <strong>Mathematics paused at 18 of 20 minutes</strong> — assessment not yet complete. Continue tomorrow from multiplication of fractions (lesson 7).
+    </div>
+
+    <!-- Narration assessment — History -->
+    <div class="narr-card">
+      <div class="narr-title">
+        <svg viewBox="0 0 24 24" width="14" height="14" color="var(--navy-500)"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        History &amp; Geography — Narration Assessment
+        <span class="signal-chip sig-advance" style="margin-left:auto;">
+          <svg viewBox="0 0 24 24" width="10" height="10"><polyline points="17 11 21 7 17 3"/><line x1="21" y1="7" x2="9" y2="7"/><polyline points="7 21 3 17 7 13"/><line x1="15" y1="17" x2="3" y2="17"/></svg>
+          ADVANCE
+        </span>
+      </div>
+
+      <div class="narr-bars">
+        <div class="narr-row">
+          <span class="narr-lbl">Completeness</span>
+          <div class="narr-track"><div class="narr-fill" style="width:80%"></div></div>
+          <span class="narr-val">4 / 5</span>
+        </div>
+        <div class="narr-row">
+          <span class="narr-lbl">Sequence &amp; Order</span>
+          <div class="narr-track"><div class="narr-fill" style="width:60%"></div></div>
+          <span class="narr-val">3 / 5</span>
+        </div>
+        <div class="narr-row">
+          <span class="narr-lbl">Detail &amp; Vocabulary</span>
+          <div class="narr-track"><div class="narr-fill" style="width:80%"></div></div>
+          <span class="narr-val">4 / 5</span>
+        </div>
+        <div class="narr-row">
+          <span class="narr-lbl">Synthesis</span>
+          <div class="narr-track"><div class="narr-fill highlight" style="width:100%"></div></div>
+          <span class="narr-val" style="color:var(--emerald-500);font-weight:700;">5 / 5</span>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:var(--gray-500);margin-bottom:10px;">
+        <strong style="color:var(--navy-500);">Adaptive signal:</strong> Emma is ready to move to the signing of Magna Carta and its specific clauses. The feudal structure is well understood.
+      </div>
+
+      <div class="bede-obs">
+        <div class="bede-obs-label">Bede's observation</div>
+        Emma connected the feudal land structure to baronial motivation without prompting — a genuine synthesis. She initially over-indexed on economic concerns but self-corrected when questioned further. Her sequencing of causes was slightly loose, but her conclusion was precise and her vocabulary ("feudal," "sovereignty") was accurate. Strong session.
+      </div>
+    </div>
+
+    <div class="sum-footer">
+      <button class="btn-ghost" style="display:flex;align-items:center;gap:5px;">
+        <svg viewBox="0 0 24 24" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Download PDF Report
+      </button>
+      <span class="btn-text">Full session transcript</span>
+      <span class="btn-text">Audit log</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ SECTION 5 ══════════════════════════ -->
+<section>
+  <p class="sec-eyebrow">Section 5</p>
+  <p class="sec-title">Remote Parent Oversight — Live Session Panel</p>
+
+  <div class="oversight-wrap">
+
+    <!-- Live mini phone (read-only) -->
+    <div>
+      <p style="font-size:11px;font-weight:600;color:var(--gray-500);text-align:center;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;">Emma's screen — live</p>
+      <div class="phone sm">
+        <div class="phone-inner" style="min-height:420px;">
+          <div class="notch"></div>
+          <div class="readonly-overlay"></div>
+          <div class="readonly-badge">READ ONLY</div>
+
+          <div class="s-header" style="margin-top:22px;">
+            <div class="logo-sm">
+              <svg viewBox="0 0 24 24" width="12" height="12" stroke="none">
+                <ellipse cx="12" cy="15" rx="6" ry="4.5" fill="#dce6f7" stroke="#87a9e2" stroke-width=".7"/>
+                <circle cx="12" cy="9.5" r="3" fill="#dce6f7" stroke="#87a9e2" stroke-width=".7"/>
+              </svg>
+            </div>
+            <span style="font-size:11px;font-weight:600;color:var(--gray-800);flex:1">Emma</span>
+            <div style="background:var(--orange-50);border:1px solid var(--orange-200);color:#9a3412;border-radius:20px;padding:2px 6px;font-size:9px;font-weight:600;">History</div>
+          </div>
+
+          <div class="chat-area" style="gap:7px;">
+            <div class="bede" style="font-size:11px;padding:7px 9px;">
+              <div class="bede-name" style="font-size:9px;">Bede</div>
+              Close your eyes — picture England in 1215. What do you think life was like for an ordinary farmer?
+            </div>
+            <div class="user-bubble" style="font-size:11px;padding:7px 9px;">
+              <div class="user-name" style="font-size:9px;">Emma</div>
+              Probably really hard? They had to grow all their food.
+            </div>
+            <div class="tool-card tc-hint" style="font-size:10px;padding:5px 8px 5px 7px;">
+              Good start. Who did that farmer answer to?
+            </div>
+            <div class="user-bubble" style="font-size:11px;padding:7px 9px;align-self:flex-end;">
+              <div class="user-name" style="font-size:9px;">Emma</div>
+              The lord? Or the king?
+            </div>
+            <div class="bede" style="font-size:11px;padding:7px 9px;">
+              <div class="bede-name" style="font-size:9px;">Bede</div>
+              Both — that chain of ownership is the feudal system…
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parent control panel -->
+    <div class="parent-panel">
+      <div class="pp-header">
+        <div>
+          <div class="pp-title">Live Session — Emma</div>
+          <div style="font-size:11px;color:var(--gray-400);">Started 9:52 am · Tuesday 22 June</div>
+        </div>
+        <div class="live-dot"></div>
+        <span class="live-label">Active</span>
+      </div>
+
+      <!-- 2-hour progress bar -->
+      <div class="session-progress">
+        <div class="prog-label">
+          <span>Session time</span>
+          <span style="font-weight:600;color:var(--navy-500);">39 of 120 min</span>
+        </div>
+        <div class="prog-track">
+          <div class="prog-fill" style="width:32.5%"></div>
+          <div class="prog-warn-mark" title="90 min — parent alert"></div>
+          <div class="prog-limit-mark" title="120 min — hard stop"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--gray-400);margin-top:3px;">
+          <span>0</span>
+          <span style="color:var(--amber-600);">90m alert</span>
+          <span style="color:var(--red-500);">2hr stop</span>
+        </div>
+      </div>
+
+      <!-- Subject queue -->
+      <div class="subj-queue">
+        <div class="sq-item sq-done">
+          <span class="sq-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <span class="sq-name">Morning Time</span>
+          <span style="font-size:10px;color:#065f46;">20 min</span>
+        </div>
+        <div class="sq-item sq-active">
+          <span class="sq-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+          <span class="sq-name">History</span>
+          <div class="sq-bar-wrap">
+            <div class="sq-bar"><div class="sq-fill" style="width:56%;background:var(--navy-400)"></div></div>
+          </div>
+          <span style="font-size:10px;color:var(--navy-600);">14 / 25m</span>
+        </div>
+        <div class="sq-item sq-next">
+          <span class="sq-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg></span>
+          <span class="sq-name">Mathematics</span>
+          <span style="font-size:10px;">20 min</span>
+        </div>
+        <div class="sq-item sq-next">
+          <span class="sq-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg></span>
+          <span class="sq-name">+ 2 more subjects</span>
+        </div>
+      </div>
+
+      <!-- Note to Bede -->
+      <div class="note-area">
+        <div class="note-label">Note to Bede</div>
+        <textarea class="note-box" readonly>Emma has violin at 11am — please begin wrapping up History by 10:40 and skip to session summary if needed.</textarea>
+        <div class="note-sub">Bede sees this as system context on the next response. Emma does not see it.</div>
+      </div>
+      <button class="btn-send">
+        <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send to Bede
+      </button>
+
+      <!-- Session controls -->
+      <div class="ctrl-row">
+        <button class="ctrl-btn ctrl-extend">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Extend 15 min
+        </button>
+        <button class="ctrl-btn ctrl-end">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          End Session
+        </button>
+        <button class="ctrl-btn ctrl-pause">
+          <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          Pause
+        </button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════ SECTION 6 ══════════════════════════ -->
+<section>
+  <p class="sec-eyebrow">Section 6</p>
+  <p class="sec-title">Child Safety Architecture — Why Only Emma Can Be Emma</p>
+
+  <div class="sec-diagram">
+
+    <div class="sec-layer sec-l1">
+      <div class="sec-icon"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>
+      <div class="sec-text">
+        <strong>LAN Boundary</strong>
+        <span>No internet access required. Caddy TLS terminates on your home network only. No external DNS lookup, no cloud account, no app store distribution. The server never calls home.</span>
+      </div>
+    </div>
+
+    <div class="sec-layer sec-l2">
+      <div class="sec-icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <div class="sec-text">
+        <strong>Device Identity</strong>
+        <span>JWT tokens are fingerprinted to the issuing IP address and browser User-Agent at login. A token from Emma's iPad silently returns 401 on any other device — no error message, no hint.</span>
+      </div>
+    </div>
+
+    <div class="sec-layer sec-l3">
+      <div class="sec-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="sec-text">
+        <strong>PIN Authentication</strong>
+        <span>4-digit numeric PIN, verified server-side with <code style="font-size:10px;background:rgba(255,255,255,.2);padding:1px 5px;border-radius:3px;">hmac.compare_digest</code> (constant-time, no timing oracle). Brute-force locked after 5 failed attempts. PIN never stored in plaintext.</span>
+      </div>
+    </div>
+
+    <!-- Threat box between layers 3 and 4 -->
+    <div class="threat-box">
+      <span class="threat-icon"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+      <div class="threat-text">
+        <strong>An unauthorized adult cannot authenticate as a child without all of the following:</strong>
+        <p>Knowing the child's PIN &nbsp;·&nbsp; Producing a voice match ≥ 0.72 confidence against the enrolled voiceprint &nbsp;·&nbsp; Being on the LAN &nbsp;·&nbsp; Sending requests from the registered device &nbsp;·&nbsp; All simultaneously. Failing any layer returns a generic 401 with no indication of which check failed.</p>
+      </div>
+    </div>
+
+    <div class="sec-layer sec-l4">
+      <div class="sec-icon"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+      <div class="sec-text">
+        <strong>Voice Biometric</strong>
+        <span>Resemblyzer speaker embedding compared against enrolled voiceprint. Confidence threshold 0.72 (high). 3 attempts before parent-password override is required. Audio blob never leaves the LAN server — Resemblyzer runs on-device CPU.</span>
+      </div>
+    </div>
+
+    <div class="sec-layer sec-l5">
+      <div class="sec-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div class="sec-text">
+        <strong>Content Constraint</strong>
+        <span>Bede's system prompt is strictly Charlotte Mason / Catholic homeschool. ExfiltrationGuard middleware strips SSE chunks containing prompt-injection markers before they reach the client. No external tool calls, no web browsing, no file system access from the AI.</span>
+      </div>
+    </div>
+
+    <div class="sec-layer sec-l6">
+      <div class="sec-icon"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <div class="sec-text">
+        <strong>Parent Oversight &amp; Session Limits</strong>
+        <span>Full conversation transcript visible to parent in real time. Encrypted audit log of every auth event and tool call. 2-hour hard session limit enforced server-side — no client-side bypass possible. Parent can end session remotely; child cannot extend past the limit.</span>
+      </div>
+    </div>
+
+    <div class="sec-footer">
+      All student data — voice profiles, session configs, narration scores, conversation logs — is stored as AES-256-GCM encrypted BYTEA.<br>
+      The database provider never sees plaintext. MASTER_SECRET → KEK → DATA_KEY hierarchy; key material is never written to disk in cleartext.
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
