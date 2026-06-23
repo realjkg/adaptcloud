@@ -192,7 +192,7 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
         ))}
         {isStreaming &&
           displayMessages.find((m) => m.id === 'streaming-response')?.content === '' && (
-            <div className="flex items-center gap-2 text-navy-500 text-sm animate-pulse-soft">
+            <div className="flex items-center gap-2 text-amber-400 text-sm animate-pulse-soft">
               <Loader2 size={14} className="animate-spin" />
               <span>Bede is thinking…</span>
             </div>
@@ -200,7 +200,7 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
         {/* Interim speech-to-text preview */}
         {isListening && interim && (
           <div className="flex justify-end">
-            <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-navy-200/60 text-navy-800 italic border border-navy-200 animate-pulse-soft">
+            <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-midnight-700/60 text-amber-200 italic border border-midnight-600 animate-pulse-soft">
               {interim}…
             </div>
           </div>
@@ -227,7 +227,7 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
             onClick={() => setShowCanvas(true)}
             disabled={isStreaming || breakActive}
             title="Draw or write by hand"
-            className="p-2.5 rounded-lg bg-navy-100 text-navy-600 hover:bg-navy-200 disabled:opacity-40 transition-colors flex-shrink-0"
+            className="p-2.5 rounded-lg bg-midnight-50 text-midnight-600 border border-midnight-100 hover:bg-midnight-100 disabled:opacity-40 transition-colors flex-shrink-0"
           >
             <PenLine size={18} />
           </button>
@@ -239,7 +239,7 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
               title={ttsEnabled ? 'Mute Bede' : 'Unmute Bede'}
               className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${
                 ttsEnabled
-                  ? 'bg-navy-100 text-navy-600 hover:bg-navy-200'
+                  ? 'bg-midnight-50 text-midnight-600 border border-midnight-100 hover:bg-midnight-100'
                   : 'bg-gray-100 text-gray-400 hover:text-gray-600'
               }`}
             >
@@ -260,7 +260,7 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
               className={`p-2.5 rounded-lg transition-colors flex-shrink-0 ${
                 isListening
                   ? 'bg-red-500 text-white animate-pulse'
-                  : 'bg-navy-100 text-navy-600 hover:bg-navy-200 disabled:opacity-40'
+                  : 'bg-midnight-50 text-midnight-600 border border-midnight-100 hover:bg-midnight-100 disabled:opacity-40'
               }`}
             >
               {isListening ? <MicOff size={18} /> : <Mic size={18} />}
@@ -282,13 +282,13 @@ export default function SocraticChat({ breakActive = false, gradeStage }: { brea
                 : 'Share your thoughts or answer Bede\'s question…'
             }
             rows={2}
-            className="flex-1 resize-none rounded-lg border border-navy-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy-400 bg-white placeholder-gray-400 disabled:bg-gray-50"
+            className="flex-1 resize-none rounded-lg border border-midnight-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white placeholder-gray-400 disabled:bg-gray-50"
           />
 
           <button
             onClick={send}
             disabled={isStreaming || breakActive || (!input.trim() && !pendingDrawing)}
-            className="p-2.5 rounded-lg bg-navy-500 text-white hover:bg-navy-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            className="p-2.5 rounded-lg bg-midnight-800 text-amber-300 hover:bg-midnight-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
@@ -330,14 +330,14 @@ function MessageBubble({ msg, studentName }: MsgProps) {
 
   if (msg.tool) {
     const toolAccent: Record<string, string> = {
-      request_narration:   'border-l-[3px] border-amber-400 bg-amber-50/70',
-      offer_socratic_hint: 'border-l-[3px] border-navy-300 bg-navy-50/70',
-      celebrate_discovery: 'border-l-[3px] border-emerald-400 bg-emerald-50/70',
-      connect_to_faith:    'border-l-[3px] border-gold-400 bg-gold-50/70',
+      request_narration:   'border-l-[3px] border-coral-400 bg-coral-50 text-coral-700',
+      offer_socratic_hint: 'border-l-[3px] border-sky-400 bg-sky-50 text-sky-800',
+      celebrate_discovery: 'border-l-[3px] border-emerald-400 bg-emerald-50/70 text-emerald-700',
+      connect_to_faith:    'border-l-[3px] border-amber-400 bg-amber-50 text-amber-800',
     }
     const cls = toolAccent[msg.tool] ?? 'border-l-[3px] border-gray-300 bg-gray-50/70'
     return (
-      <div className={`pl-3 pr-4 lg:pr-6 py-2.5 lg:py-3 rounded-r-xl text-sm lg:text-base leading-relaxed lg:leading-loose text-gray-700 max-w-[90%] lg:max-w-[70%] animate-slide-up ${cls}`}>
+      <div className={`pl-3 pr-4 lg:pr-6 py-2.5 lg:py-3 rounded-r-xl text-sm lg:text-base leading-relaxed lg:leading-loose max-w-[90%] lg:max-w-[70%] animate-slide-up ${cls}`}>
         {msg.content}
       </div>
     )
@@ -349,12 +349,12 @@ function MessageBubble({ msg, studentName }: MsgProps) {
       <div
         className={`max-w-[80%] lg:max-w-[66%] rounded-2xl px-4 py-3 lg:px-5 lg:py-3.5 text-sm lg:text-base leading-relaxed lg:leading-loose ${
           isUser
-            ? 'bg-navy-500 text-white rounded-br-sm'
-            : 'bg-white border border-navy-100 text-gray-800 rounded-bl-sm shadow-sm'
+            ? 'bg-midnight-800 text-amber-100 rounded-br-sm'
+            : 'bg-white border border-midnight-100 text-gray-800 rounded-bl-sm shadow-sm'
         }`}
       >
-        {!isUser && <div className="text-xs font-semibold text-navy-600 mb-1">Bede</div>}
-        {isUser && <div className="text-xs font-semibold text-navy-100 mb-1">{studentName}</div>}
+        {!isUser && <div className="text-xs font-display tracking-wider text-midnight-500 mb-1">Bede</div>}
+        {isUser && <div className="text-xs font-display tracking-wider text-amber-300 mb-1">{studentName}</div>}
         <div className="whitespace-pre-wrap">{msg.content}</div>
       </div>
     </div>
