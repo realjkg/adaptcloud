@@ -1,5 +1,13 @@
+# Secrets — never commit these
+.env
+.env.backup
+.env.local
+
+# Claude Code agent worktrees (ephemeral, not source)
+.claude/
+
 #Config files or byte-compiled / optimized / DLL files
-config.py
+/config.py
 __pycache__/
 *.py[cod]
 *$py.class
