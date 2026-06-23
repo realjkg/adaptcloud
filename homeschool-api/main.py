@@ -9,6 +9,7 @@ from core.config import settings
 from core.database import create_tables, engine
 from core.encryption import init_server_key
 from core.middleware import ExfiltrationGuard, RateLimitMiddleware, SecurityHeadersMiddleware, WriteAnomalyMiddleware
+from core.webauthn_check import build_config_report
 from routers import admin, auth, catalog, narration, pod, transcripts, tutor, voice
 
 logging.basicConfig(
@@ -84,3 +85,18 @@ async def health():
 @app.get("/api/health")
 async def api_health():
     return {"status": "ok"}
+
+
+@app.get("/api/config")
+async def public_config():
+    """
+    Public endpoint — returns WebAuthn configuration and security tier.
+
+    No authentication required: browsers need the rp_id/origin to start the
+    passkey ceremony before any login exists. Returns the same data available
+    in the browser's own window.location, so there is no sensitive disclosure.
+
+    Use GET /admin/config/check (parent auth) for the full diagnostic report
+    including a live DNS probe.
+    """
+    return build_config_report(probe_dns=False)

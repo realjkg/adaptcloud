@@ -1,17 +1,16 @@
 version: '3.9'
 
-# ── Sage Homeschool Tutor — secure deployment ─────────────────────────────────
+# ── Agnus Dei Homeschool Tutor — secure deployment ────────────────────────────
 #
-# Required env vars (set in .env or shell — never hardcoded here):
+# Required env vars (set in .env via setup.sh — never hardcoded here):
 #   ANTHROPIC_API_KEY   Claude API key
 #   SECRET_KEY          JWT signing key   (openssl rand -hex 32)
-#   MASTER_SECRET       Encryption master secret (openssl rand -hex 32)
-#   PARENT_PASSWORD     Parent login password
-#   CHILD_PIN           Child login PIN
+#   SERVER_KEY          Per-family encryption wrap key (openssl rand -hex 32)
 #   DATABASE_URL        Managed PostgreSQL connection string
 #                       Format: postgresql+asyncpg://user:pass@host/db?ssl=require
-#                       Neon example:
-#                         postgresql+asyncpg://sage:pass@ep-xxx.us-east-2.aws.neon.tech/sagedb?ssl=require
+#   SITE_URL            Deployment URL — all WebAuthn config derives from this.
+#                       Examples: http://localhost | https://bede.local | https://agnusdei.ai
+#                       IP addresses are NOT valid (WebAuthn requires a hostname).
 #
 # Storage model:
 #   All persistent data (encryption keys, voice profiles, audit log) lives in
@@ -28,10 +27,9 @@ services:
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
-      - MASTER_SECRET=${MASTER_SECRET:?MASTER_SECRET is required}
-      - PARENT_PASSWORD=${PARENT_PASSWORD:?PARENT_PASSWORD is required}
-      - CHILD_PIN=${CHILD_PIN:?CHILD_PIN is required}
+      - SERVER_KEY=${SERVER_KEY:?SERVER_KEY is required}
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - SITE_URL=${SITE_URL:?SITE_URL is required — run setup.sh to configure}
       - CORS_ORIGINS=${CORS_ORIGINS:-https://localhost,http://ui:80}
       - DISABLE_API_DOCS=true
       - PRODUCTION=true
