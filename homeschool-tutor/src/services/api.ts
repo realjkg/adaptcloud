@@ -1,21 +1,67 @@
+import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
 import type { SessionConfig, Subject, ChatMessage, StreamChunk, NarrationAssessmentData, LearnerProfileData } from '../types'
 
 const BASE = '/api'
 
 // ── Auth ────────────────────────────────────────────────────────────────────
 
-export async function login(role: 'parent' | 'child', credential: string): Promise<string> {
-  const res = await fetch(`${BASE}/auth/login`, {
+export interface PasskeyTokenResponse {
+  access_token: string
+  token_type: string
+  role: string
+  family_id: string
+  user_id: string
+}
+
+export interface RegisterCompleteResponse extends PasskeyTokenResponse {
+  recovery_codes: string[]
+}
+
+export async function passkeyLoginBegin(): Promise<{ session_id: string; options: object }> {
+  const res = await fetch(`${BASE}/auth/login/begin`, { method: 'POST' })
+  if (!res.ok) throw new Error('Could not begin login')
+  return res.json()
+}
+
+export async function passkeyLogin(): Promise<PasskeyTokenResponse> {
+  const { session_id, options } = await passkeyLoginBegin()
+  const credential = await startAuthentication(options as Parameters<typeof startAuthentication>[0])
+  const res = await fetch(`${BASE}/auth/login/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role, credential }),
+    body: JSON.stringify({ session_id, credential }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Login failed')
+    throw new Error(err.detail || 'Login failed — passkey not recognised')
   }
-  const data = await res.json()
-  return data.access_token
+  return res.json()
+}
+
+export async function passkeyRegister(
+  familyName: string,
+  parentName: string,
+): Promise<RegisterCompleteResponse> {
+  const beginRes = await fetch(`${BASE}/auth/register/begin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ family_name: familyName, parent_name: parentName }),
+  })
+  if (!beginRes.ok) throw new Error('Could not begin registration')
+  const { session_id, options } = await beginRes.json()
+
+  const credential = await startRegistration(options as Parameters<typeof startRegistration>[0])
+
+  const completeRes = await fetch(`${BASE}/auth/register/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id, family_name: familyName, parent_name: parentName, credential }),
+  })
+  if (!completeRes.ok) {
+    const err = await completeRes.json().catch(() => ({}))
+    throw new Error(err.detail || 'Registration failed')
+  }
+  return completeRes.json()
 }
 
 // ── Streaming tutor chat ─────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { Mic, CheckCircle, AlertTriangle, XCircle, RefreshCw, Loader2, ShieldChe
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder'
 import { verifyVoice, parentOverrideVoice } from '../services/voiceApi'
 import type { VerifyResult } from '../services/voiceApi'
-import { login } from '../services/api'
+import { passkeyLogin } from '../services/api'
 
 const PASSPHRASE = "I am ready to learn today!"
 
@@ -22,9 +22,8 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
   const [attempts, setAttempts] = useState(0)
   const MAX_ATTEMPTS = 3
 
-  // Parent password modal state
+  // Parent passkey override modal state
   const [showParentModal, setShowParentModal] = useState(false)
-  const [parentPw, setParentPw] = useState('')
   const [parentAuthError, setParentAuthError] = useState('')
   const [parentAuthLoading, setParentAuthLoading] = useState(false)
 
@@ -45,23 +44,21 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
   const retry = () => { setResult(null); setStep('prompt') }
 
   const handleParentOverride = () => {
-    setParentPw('')
     setParentAuthError('')
     setShowParentModal(true)
   }
 
-  const handleParentAuth = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!parentPw) return
+  const handleParentAuth = async () => {
     setParentAuthLoading(true)
     setParentAuthError('')
     try {
-      const parentToken = await login('parent', parentPw)
-      const res = await parentOverrideVoice(parentToken, studentName)
+      const { access_token, role } = await passkeyLogin()
+      if (role !== 'parent') throw new Error('Parent passkey required')
+      const res = await parentOverrideVoice(access_token, studentName)
       setShowParentModal(false)
       onVerified(res)
     } catch {
-      setParentAuthError('Incorrect password — please try again.')
+      setParentAuthError('Passkey not recognised — use the parent account.')
     } finally {
       setParentAuthLoading(false)
     }
@@ -73,37 +70,28 @@ export default function VoiceVerification({ studentName, token, onVerified, onSk
         {/* Parent password modal overlay */}
         {showParentModal && (
           <div className="absolute inset-0 bg-white rounded-2xl p-6 flex flex-col justify-center z-10">
+            <ShieldCheck size={32} className="mx-auto text-amber-500 mb-3" />
             <h3 className="text-base font-semibold text-gray-800 mb-1 text-center">Parent Approval</h3>
             <p className="text-xs text-gray-500 text-center mb-5">
-              Enter the parent password to approve this session.
+              Verify with your parent passkey (Face ID / Touch ID) to approve this session.
             </p>
-            <form onSubmit={handleParentAuth} className="space-y-3">
-              <input
-                type="password"
-                value={parentPw}
-                onChange={(e) => setParentPw(e.target.value)}
-                placeholder="Parent password"
-                autoFocus
-                className="input w-full"
-              />
-              {parentAuthError && (
-                <p className="text-xs text-red-600 text-center">{parentAuthError}</p>
-              )}
-              <button
-                type="submit"
-                disabled={!parentPw || parentAuthLoading}
-                className="w-full py-2.5 bg-navy-600 text-white rounded-xl font-medium hover:bg-navy-700 disabled:opacity-40 transition-colors"
-              >
-                {parentAuthLoading ? 'Checking…' : 'Approve Session'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowParentModal(false)}
-                className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
-            </form>
+            {parentAuthError && (
+              <p className="text-xs text-red-600 text-center mb-3">{parentAuthError}</p>
+            )}
+            <button
+              onClick={handleParentAuth}
+              disabled={parentAuthLoading}
+              className="w-full py-2.5 bg-midnight-800 text-amber-300 rounded-xl font-medium hover:bg-midnight-700 disabled:opacity-40 transition-colors"
+            >
+              {parentAuthLoading ? 'Opening passkey…' : 'Verify with parent passkey'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowParentModal(false)}
+              className="mt-3 w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         )}
         <div className="text-center mb-5">

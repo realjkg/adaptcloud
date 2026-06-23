@@ -288,8 +288,8 @@ async def login_complete(
         select(FamilyUser).where(FamilyUser.id == cred_row.user_id)
     )
     user = result.scalar_one_or_none()
-    if user is None or user.role != "parent":
-        raise HTTPException(status_code=401, detail="User not found or not a parent")
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
 
     try:
         verified = webauthn.verify_authentication_response(
@@ -314,10 +314,11 @@ async def login_complete(
 
     ctx = audit_from_request(request)
     fp = compute_fingerprint(ctx["ip"], ctx["user_agent"])
+    role = user.role
     token = create_access_token(
         {
             "sub": user.id,
-            "role": "parent",
+            "role": role,
             "family_id": user.family_id,
             "user_id": user.id,
         },
@@ -325,11 +326,11 @@ async def login_complete(
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
 
-    await log_event(AuditEvent.AUTH_SUCCESS, role="parent", success=True, **ctx)
+    await log_event(AuditEvent.AUTH_SUCCESS, role=role, success=True, **ctx)
 
     return PasskeyTokenResponse(
         access_token=token,
-        role="parent",
+        role=role,
         family_id=user.family_id,
         user_id=user.id,
     )
