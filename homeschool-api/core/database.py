@@ -1,40 +1,46 @@
 """
-Async SQLAlchemy setup targeting Neon (or any PostgreSQL provider).
+Async SQLAlchemy setup.
 
-Tables carry no plaintext — every BYTEA column that holds user data is
+Tables carry no plaintext — every BYTEA column holding user data is
 AES-256-GCM encrypted by core/encryption.py before it reaches the driver.
 
 Startup sequence (main.py lifespan):
-  1. create_tables()          — idempotent CREATE TABLE IF NOT EXISTS
-  2. initialize_encryption()  — reads/writes encryption_config rows
+  1. create_tables() — idempotent CREATE TABLE IF NOT EXISTS
+  2. init_server_key() — loads SERVER_KEY into encryption module
 """
 
+import os
+import uuid
 from datetime import datetime, timezone
 from typing import AsyncIterator
 
 from fastapi import Depends
-from sqlalchemy import BigInteger, DateTime, LargeBinary, String
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+)
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-import os
-
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 def _build_engine():
     url = os.environ.get("DATABASE_URL", "")
     if not url:
-        # Desktop / offline mode — use a local SQLite database
         db_path = os.environ.get("SQLITE_PATH", "./bede.db")
         url = f"sqlite+aiosqlite:///{db_path}"
 
     is_sqlite = url.startswith("sqlite")
 
     if is_sqlite:
-        # StaticPool keeps one connection; WAL mode set via connect event below
         from sqlalchemy.pool import StaticPool
         return create_async_engine(
             url,
@@ -42,7 +48,6 @@ def _build_engine():
             poolclass=StaticPool,
         )
 
-    # PostgreSQL — connection pooling for LAN server mode
     return create_async_engine(
         url,
         pool_pre_ping=True,
@@ -56,7 +61,6 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def _enable_wal() -> None:
-    """Enable WAL mode for SQLite — better concurrent reads during streaming."""
     url = str(engine.url)
     if not url.startswith("sqlite"):
         return
@@ -69,12 +73,102 @@ class Base(DeclarativeBase):
     pass
 
 
-class EncryptionConfig(Base):
-    """Stores device.salt (raw bytes) and data_key (KEK-wrapped)."""
-    __tablename__ = "encryption_config"
+class Family(Base):
+    __tablename__ = "families"
 
-    key: Mapped[str] = mapped_column(String(50), primary_key=True)
-    value: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    display_name_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    prf_input: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class FamilyKey(Base):
+    __tablename__ = "family_keys"
+
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    family_salt: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+    wrapped_key_server: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
+    wrapped_key_recovery: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
+    key_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class FamilyUser(Base):
+    __tablename__ = "family_users"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    role: Mapped[str] = mapped_column(String(10), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class PasskeyCredential(Base):
+    __tablename__ = "passkey_credentials"
+
+    credential_id: Mapped[bytes] = mapped_column(LargeBinary, primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("family_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    public_key_cbor: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    sign_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    transports: Mapped[str] = mapped_column(String(200), nullable=True)
+    backed_up: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    prf_capable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    last_used_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class RecoveryCode(Base):
+    __tablename__ = "recovery_codes"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+    used_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -83,10 +177,14 @@ class EncryptionConfig(Base):
 
 
 class AuditLog(Base):
-    """One AES-GCM-encrypted record per audit event."""
     __tablename__ = "audit_log"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -96,25 +194,18 @@ class AuditLog(Base):
     event_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
 
 
-class VoiceProfile(Base):
-    """One encrypted embedding row per enrolled student."""
-    __tablename__ = "voice_profiles"
-
-    student_name: Mapped[str] = mapped_column(String(100), primary_key=True)
-    profile_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-
-
 class StudentConfig(Base):
-    """Per-student session configuration saved by parent before each pod session."""
     __tablename__ = "student_configs"
 
-    student_name: Mapped[str] = mapped_column(String(100), primary_key=True)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    student_name: Mapped[str] = mapped_column(String(100), nullable=False)
     config_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -124,12 +215,38 @@ class StudentConfig(Base):
     )
 
 
+class VoiceProfile(Base):
+    __tablename__ = "voice_profiles"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    student_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    profile_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class NarrationAssessment(Base):
-    """One rubric-scored assessment per narration Bede evaluates during a session."""
     __tablename__ = "narration_assessments"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    student_name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    student_name: Mapped[str] = mapped_column(String(100), nullable=False)
     subject: Mapped[str] = mapped_column(String(50), nullable=False)
     session_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -146,11 +263,19 @@ class NarrationAssessment(Base):
 
 
 class LearnerProfile(Base):
-    """Stable learner-type profile per student — synthesized after session 3+."""
     __tablename__ = "learner_profiles"
 
-    student_name: Mapped[str] = mapped_column(String(100), primary_key=True)
-    session_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    student_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    session_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     profile_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -161,11 +286,16 @@ class LearnerProfile(Base):
 
 
 class SessionTranscript(Base):
-    """Encrypted full session transcript saved at session end for parent review."""
     __tablename__ = "session_transcripts"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    student_name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
+    family_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("families.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    student_name: Mapped[str] = mapped_column(String(100), nullable=False)
     session_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -173,7 +303,7 @@ class SessionTranscript(Base):
         nullable=False,
     )
     subjects: Mapped[str] = mapped_column(String(500), nullable=False)
-    duration_minutes: Mapped[int] = mapped_column(nullable=False, default=0)
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     transcript_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -182,14 +312,25 @@ class SessionTranscript(Base):
     )
 
 
+class EncryptionConfig(Base):
+    """Retained for desktop/LAN backward compatibility. No FK to families."""
+    __tablename__ = "encryption_config"
+
+    key: Mapped[str] = mapped_column(String(50), primary_key=True)
+    value: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 async def create_tables() -> None:
-    """Idempotent table creation — safe to call on every startup."""
     await _enable_wal()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
-    """FastAPI dependency: yields a scoped async session."""
     async with AsyncSessionLocal() as session:
         yield session

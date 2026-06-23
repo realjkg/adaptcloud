@@ -69,10 +69,10 @@ class SessionConfig(BaseModel):
             Subject.language_arts,
         ]
     )
-    lesson_focus: Optional[str] = None       # Parent's note for today
-    faith_emphasis: Optional[str] = None     # Scripture or virtue focus
-    current_unit: Optional[str] = None       # e.g. "Ancient Egypt", "Fractions"
-    voice_required: bool = True              # False for mute students (PIN-only auth)
+    lesson_focus: Optional[str] = None
+    faith_emphasis: Optional[str] = None
+    current_unit: Optional[str] = None
+    voice_required: bool = True
 
 
 class PodConfigsRequest(BaseModel):
@@ -86,9 +86,10 @@ class TutorRequest(BaseModel):
     child_message: str = Field(..., min_length=1, max_length=2000)
 
 
+# Legacy — kept for any in-flight clients during migration
 class LoginRequest(BaseModel):
     role: Literal["parent", "child"]
-    credential: str   # password for parent, PIN for child
+    credential: str
 
 
 class TokenResponse(BaseModel):
@@ -118,17 +119,16 @@ class TriviumStage(str, Enum):
     rhetoric = "rhetoric"   # 9-12: synthesis, argument, application
 
 class ProcessingStyle(str, Enum):
-    visual         = "visual"          # rich imagery, spatial language
-    auditory       = "auditory"        # rhythm, sound, music references
-    reading_writing = "reading_writing" # precise quotes, careful language
-    kinesthetic    = "kinesthetic"     # action, movement, hands-on focus
+    visual          = "visual"
+    auditory        = "auditory"
+    reading_writing = "reading_writing"
+    kinesthetic     = "kinesthetic"
 
 class NarrationMode(str, Enum):
-    sequential  = "sequential"   # retells in careful chronological order
-    associative = "associative"  # jumps to significance, makes cross-leaps
+    sequential  = "sequential"
+    associative = "associative"
 
 class NarrationAssessmentData(BaseModel):
-    """Full rubric data stored encrypted per narration event."""
     subject:                str
     completeness:           int = Field(..., ge=1, le=5)
     sequence:               int = Field(..., ge=1, le=5)
@@ -143,11 +143,73 @@ class NarrationAssessmentData(BaseModel):
     assessed_at:            str
 
 class LearnerProfileData(BaseModel):
-    """Stable learner-type profile synthesized from accumulated assessments."""
-    trivium_stage:         TriviumStage
-    processing_style:      ProcessingStyle
-    narration_mode:        NarrationMode
-    attention_profile:     Literal["short_blocks", "sustained", "variable"]
+    trivium_stage:          TriviumStage
+    processing_style:       ProcessingStyle
+    narration_mode:         NarrationMode
+    attention_profile:      Literal["short_blocks", "sustained", "variable"]
     session_count_assessed: int
-    bede_profile_notes:    str
-    assessed_at:           str
+    bede_profile_notes:     str
+    assessed_at:            str
+
+
+# ── WebAuthn auth models ───────────────────────────────────────────────────────
+
+class RegisterBeginRequest(BaseModel):
+    family_name: str = Field(..., min_length=1, max_length=100)
+    parent_name: str = Field(..., min_length=1, max_length=100)
+
+
+class RegisterCompleteRequest(BaseModel):
+    session_id: str
+    family_name: str
+    parent_name: str
+    credential: dict
+    wrapped_key_prf: Optional[str] = None
+    family_salt: Optional[str] = None
+
+
+class LoginBeginRequest(BaseModel):
+    pass
+
+
+class LoginCompleteRequest(BaseModel):
+    session_id: str
+    credential: dict
+
+
+class ChildEnrollBeginRequest(BaseModel):
+    child_name: str = Field(..., min_length=1, max_length=100)
+    device_bound: bool = True
+
+
+class ChildEnrollCompleteRequest(BaseModel):
+    session_id: str
+    child_id: str
+    credential: dict
+
+
+class ChildLoginBeginRequest(BaseModel):
+    family_id: str
+    child_id: str
+
+
+class ChildLoginCompleteRequest(BaseModel):
+    session_id: str
+    credential: dict
+
+
+class PasskeyTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str
+    family_id: str
+    user_id: str
+
+
+class RegisterCompleteResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str = "parent"
+    family_id: str
+    user_id: str
+    recovery_codes: List[str]

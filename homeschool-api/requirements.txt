@@ -6,13 +6,11 @@ pydantic>=2.9.0
 pydantic-settings>=2.6.0
 sse-starlette>=2.1.0
 python-multipart>=0.0.12
-# Encryption at rest (AES-256-GCM, no cffi dependency)
 pycryptodome>=3.21.0
-# Async ORM — PostgreSQL (server mode) or SQLite (desktop mode)
-asyncpg>=0.30.0
 aiosqlite>=0.20.0
+asyncpg>=0.30.0
 sqlalchemy[asyncio]>=2.0.36
-# Voice authentication + transcription
+webauthn>=2.0.0
 numpy>=1.26.0
 scipy>=1.13.0
 librosa>=0.10.0

@@ -1,19 +1,23 @@
 """
 Security middleware stack applied in order:
 
-1. ExfiltrationGuard    — blocks download endpoints, caps response size, strips embedding arrays
+1. ExfiltrationGuard       — blocks download endpoints, caps response size, strips embedding arrays
 2. SecurityHeadersMiddleware — CSP, HSTS, X-Frame-Options, no-sniff, no-cache on API
-3. RateLimitMiddleware  — per-IP sliding-window counter (auth routes stricter)
-4. FingerprintValidator — validated inside route handlers, not middleware (needs JWT parse)
+3. RateLimitMiddleware     — per-IP sliding-window counter (auth routes stricter)
+4. WriteAnomalyMiddleware  — detects abnormal write volume (ransomware signal)
+5. FingerprintValidator    — validated inside route handlers, not middleware (needs JWT parse)
 
 None of these can be disabled by env var or request header.
 """
 
 import hashlib
+import logging
 import re
 import time
 from collections import defaultdict
 from typing import Callable
+
+log = logging.getLogger(__name__)
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -196,6 +200,96 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 status_code=429,
                 headers={"Retry-After": "60"},
             )
+
+        return await call_next(request)
+
+
+# ── Write-volume anomaly detection ────────────────────────────────────────────
+# Tracks mutating requests (POST/PUT/DELETE/PATCH) per minute.
+# A sudden spike — 10× the rolling baseline — is the primary ransomware signal.
+# On breach: logs a SUSPICIOUS_REQUEST audit event and returns 503 to halt the
+# write flood. Operations team can investigate before re-enabling.
+
+_WRITE_WINDOW_SECS = 60
+_WRITE_SPIKE_MULTIPLIER = 10        # alert when current rate > 10× baseline
+_BASELINE_WINDOWS = 5               # number of prior windows used for baseline
+
+# Circular buffer of per-minute write counts
+_write_counts: list[tuple[float, int]] = []   # (window_start, count)
+_current_window_start: float = 0.0
+_current_window_count: int = 0
+
+# Lockout: set to True by anomaly detector, cleared only by operator restart
+_writes_locked: bool = False
+
+
+def _record_write() -> bool:
+    """
+    Increment write counter for the current window.
+    Returns False (block request) if the spike threshold is exceeded.
+    """
+    global _current_window_start, _current_window_count, _writes_locked
+
+    if _writes_locked:
+        return False
+
+    now = time.monotonic()
+    if now - _current_window_start >= _WRITE_WINDOW_SECS:
+        if _current_window_start:
+            _write_counts.append((_current_window_start, _current_window_count))
+            if len(_write_counts) > _BASELINE_WINDOWS + 2:
+                _write_counts.pop(0)
+        _current_window_start = now
+        _current_window_count = 0
+
+    _current_window_count += 1
+
+    if len(_write_counts) >= _BASELINE_WINDOWS:
+        baseline = sum(c for _, c in _write_counts[-_BASELINE_WINDOWS:]) / _BASELINE_WINDOWS
+        if baseline > 0 and _current_window_count > baseline * _WRITE_SPIKE_MULTIPLIER:
+            _writes_locked = True
+            log.critical(
+                "ANOMALY: write volume %.0f req/min exceeds %.0f× baseline (%.1f) — "
+                "writes locked. Possible ransomware. Restart required to unlock.",
+                _current_window_count, _WRITE_SPIKE_MULTIPLIER, baseline,
+            )
+            return False
+
+    return True
+
+
+_MUTATING_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
+# Auth and health endpoints are excluded from write counting
+_ANOMALY_EXCLUDE_PREFIXES = ("/auth/", "/health", "/api/health")
+
+
+class WriteAnomalyMiddleware(BaseHTTPMiddleware):
+    """
+    Detects abnormal write volume and locks writes on a spike.
+    Provides a ransomware/bulk-exfiltration circuit breaker.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        path = request.url.path
+
+        if (
+            request.method in _MUTATING_METHODS
+            and not any(path.startswith(p) for p in _ANOMALY_EXCLUDE_PREFIXES)
+        ):
+            allowed = _record_write()
+            if not allowed:
+                await log_event(
+                    AuditEvent.SUSPICIOUS_REQUEST,
+                    ip=request.client.host if request.client else "unknown",
+                    user_agent=request.headers.get("user-agent", ""),
+                    success=False,
+                    detail="write_volume_anomaly — writes locked",
+                )
+                return JSONResponse(
+                    {"detail": "Service temporarily unavailable — contact support"},
+                    status_code=503,
+                    headers={"Retry-After": "3600"},
+                )
 
         return await call_next(request)
 
