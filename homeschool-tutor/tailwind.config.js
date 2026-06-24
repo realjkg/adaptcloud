@@ -58,8 +58,7 @@ export default {
         // Star cream — text on dark midnight backgrounds
         star: '#f5e6c8',
 
-        // ── Legacy palette — kept for any references not yet migrated ────
-        sage: {
+        forest: {
           50: '#f0f7f0', 100: '#d8edd9', 200: '#b3dbb5', 300: '#80c184',
           400: '#52a558', 500: '#348a3a', 600: '#266e2c', 700: '#1f5825',
           800: '#1b4620', 900: '#173a1c',

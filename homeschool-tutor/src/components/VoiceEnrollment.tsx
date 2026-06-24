@@ -71,9 +71,9 @@ export default function VoiceEnrollment({ studentName, onEnrolled, onClose }: Pr
         </div>
 
         {/* Passphrase display */}
-        <div className="bg-sage-50 border border-sage-200 rounded-xl p-4 text-center mb-6">
-          <p className="text-xs text-sage-600 font-semibold uppercase tracking-wide mb-1">Passphrase</p>
-          <p className="text-lg font-display text-sage-800 italic">"{PASSPHRASE}"</p>
+        <div className="bg-forest-50 border border-forest-200 rounded-xl p-4 text-center mb-6">
+          <p className="text-xs text-forest-600 font-semibold uppercase tracking-wide mb-1">Passphrase</p>
+          <p className="text-lg font-display text-forest-800 italic">"{PASSPHRASE}"</p>
         </div>
 
         {/* Progress dots */}
@@ -83,7 +83,7 @@ export default function VoiceEnrollment({ studentName, onEnrolled, onClose }: Pr
               key={i}
               className={`w-3 h-3 rounded-full transition-all ${
                 i < collected.length
-                  ? 'bg-sage-500'
+                  ? 'bg-forest-500'
                   : i === collected.length && step === 'recording'
                   ? 'bg-red-400 animate-pulse'
                   : 'bg-gray-200'
@@ -102,7 +102,7 @@ export default function VoiceEnrollment({ studentName, onEnrolled, onClose }: Pr
             </div>
             <button
               onClick={() => setStep('recording')}
-              className="w-full py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
+              className="w-full py-3 bg-forest-500 text-white rounded-xl font-medium hover:bg-forest-600 transition-colors"
             >
               Start Enrolment
             </button>
@@ -165,7 +165,7 @@ export default function VoiceEnrollment({ studentName, onEnrolled, onClose }: Pr
         {step === 'success' && (
           <div className="space-y-4">
             <div className="text-center">
-              <CheckCircle size={48} className="text-sage-500 mx-auto mb-3" />
+              <CheckCircle size={48} className="text-forest-500 mx-auto mb-3" />
               <p className="font-semibold text-gray-800">Voice enrolled successfully!</p>
               <p className="text-sm text-gray-500 mt-1">
                 {studentName} can now use voice to start sessions.
@@ -178,7 +178,7 @@ export default function VoiceEnrollment({ studentName, onEnrolled, onClose }: Pr
             </div>
             <button
               onClick={() => { onEnrolled(); onClose() }}
-              className="w-full py-3 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
+              className="w-full py-3 bg-forest-500 text-white rounded-xl font-medium hover:bg-forest-600 transition-colors"
             >
               Done
             </button>

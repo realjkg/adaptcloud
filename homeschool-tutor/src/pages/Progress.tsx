@@ -71,7 +71,7 @@ function ScoreBar({ score }: { score: number }) {
     score >= 20
       ? 'bg-emerald-400'
       : score >= 14
-      ? 'bg-sage-400'
+      ? 'bg-forest-400'
       : score >= 8
       ? 'bg-amber-400'
       : 'bg-red-300'
@@ -91,7 +91,7 @@ function ScoreBar({ score }: { score: number }) {
 
 function ProfileBadge({ label }: { label: string }) {
   return (
-    <span className="inline-block px-2.5 py-1 bg-sage-50 border border-sage-100 text-sage-700 text-xs font-medium rounded-full">
+    <span className="inline-block px-2.5 py-1 bg-forest-50 border border-forest-100 text-forest-700 text-xs font-medium rounded-full">
       {label}
     </span>
   )
@@ -127,7 +127,7 @@ function LearnerProfileCard({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-5 md:p-6">
+    <div className="bg-white rounded-2xl border border-forest-100 shadow-sm p-5 md:p-6">
       <h2 className="text-base font-display font-semibold text-gray-800 mb-4">Bede&apos;s Learner Profile</h2>
 
       {profile ? (
@@ -169,7 +169,7 @@ function LearnerProfileCard({
           <button
             onClick={handleBuild}
             disabled={building}
-            className="px-4 py-2 bg-sage-500 text-white text-sm font-medium rounded-xl hover:bg-sage-600 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-forest-500 text-white text-sm font-medium rounded-xl hover:bg-forest-600 transition-colors disabled:opacity-50"
           >
             {building ? 'Building profile…' : 'Build Learner Profile'}
           </button>
@@ -186,7 +186,7 @@ function AssessmentHistory({ assessments }: { assessments: NarrationAssessmentDa
 
   if (!assessments.length) {
     return (
-      <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-5 md:p-6">
+      <div className="bg-white rounded-2xl border border-forest-100 shadow-sm p-5 md:p-6">
         <h2 className="text-base font-display font-semibold text-gray-800 mb-4">Narration Score History</h2>
         <div className="flex items-start gap-3 text-gray-400">
           <BookOpen size={16} className="mt-0.5 shrink-0" />
@@ -199,7 +199,7 @@ function AssessmentHistory({ assessments }: { assessments: NarrationAssessmentDa
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-5 md:p-6">
+    <div className="bg-white rounded-2xl border border-forest-100 shadow-sm p-5 md:p-6">
       <h2 className="text-base font-display font-semibold text-gray-800 mb-4">
         Narration Score History
         <span className="ml-2 text-xs font-normal text-gray-400">last {recent.length}</span>
@@ -256,7 +256,7 @@ function ConceptCoverage({ assessments }: { assessments: NarrationAssessmentData
   if (!subjects.length) return null
 
   return (
-    <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-5 md:p-6">
+    <div className="bg-white rounded-2xl border border-forest-100 shadow-sm p-5 md:p-6">
       <h2 className="text-base font-display font-semibold text-gray-800 mb-4">Concept Coverage</h2>
       <div className="space-y-4">
         {subjects.map((subject) => {
@@ -323,8 +323,8 @@ function StudentTabs({
           onClick={() => onChange(name)}
           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
             name === active
-              ? 'bg-sage-500 text-white'
-              : 'bg-white border border-sage-200 text-sage-700 hover:bg-sage-50'
+              ? 'bg-forest-500 text-white'
+              : 'bg-white border border-forest-200 text-forest-700 hover:bg-forest-50'
           }`}
         >
           {name}
@@ -398,11 +398,11 @@ export default function Progress() {
 
         {/* No students configured */}
         {!activeStudent && (
-          <div className="bg-white rounded-2xl border border-sage-100 shadow-sm p-8 text-center">
+          <div className="bg-white rounded-2xl border border-forest-100 shadow-sm p-8 text-center">
             <p className="text-gray-500 text-sm">No students configured yet.</p>
             <button
               onClick={() => navigate('/setup')}
-              className="mt-4 px-4 py-2 bg-sage-500 text-white text-sm rounded-xl hover:bg-sage-600 transition-colors"
+              className="mt-4 px-4 py-2 bg-forest-500 text-white text-sm rounded-xl hover:bg-forest-600 transition-colors"
             >
               Go to Setup
             </button>
@@ -413,7 +413,7 @@ export default function Progress() {
         {loading && activeStudent && (
           <div className="space-y-4">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-white rounded-2xl border border-sage-100 shadow-sm p-6 animate-pulse">
+              <div key={n} className="bg-white rounded-2xl border border-forest-100 shadow-sm p-6 animate-pulse">
                 <div className="h-4 bg-gray-100 rounded w-1/3 mb-4" />
                 <div className="h-3 bg-gray-100 rounded w-full mb-2" />
                 <div className="h-3 bg-gray-100 rounded w-2/3" />

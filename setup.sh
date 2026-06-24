@@ -157,11 +157,25 @@ if [[ "$PARSED_SCHEME" == "https" && ! "$PARSED_HOST" =~ \.local$ && "$PARSED_HO
 }
 
 ${PARSED_HOST} {
-  reverse_proxy ui:80 {
-    header_up Host              {host}
-    header_up X-Real-IP         {remote_host}
-    header_up X-Forwarded-For   {remote_host}
-    header_up X-Forwarded-Proto https
+  # API: Caddy → FastAPI directly — skip nginx, flush immediately for SSE streams
+  handle_path /api/* {
+    reverse_proxy api:8000 {
+      header_up Host              {host}
+      header_up X-Real-IP         {remote_host}
+      header_up X-Forwarded-For   {remote_host}
+      header_up X-Forwarded-Proto https
+      flush_interval              -1
+    }
+  }
+
+  # SPA: nginx serves the React bundle and runs the auth_request gate
+  handle {
+    reverse_proxy ui:80 {
+      header_up Host              {host}
+      header_up X-Real-IP         {remote_host}
+      header_up X-Forwarded-For   {remote_host}
+      header_up X-Forwarded-Proto https
+    }
   }
 }
 

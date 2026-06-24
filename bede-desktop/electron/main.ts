@@ -1,16 +1,15 @@
 import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
-import { ApiServer, BedeConfig } from './server'
+import { StdioServer, BedeConfig } from './server'
 
 const isDev  = process.env.ELECTRON_DEV === '1'
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json')
 const DEFAULT_CONFIG: BedeConfig = {
   anthropic_api_key: '',
-  parent_password:   '',
-  child_pin:         '',
+  server_key:        randomHex(32),
   secret_key:        randomHex(32),
-  master_secret:     randomHex(32),
+  site_url:          'http://localhost',
   setup_complete:    false,
 }
 
@@ -34,7 +33,7 @@ function writeConfig(cfg: BedeConfig): void {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8')
 }
 
-const server = new ApiServer()
+const server = new StdioServer()
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
 
@@ -125,7 +124,7 @@ app.whenReady().then(() => {
     return server.getStatus()
   })
   ipcMain.handle('bede:server-stop', () => { server.stop(); return true })
-  ipcMain.handle('bede:open-browser', () => shell.openExternal('http://localhost:8000'))
+  ipcMain.handle('bede:open-browser', () => shell.openExternal(`http://localhost:${StdioServer.BRIDGE_PORT}`))
 
   app.on('activate', () => { if (!win) createWindow() })
 })

@@ -95,12 +95,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 function SplashScreen() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-parchment-100 via-sage-50 to-faith-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-parchment-100 via-forest-50 to-faith-100 flex items-center justify-center">
       <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-sage-100 rounded-2xl mb-4 animate-pulse-soft">
-          <BookOpen size={32} className="text-sage-600" />
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-forest-100 rounded-2xl mb-4 animate-pulse-soft">
+          <BookOpen size={32} className="text-forest-600" />
         </div>
-        <p className="text-sage-600 font-display text-lg font-semibold">Bede</p>
+        <p className="text-forest-600 font-display text-lg font-semibold">Bede</p>
         <p className="text-xs text-gray-400 mt-2">Verifying session…</p>
       </div>
     </div>

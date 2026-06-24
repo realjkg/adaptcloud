@@ -82,12 +82,7 @@ async def health():
     return {"status": "ok"}
 
 
-@app.get("/api/health")
-async def api_health():
-    return {"status": "ok"}
-
-
-@app.get("/api/config")
+@app.get("/config")
 async def public_config():
     """
     Public endpoint — returns WebAuthn configuration and security tier.

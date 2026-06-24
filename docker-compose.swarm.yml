@@ -1,0 +1,176 @@
+version: '3.9'
+
+# ── Bede Homeschool Tutor — Docker Swarm cluster deployment ───────────────────
+#
+# Three-node cluster model (1 manager + 2 workers, or 3 managers for HA).
+# State is external: PostgreSQL is a managed service, so the API containers
+# are fully stateless and can be placed on any node.
+#
+# Quickstart:
+#   docker swarm init                          # on the manager node
+#   docker swarm join --token <token> <ip>     # on each worker
+#   ./scripts/create-swarm-secrets.sh          # push secrets into Swarm
+#   docker stack deploy -c docker-compose.swarm.yml bede
+#
+# Secrets model:
+#   All sensitive values are Swarm secrets — never plaintext in compose files.
+#   Each secret is mounted as /run/secrets/<name> inside the container.
+#   The API reads them via ANTHROPIC_API_KEY_FILE, SECRET_KEY_FILE, etc.
+#   (FastAPI/Pydantic Settings resolves *_FILE env vars automatically with
+#    the secrets_dir= parameter — see core/config.py.)
+#
+# Scaling:
+#   docker service scale bede_api=4            # add API workers live
+#   docker service update --image <new-tag> bede_api   # rolling update
+#
+# Constraints:
+#   API:   any node tagged role=worker  (stateless — spread freely)
+#   nginx: any node tagged role=worker  (serves static SPA — stateless)
+#   Caddy: only on the manager node     (holds Swarm ingress + TLS data volume)
+
+secrets:
+  anthropic_api_key:
+    external: true    # docker secret create anthropic_api_key <(echo "sk-ant-...")
+  secret_key:
+    external: true    # docker secret create secret_key <(openssl rand -hex 32)
+  server_key:
+    external: true    # docker secret create server_key <(openssl rand -hex 32)
+  database_url:
+    external: true    # docker secret create database_url <(echo "postgresql+asyncpg://...")
+  site_url:
+    external: true    # docker secret create site_url <(echo "https://agnusdei.ai")
+
+services:
+
+  # ── FastAPI — stateless; replicate freely across worker nodes ──────────────
+  api:
+    image: ghcr.io/${REGISTRY_USER:-realjkg}/bede-api:${TAG:-latest}
+    build:
+      context: ./homeschool-api
+      dockerfile: Dockerfile
+    secrets:
+      - anthropic_api_key
+      - secret_key
+      - server_key
+      - database_url
+      - site_url
+    environment:
+      # pydantic-settings reads /run/secrets/<field_name> automatically
+      # via secrets_dir="/run/secrets" in core/config.py — no _FILE vars needed
+      - CORS_ORIGINS=https://${DOMAIN:-agnusdei.ai},http://ui:80
+      - DISABLE_API_DOCS=true
+      - PRODUCTION=true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1          # rolling update: one replica at a time
+        delay: 10s
+        order: start-first      # start new before stopping old (zero downtime)
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+      labels:
+        - "traefik.enable=false"    # Caddy handles routing, not Traefik
+
+  # ── nginx — static SPA + auth-request gate ─────────────────────────────────
+  ui:
+    image: ghcr.io/${REGISTRY_USER:-realjkg}/bede-ui:${TAG:-latest}
+    build:
+      context: ./homeschool-tutor
+      dockerfile: Dockerfile
+    networks:
+      - internal
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m
+      - /var/run:size=4m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+        reservations:
+          memory: 32M
+          cpus: '0.1'
+
+  # ── Caddy — TLS termination; manager-only; owns cert volume ───────────────
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager   # single Caddy owns the TLS cert volume
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+
+volumes:
+  caddy_data:
+    driver: local                 # pinned to the manager node where Caddy runs
+
+networks:
+  internal:
+    driver: overlay               # Swarm overlay: spans all nodes transparently
+    attachable: false
+    driver_opts:
+      encrypted: "true"           # AES-256 node-to-node mesh encryption

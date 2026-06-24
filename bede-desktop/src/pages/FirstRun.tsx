@@ -6,15 +6,14 @@ interface Props {
 
 interface Config {
   anthropic_api_key: string
-  parent_password: string
-  child_pin: string
+  server_key: string
   secret_key: string
-  master_secret: string
+  site_url: string
   setup_complete: boolean
 }
 
-const STEPS = ['Welcome', 'API Key', 'Credentials', 'All Set'] as const
-type Step = 0 | 1 | 2 | 3
+const STEPS = ['Welcome', 'API Key', 'All Set'] as const
+type Step = 0 | 1 | 2
 
 const s: Record<string, React.CSSProperties> = {
   root: {
@@ -139,10 +138,9 @@ export default function FirstRun({ onComplete }: Props) {
   const [step, setStep] = useState<Step>(0)
   const [config, setConfig] = useState<Config>({
     anthropic_api_key: '',
-    parent_password:   '',
-    child_pin:         '',
+    server_key:        '',
     secret_key:        '',
-    master_secret:     '',
+    site_url:          'http://localhost',
     setup_complete:    false,
   })
   const [saving, setSaving] = useState(false)
@@ -151,7 +149,7 @@ export default function FirstRun({ onComplete }: Props) {
   const update = (field: keyof Config) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setConfig((c) => ({ ...c, [field]: e.target.value }))
 
-  const next = () => setStep((s) => Math.min(s + 1, 3) as Step)
+  const next = () => setStep((s) => Math.min(s + 1, 2) as Step)
   const back = () => setStep((s) => Math.max(s - 1, 0) as Step)
 
   const finish = async () => {
@@ -189,9 +187,9 @@ export default function FirstRun({ onComplete }: Props) {
               to faith and nature.
             </p>
             <p style={s.body}>
-              This wizard takes about two minutes. You'll need an{' '}
-              <span style={s.link}>Anthropic API key</span> and your preferred
-              parent password and child PIN.
+              This wizard takes about one minute. You'll need an{' '}
+              <span style={s.link}>Anthropic API key</span>.
+              All logins use passkeys (Face ID / Touch ID) — no passwords stored.
             </p>
             <div style={s.btnRow}>
               <button style={s.btnPrimary} onClick={next}>Begin Setup →</button>
@@ -201,11 +199,11 @@ export default function FirstRun({ onComplete }: Props) {
 
         {step === 1 && (
           <>
-            <p style={s.eyebrow}>Step 1 of 3</p>
+            <p style={s.eyebrow}>Step 1 of 2</p>
             <h1 style={s.h1}>Anthropic API Key</h1>
             <p style={s.body}>
-              Bede uses Claude (claude-sonnet-4-6) to tutor your children. You'll
-              need an API key from Anthropic's console.
+              Bede uses Claude to tutor your children. You'll need an API key
+              from Anthropic's console.
             </p>
             <label style={s.label}>API Key</label>
             <input
@@ -218,9 +216,7 @@ export default function FirstRun({ onComplete }: Props) {
               spellCheck={false}
             />
             <p style={s.hint}>
-              Get your key at{' '}
-              <span style={s.link}>console.anthropic.com</span>.
-              Bede stores this locally — it never leaves your computer.
+              Stored locally on this device — it never leaves your computer.
             </p>
             <div style={s.btnRow}>
               <button style={s.btnSecondary} onClick={back}>← Back</button>
@@ -237,59 +233,12 @@ export default function FirstRun({ onComplete }: Props) {
 
         {step === 2 && (
           <>
-            <p style={s.eyebrow}>Step 2 of 3</p>
-            <h1 style={s.h1}>Set Credentials</h1>
-            <label style={s.label}>Parent Password</label>
-            <input
-              style={s.input}
-              type="password"
-              placeholder="Choose a strong password"
-              value={config.parent_password}
-              onChange={update('parent_password')}
-            />
-            <label style={s.label}>Child PIN</label>
-            <input
-              style={s.input}
-              type="password"
-              inputMode="numeric"
-              placeholder="4-digit PIN (e.g. 1234)"
-              maxLength={8}
-              value={config.child_pin}
-              onChange={update('child_pin')}
-            />
-            <p style={s.hint}>
-              Children enter this PIN before each session. Parents use the
-              password to configure subjects and view reports.
-            </p>
-            {error && (
-              <p style={{ color: 'var(--coral-400)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                {error}
-              </p>
-            )}
-            <div style={s.btnRow}>
-              <button style={s.btnSecondary} onClick={back}>← Back</button>
-              <button
-                style={{
-                  ...s.btnPrimary,
-                  opacity: (config.parent_password && config.child_pin) ? 1 : 0.4,
-                }}
-                disabled={!config.parent_password || !config.child_pin}
-                onClick={next}
-              >
-                Continue →
-              </button>
-            </div>
-          </>
-        )}
-
-        {step === 3 && (
-          <>
             <p style={s.eyebrow}>All set</p>
             <h1 style={s.h1}>Ready to Begin</h1>
             <p style={s.body}>
-              Bede will start its local server now. Then open your browser
-              to <span style={{ color: 'var(--amber-300)' }}>localhost:8000</span> or
-              tap <em>Open Bede</em> from the tray icon.
+              Bede will start now. Open the tutor by clicking{' '}
+              <em>Open Bede</em> in the tray, then register your family passkey
+              on first visit.
             </p>
             <p style={{ ...s.body, fontStyle: 'italic', fontSize: '0.875rem', color: 'var(--midnight-300)' }}>
               "Education is an atmosphere, a discipline, a life." — Charlotte Mason

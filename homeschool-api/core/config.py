@@ -141,6 +141,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        secrets_dir = "/run/secrets"   # Docker Swarm / Kubernetes secrets mount
         extra = "ignore"
 
 
