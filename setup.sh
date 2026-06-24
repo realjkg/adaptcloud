@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Agnus Dei Homeschool Tutor — first-run setup wizard
+# Bede Homeschool Tutor — reconfigure wizard
 # Usage: bash setup.sh   (or: make setup)
+# For first-time installs, use:  bash install.sh
 set -euo pipefail
 
 BOLD='\033[1m'
@@ -21,7 +22,7 @@ dim()     { echo -e "${DIM}   $*${RESET}"; }
 # ── Banner ────────────────────────────────────────────────────────────────────
 blank
 echo -e "${BOLD}╔═══════════════════════════════════════════════╗${RESET}"
-echo -e "${BOLD}║     Agnus Dei Homeschool Tutor — Setup        ║${RESET}"
+echo -e "${BOLD}║       Bede Homeschool Tutor — Setup           ║${RESET}"
 echo -e "${BOLD}╚═══════════════════════════════════════════════╝${RESET}"
 blank
 
@@ -55,16 +56,28 @@ while true; do
   warn "This field is required."
 done
 
-# ── 2. Database URL ───────────────────────────────────────────────────────────
+# ── 2. Database ───────────────────────────────────────────────────────────────
 blank
-info "2/4  PostgreSQL database URL"
-dim  "Supported providers: Neon (free), Supabase, Railway, Render"
-dim  "Format: postgresql+asyncpg://user:pass@host/dbname?ssl=require"
-while true; do
-  read -rp "     DATABASE_URL: " DATABASE_URL
-  [[ -n "$DATABASE_URL" ]] && break
-  warn "This field is required."
-done
+info "2/4  Data storage"
+blank
+echo "     1) Local storage (default) — SQLite on this machine, stored in Docker volume"
+echo "     2) Cloud database          — PostgreSQL (Neon, Supabase, Railway, Render)"
+blank
+read -rp "     Choice (1 or 2) [1]: " DB_CHOICE
+DB_CHOICE="${DB_CHOICE:-1}"
+
+DATABASE_URL=""
+if [[ "$DB_CHOICE" == "2" ]]; then
+  dim  "Format: postgresql+asyncpg://user:pass@host/dbname?ssl=require"
+  while true; do
+    read -rp "     DATABASE_URL: " DATABASE_URL
+    [[ -n "$DATABASE_URL" ]] && break
+    warn "Enter a database URL or choose option 1 for local storage."
+  done
+  success "Cloud database configured"
+else
+  success "Using local SQLite storage"
+fi
 
 # ── 3. Deployment URL (SITE_URL) ──────────────────────────────────────────────
 blank
@@ -214,7 +227,7 @@ success ".env written (mode 600)"
 
 # ── Start services ────────────────────────────────────────────────────────────
 blank
-echo -e "${BOLD}Starting Agnus Dei...${RESET}"
+echo -e "${BOLD}Starting Bede...${RESET}"
 docker compose up -d --build
 
 # ── Wait for health ───────────────────────────────────────────────────────────
@@ -259,7 +272,7 @@ fi
 # ── Done ──────────────────────────────────────────────────────────────────────
 blank
 echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════${RESET}"
-echo -e "${BOLD}${GREEN}  Agnus Dei is running!${RESET}"
+echo -e "${BOLD}${GREEN}  Bede is running!${RESET}"
 echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════${RESET}"
 blank
 

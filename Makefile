@@ -1,9 +1,12 @@
 SHELL := /bin/bash
-.PHONY: setup start stop restart logs logs-api logs-ui status caddy-trust update backup-env clean \
+.PHONY: install setup start stop restart logs logs-api logs-ui status caddy-trust update backup-env clean \
         swarm-secrets swarm-deploy swarm-scale swarm-update swarm-logs swarm-status swarm-down help
 
 ##@ First-time setup
-setup:           ## Run interactive first-run wizard (generates .env, pulls images, starts services)
+install:         ## Parent-friendly one-command installer (Docker, secrets, auto-start, CA cert)
+	@bash install.sh
+
+setup:           ## Advanced: reconfigure an existing installation (regenerates .env)
 	@bash setup.sh
 
 ##@ Day-to-day operations

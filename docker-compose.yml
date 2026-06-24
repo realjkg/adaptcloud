@@ -1,21 +1,23 @@
 version: '3.9'
 
-# ── Agnus Dei Homeschool Tutor — secure deployment ────────────────────────────
+# ── Bede Homeschool Tutor — secure deployment ─────────────────────────────────
 #
-# Required env vars (set in .env via setup.sh — never hardcoded here):
+# Required env vars (set in .env via install.sh / setup.sh):
 #   ANTHROPIC_API_KEY   Claude API key
 #   SECRET_KEY          JWT signing key   (openssl rand -hex 32)
 #   SERVER_KEY          Per-family encryption wrap key (openssl rand -hex 32)
-#   DATABASE_URL        Managed PostgreSQL connection string
-#                       Format: postgresql+asyncpg://user:pass@host/db?ssl=require
 #   SITE_URL            Deployment URL — all WebAuthn config derives from this.
 #                       Examples: http://localhost | https://bede.local | https://agnusdei.ai
 #                       IP addresses are NOT valid (WebAuthn requires a hostname).
 #
+# Optional:
+#   DATABASE_URL        PostgreSQL connection string (leave empty to use local SQLite)
+#                       Format: postgresql+asyncpg://user:pass@host/db?ssl=require
+#
 # Storage model:
-#   All persistent data (encryption keys, voice profiles, audit log) lives in
-#   the managed PostgreSQL database. The API container is fully stateless —
-#   no local volumes, no writable filesystem except /tmp for audio processing.
+#   If DATABASE_URL is set: all data lives in the managed PostgreSQL database.
+#   If DATABASE_URL is empty: SQLite is used, stored in the bede_data volume.
+#   Either way, all user data columns are AES-256-GCM encrypted before storage.
 
 services:
   api:
@@ -25,17 +27,20 @@ services:
     expose:
       - "8000"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
-      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
-      - SERVER_KEY=${SERVER_KEY:?SERVER_KEY is required}
-      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
-      - SITE_URL=${SITE_URL:?SITE_URL is required — run setup.sh to configure}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required — run install.sh}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required — run install.sh}
+      - SERVER_KEY=${SERVER_KEY:?SERVER_KEY is required — run install.sh}
+      - DATABASE_URL=${DATABASE_URL:-}          # empty = SQLite (stored in bede_data volume)
+      - SQLITE_PATH=/data/bede.db               # used only when DATABASE_URL is empty
+      - SITE_URL=${SITE_URL:?SITE_URL is required — run install.sh}
       - CORS_ORIGINS=${CORS_ORIGINS:-https://localhost,http://ui:80}
       - DISABLE_API_DOCS=true
       - PRODUCTION=true
-    read_only: true                    # stateless container — all state in Postgres
+    volumes:
+      - bede_data:/data                         # SQLite db lives here; ignored when PostgreSQL is set
+    read_only: true
     tmpfs:
-      - /tmp:size=64m,mode=1777       # audio processing temp files only
+      - /tmp:size=64m,mode=1777
     networks:
       - internal
     restart: unless-stopped
@@ -87,7 +92,8 @@ services:
       - no-new-privileges:true
 
 volumes:
-  caddy_data:     # persists Caddy's local CA and issued certs across restarts
+  caddy_data:     # Caddy's local CA and TLS certs
+  bede_data:      # SQLite database (only used when DATABASE_URL is not set)
 
 networks:
   internal:
