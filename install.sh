@@ -37,18 +37,28 @@ if ! command -v docker &>/dev/null; then
     warn "Docker is not installed on this computer."
     blank
     if [[ "$OS" == "Darwin" ]]; then
-        echo "    Please download and install Docker Desktop (it's free):"
-        blank
-        if [[ "$ARCH" == "arm64" ]]; then
-            echo "      https://desktop.docker.com/mac/main/arm64/Docker.dmg"
-        else
-            echo "      https://desktop.docker.com/mac/main/amd64/Docker.dmg"
+        # Auto-install via Homebrew → OrbStack (lightweight Docker runtime for Mac)
+        if ! command -v brew &>/dev/null; then
+            info "Installing Homebrew (package manager for Mac)..."
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            # Add brew to PATH for Apple Silicon
+            if [[ "$ARCH" == "arm64" ]]; then
+                eval "$(/opt/homebrew/bin/brew shellenv)"
+            fi
+            ok "Homebrew installed"
         fi
-        blank
-        echo "    After installing, open Docker Desktop from your Applications folder"
-        echo "    and wait for the whale icon to appear in your menu bar."
-        blank
-        read -rp "  Press Enter once Docker Desktop is running... " _
+        info "Installing OrbStack (fast, lightweight Docker for Mac)..."
+        brew install --cask orbstack
+        # OrbStack starts automatically on install; wait for Docker socket
+        info "Waiting for OrbStack to start..."
+        DEADLINE=$((SECONDS + 60))
+        until docker info &>/dev/null 2>&1; do
+            [[ $SECONDS -ge $DEADLINE ]] && fail "OrbStack did not start in time. Open OrbStack from Applications and re-run: bash install.sh"
+            printf "."
+            sleep 2
+        done
+        echo ""
+        ok "OrbStack is running"
     else
         info "Installing Docker automatically..."
         curl -fsSL https://get.docker.com | sudo sh

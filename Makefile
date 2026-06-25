@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: install setup start stop restart logs logs-api logs-ui status caddy-trust update backup-env clean \
+.PHONY: install setup start stop restart logs logs-api logs-ui status caddy-trust lwa pi-setup update backup-env clean \
         swarm-secrets swarm-deploy swarm-scale swarm-update swarm-logs swarm-status swarm-down help
 
 ##@ First-time setup
@@ -88,6 +88,14 @@ swarm-logs:      ## Tail Swarm API logs across all replicas
 swarm-down:      ## Remove the Swarm stack (data stays in external DB)
 	docker stack rm bede
 	@echo "Stack removed. Secrets and volumes are preserved."
+
+lwa:             ## Start the Lightweight Agent build (Raspberry Pi / low-power)
+	docker compose -f docker-compose.lwa.yml up -d --build
+	@echo ""
+	@echo "Bede LWA is starting — run 'make status' to check readiness."
+
+pi-setup:        ## First-time Raspberry Pi OS setup (installs Docker, configures mDNS, starts LWA)
+	@bash pi-setup.sh
 
 ##@ Maintenance
 update:          ## Pull latest images and restart
