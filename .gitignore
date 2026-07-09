@@ -3,6 +3,18 @@
 .env.backup
 .env.local
 
+# TLS cert exported for tablets — local CA, keep off version control
+bede-root-ca.crt
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+*.local
+
+# macOS
+.DS_Store
+
 # Claude Code agent worktrees (ephemeral, not source)
 .claude/
 
