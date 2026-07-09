@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Bede Homeschool Tutor — macOS launchd agent
+  Starts the Bede Docker Compose stack when Docker Desktop is available.
+
+  Install (run once after install.sh):
+    sed "s|BEDE_INSTALL_DIR|$(pwd)|g" services/com.bede.app.plist \
+      > ~/Library/LaunchAgents/com.bede.app.plist
+    launchctl load ~/Library/LaunchAgents/com.bede.app.plist
+
+  Or let install.sh handle this automatically.
+
+  Note: Docker containers have "restart: unless-stopped" set, so after the
+  first `docker compose up -d` they restart automatically when Docker Desktop
+  opens. This plist is only needed if Docker Desktop is not set to auto-start.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.bede.app</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <!-- Wait for Docker socket to appear (Docker Desktop may still be starting) -->
+        <string>
+            until /usr/local/bin/docker info &amp;&gt;/dev/null 2&amp;&gt;&amp;1; do sleep 5; done;
+            cd BEDE_INSTALL_DIR &amp;&amp; /usr/local/bin/docker compose up -d
+        </string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/bede-launchd.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/bede-launchd.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,101 @@
+version: '3.9'
+
+# ── Bede Homeschool Tutor — secure deployment ─────────────────────────────────
+#
+# Required env vars (set in .env via install.sh / setup.sh):
+#   ANTHROPIC_API_KEY   Claude API key
+#   SECRET_KEY          JWT signing key   (openssl rand -hex 32)
+#   SERVER_KEY          Per-family encryption wrap key (openssl rand -hex 32)
+#   SITE_URL            Deployment URL — all WebAuthn config derives from this.
+#                       Examples: http://localhost | https://bede.local | https://agnusdei.ai
+#                       IP addresses are NOT valid (WebAuthn requires a hostname).
+#
+# Optional:
+#   DATABASE_URL        PostgreSQL connection string (leave empty to use local SQLite)
+#                       Format: postgresql+asyncpg://user:pass@host/db?ssl=require
+#
+# Storage model:
+#   If DATABASE_URL is set: all data lives in the managed PostgreSQL database.
+#   If DATABASE_URL is empty: SQLite is used, stored in the bede_data volume.
+#   Either way, all user data columns are AES-256-GCM encrypted before storage.
+
+services:
+  api:
+    build:
+      context: ./homeschool-api
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required — run install.sh}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required — run install.sh}
+      - SERVER_KEY=${SERVER_KEY:?SERVER_KEY is required — run install.sh}
+      - DATABASE_URL=${DATABASE_URL:-}          # empty = SQLite (stored in bede_data volume)
+      - SQLITE_PATH=/data/bede.db               # used only when DATABASE_URL is empty
+      - SITE_URL=${SITE_URL:?SITE_URL is required — run install.sh}
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://localhost,http://ui:80}
+      - DISABLE_API_DOCS=true
+      - PRODUCTION=true
+    volumes:
+      - bede_data:/data                         # SQLite db lives here; ignored when PostgreSQL is set
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      - internal
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  ui:
+    build:
+      context: ./homeschool-tutor
+      dockerfile: Dockerfile
+    expose:
+      - "80"
+    depends_on:
+      - api
+    networks:
+      - internal
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m
+      - /var/run:size=4m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+
+  # TLS termination — serves the entire pod over HTTPS (port 443)
+  # Tablets and other LAN devices connect here. Run "make caddy-trust" once
+  # per device to install the local root CA so there are no cert warnings.
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      - internal
+    depends_on:
+      - ui
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddy_data:     # Caddy's local CA and TLS certs
+  bede_data:      # SQLite database (only used when DATABASE_URL is not set)
+
+networks:
+  internal:
+    driver: bridge
+    internal: false    # api needs outbound for Claude API + managed DB

@@ -1,0 +1,60 @@
+/* Celestial palette for Bede desktop wrapper */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --midnight-900: #0e1828;
+  --midnight-800: #152238;
+  --midnight-700: #1c2f4a;
+  --midnight-600: #24405f;
+  --midnight-500: #2d5275;
+  --midnight-400: #4a7299;
+  --midnight-300: #7299b8;
+  --midnight-200: #a8c0d4;
+  --midnight-100: #d6e4ef;
+  --midnight-50:  #eef4f8;
+
+  --amber-400: #f0a835;
+  --amber-300: #f5c060;
+  --amber-200: #f9d898;
+  --amber-100: #fdeecb;
+
+  --coral-400: #e07060;
+  --coral-50:  #fdf3f1;
+
+  --sky-400: #6aafc4;
+  --sky-50:  #f0f8fb;
+
+  --star: #f5e6c8;
+}
+
+html {
+  font-family: 'EB Garamond', Garamond, Georgia, Cambria, serif;
+  font-size: 1rem;
+  background: var(--midnight-900);
+  color: var(--star);
+  height: 100%;
+}
+
+body { height: 100%; overflow: hidden; }
+#root { height: 100%; display: flex; flex-direction: column; }
+
+h1, h2, h3, h4, label {
+  font-family: 'Cinzel', 'Trajan Pro', 'Palatino Linotype', serif;
+  letter-spacing: 0.02em;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+}
+
+/* Webkit scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--midnight-600); border-radius: 9999px; }

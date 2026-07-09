@@ -1,0 +1,401 @@
+{
+  "year": 4,
+  "description": "Grade 4 — Catholic Classical Charlotte Mason blend (AO Year 4 / Memoria Press / MODG). Grammar stage deepens: Ancient Greece history, formal Latin introduction, living literature with written narration, Apologia zoology, and liturgical arts. Age 9–10. Sources: AmblesideOnline Year 4, Memoria Press Classical Core, Mother of Divine Grace Grade 4, Seton Grade 4, Ignatius Press Faith and Life.",
+  "books": [
+
+    {
+      "id": "y4-door-in-the-wall",
+      "title": "The Door in the Wall",
+      "author": "Marguerite de Angeli",
+      "subject": "living_books",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [1],
+      "concept_tags": ["medieval England", "perseverance", "faith", "disability", "courage", "Christian virtue", "Franciscans"],
+      "anti_twaddle": true,
+      "notes": "Newbery Medal. Robin, a crippled boy in medieval England, learns that there is always a 'door in the wall.' Perfect for Socratic discussion of perseverance and trust in God's providence. Ask: 'What was Robin's door in the wall?' and 'Have you ever felt like Robin?' Written narration begins here — one paragraph after each chapter. Rich Catholic medieval setting; Brother Luke is an excellent model of the religious life."
+    },
+    {
+      "id": "y4-robin-hood",
+      "title": "The Merry Adventures of Robin Hood",
+      "author": "Howard Pyle",
+      "subject": "living_books",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [2],
+      "concept_tags": ["medieval England", "justice", "courage", "adventure", "honor", "archery", "Merry Men"],
+      "anti_twaddle": true,
+      "notes": "Howard Pyle's classic prose is rich and rhythmic — a feast for language arts. Discuss justice vs. law: 'Was Robin Hood right to steal from the rich? What does the Church say about justice?' Narration: retell the episode in your own words, then illustrate one scene in your nature journal."
+    },
+    {
+      "id": "y4-adam-of-the-road",
+      "title": "Adam of the Road",
+      "author": "Elizabeth Janet Gray",
+      "subject": "living_books",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [3],
+      "concept_tags": ["medieval England", "minstrel", "journey", "hope", "family", "faith", "pilgrimage"],
+      "anti_twaddle": true,
+      "notes": "Newbery Medal. A boy minstrel searches medieval England for his father and his dog. Deeply Catholic setting — pilgrims, shrines, monasteries. Pairs beautifully with Door in the Wall and Robin Hood to form a rich medieval England term. Ask: 'What kept Adam hoping when everything went wrong?'"
+    },
+    {
+      "id": "y4-trumpeter-krakow",
+      "title": "The Trumpeter of Krakow",
+      "author": "Eric P. Kelly",
+      "subject": "living_books",
+      "type": "supplemental",
+      "difficulty": 3,
+      "terms": [1, 2],
+      "concept_tags": ["Poland", "medieval", "courage", "alchemist", "greed", "honor", "Catholic"],
+      "anti_twaddle": true,
+      "notes": "Newbery Medal. Exciting adventure set in medieval Kraków involving a stolen treasure and an alchemist. Strong Catholic Polish cultural context. Excellent for discussing the sin of greed vs. the virtue of honor. Supplemental read — good for Term 2 when history covers medieval period."
+    },
+    {
+      "id": "y4-trial-triumph",
+      "title": "Trial and Triumph: Stories from Church History",
+      "author": "Richard Hannula",
+      "subject": "living_books",
+      "type": "supplemental",
+      "difficulty": 3,
+      "terms": [1, 2, 3],
+      "concept_tags": ["Church history", "martyrs", "saints", "faith", "courage", "Church Fathers", "medieval"],
+      "anti_twaddle": true,
+      "notes": "Vivid short chapters on heroes of Church history — Augustine, Patrick, Athanasius, Anselm, Thomas Aquinas, and more. Ideal for 1-2 chapters per week alongside living books spine. Pairs with Saints & Catechism. Ask: 'What did this person suffer for the Faith?' and 'Could you do what they did?'"
+    },
+
+    {
+      "id": "y4-famous-men-greece",
+      "title": "Famous Men of Greece",
+      "author": "John H. Haaren & A. B. Poland",
+      "subject": "history",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [1, 2, 3],
+      "concept_tags": ["Ancient Greece", "Solon", "Pericles", "Themistocles", "Alexander", "Sparta", "Athens", "democracy", "classical"],
+      "anti_twaddle": true,
+      "notes": "Core Memoria Press and MODG spine for Year 4 history. One chapter per week. Narration: 'Tell me about Leonidas at Thermopylae' — then discuss: 'What virtue did he show? What would the Church say about dying for your country?' Map work: trace Alexander's conquests. Compare Greek democracy to modern democracy. Connect to Acts 17 and St. Paul's Areopagus speech."
+    },
+    {
+      "id": "y4-greek-myths-daulaire",
+      "title": "D'Aulaires' Book of Greek Myths",
+      "author": "Ingri and Edgar d'Aulaire",
+      "subject": "history",
+      "type": "supplemental",
+      "difficulty": 2,
+      "terms": [1, 2],
+      "concept_tags": ["Greek mythology", "gods", "heroes", "creation", "Olympus", "Hercules", "Perseus", "classical"],
+      "anti_twaddle": true,
+      "notes": "Beautiful illustrated mythology — not doctrine, but foundational cultural literacy for classical education. Discuss: 'How are the Greek gods different from the God we worship? What did the Greeks get right about human nature?' Read alongside Famous Men of Greece. 2-3 myths per week."
+    },
+    {
+      "id": "y4-odyssey-church",
+      "title": "The Odyssey for Boys and Girls",
+      "author": "Alfred J. Church",
+      "subject": "history",
+      "type": "supplemental",
+      "difficulty": 3,
+      "terms": [2, 3],
+      "concept_tags": ["Homer", "Odysseus", "Trojan War", "epic", "homecoming", "loyalty", "courage", "classical"],
+      "anti_twaddle": true,
+      "notes": "Church's prose retelling makes Homer accessible at grade 4. Read one episode per week. Narration: 'Tell me the story of the Cyclops in your own words.' Discuss loyalty: 'Why was Penelope faithful all those years?' Sets up later study of the actual Odyssey in higher grades."
+    },
+    {
+      "id": "y4-paddle-to-sea",
+      "title": "Paddle-to-the-Sea",
+      "author": "Holling C. Holling",
+      "subject": "history",
+      "type": "supplemental",
+      "difficulty": 2,
+      "terms": [1],
+      "concept_tags": ["geography", "Great Lakes", "waterways", "journey", "nature", "exploration", "Canada"],
+      "anti_twaddle": true,
+      "notes": "A carved wooden canoe journeys from Canada to the Atlantic Ocean through the Great Lakes. Spectacular geography and natural history embedded in narrative. Use alongside map work. Ask: 'What would you pack if you were Paddle?' The maps in the book are treasures — trace the route on a real map."
+    },
+
+    {
+      "id": "y4-handbook-nature-study",
+      "title": "Handbook of Nature Study",
+      "author": "Anna Botsford Comstock",
+      "subject": "nature_study",
+      "type": "spine",
+      "difficulty": 4,
+      "terms": [1, 2, 3],
+      "concept_tags": ["entomology", "botany", "ornithology", "geology", "observation", "nature journal", "creation"],
+      "anti_twaddle": true,
+      "notes": "THE reference for Charlotte Mason nature study — the entire volume, used throughout K-12. For Grade 4, focus on: Term 1 (autumn): insects and migration; Term 2 (winter): trees and birds; Term 3 (spring): wildflowers and pond life. Use the relevant sections as a guide for outdoor observation, not as a textbook to read through. Student keeps a nature journal with dated observations, pencil sketches, and written descriptions. Always ask: 'What did you notice that surprised you?'"
+    },
+    {
+      "id": "y4-burgess-bird-book",
+      "title": "The Burgess Bird Book for Children",
+      "author": "Thornton Burgess",
+      "subject": "nature_study",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [2, 3],
+      "concept_tags": ["birds", "ornithology", "migration", "habitat", "creation", "observation", "living books"],
+      "anti_twaddle": true,
+      "notes": "Living books at their best — each chapter features Peter Rabbit listening as birds teach him their names and habits. One chapter per week, then go outside and find that bird. Keep a life list (birds spotted). Connect to creation: 'Matthew 6:26 — God feeds the birds; how much more does He care for you?' Narration: 'Tell me everything Jenny Wren said about her house.'"
+    },
+    {
+      "id": "y4-outdoor-secrets",
+      "title": "The Nature Journal: Seasonal Observation Guide",
+      "author": "Charlotte Mason tradition",
+      "subject": "nature_study",
+      "type": "supplemental",
+      "difficulty": 1,
+      "terms": [1, 2, 3],
+      "concept_tags": ["observation", "journaling", "drawing", "seasons", "wonder", "creation care"],
+      "anti_twaddle": true,
+      "notes": "The student's own nature journal is a core curriculum artifact. Grade 4 expectations: dated entries, pencil sketch with labels, 3+ sentences of written observation. Weekly nature walk is non-negotiable. Current seasonal focus: note what changes week-to-week in one small patch of ground. Ask Bede: 'What did you draw this week?' and 'What question do you want to investigate?'"
+    },
+
+    {
+      "id": "y4-first-language-4",
+      "title": "First Language Lessons Level 4",
+      "author": "Jessie Wise and Sara Buffington",
+      "subject": "language_arts",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [1, 2, 3],
+      "concept_tags": ["grammar", "parts of speech", "sentences", "diagramming", "narration", "copywork", "dictation"],
+      "anti_twaddle": true,
+      "notes": "Scripted grammar lessons — 15 minutes daily. Grade 4 content: nouns (common/proper/abstract), verbs (action/linking/helping), adjectives, adverbs, prepositions, conjunctions, simple sentence diagramming. Always includes a famous poem to memorize each term. Grammar is taught through great literature, not isolated drills. After the grammar lesson, return to oral narration from current living book."
+    },
+    {
+      "id": "y4-spelling-wisdom",
+      "title": "Spelling Wisdom Book 1",
+      "author": "Simply Charlotte Mason",
+      "subject": "language_arts",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [1, 2, 3],
+      "concept_tags": ["spelling", "copywork", "dictation", "great literature", "penmanship"],
+      "anti_twaddle": true,
+      "notes": "Charlotte Mason's dictation method: child studies the passage for 5 minutes, then writes from dictation without looking. Any word spelled incorrectly is studied again — no re-copying the error. Passages drawn from great literature and Scripture. Grade 4: 4-6 word passages studied per week. Copywork (copying a few lines of beautiful prose or poetry) is also done daily for handwriting practice."
+    },
+    {
+      "id": "y4-latina-christiana",
+      "title": "Latina Christiana I",
+      "author": "Cheryl Lowe (Memoria Press)",
+      "subject": "language_arts",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [1, 2, 3],
+      "concept_tags": ["Latin", "classical language", "grammar", "vocabulary", "ecclesiastical", "prayer", "Mass"],
+      "anti_twaddle": true,
+      "notes": "Memoria Press flagship Latin program — designed for grade 4 start. Begin with ecclesiastical pronunciation (as used at Mass). Lessons cover: vocabulary (15 words per lesson), grammar (noun declensions I-II, verb conjugations), and prayers in Latin (Pater Noster, Ave Maria, Gloria Patri). Memorization is the method — drill vocabulary on 4x6 cards. Connect to Mass: 'We just learned deus — where do you hear that at Mass?' Weekly oral drill with Bede: quiz vocabulary and recite the prayer of the week."
+    },
+
+    {
+      "id": "y4-zoology-flying-creatures",
+      "title": "Exploring Creation with Zoology 1: Flying Creatures of the Fifth Day",
+      "author": "Jeannie Fulbright (Apologia)",
+      "subject": "science",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [1, 2, 3],
+      "concept_tags": ["birds", "insects", "bats", "flight", "anatomy", "migration", "creation", "zoology", "God's design"],
+      "anti_twaddle": true,
+      "notes": "Apologia's living-books approach to science — narrative text with experiments and a notebooking journal. Grade 4 content: Unit 1 (insects), Unit 2 (birds — anatomy, migration, feathers), Unit 3 (bats and flying mammals), Unit 4 (pterosaurs and ancient flying creatures). Each lesson: read together, discuss, complete notebooking page with labeled drawing. Weekly experiment noted in journal. Faith thread throughout: 'How does God's design in this creature point to the Creator?' Connects naturally to Burgess Bird Book in nature study."
+    },
+    {
+      "id": "y4-apologia-botany",
+      "title": "Exploring Creation with Botany",
+      "author": "Jeannie Fulbright (Apologia)",
+      "subject": "science",
+      "type": "supplemental",
+      "difficulty": 3,
+      "terms": [3],
+      "concept_tags": ["botany", "plants", "flowers", "seeds", "photosynthesis", "gardens", "creation", "God's design"],
+      "anti_twaddle": true,
+      "notes": "Alternative or supplement to Zoology 1 — use in Term 3 when spring plants are accessible for real observation. Pairs perfectly with nature study wildflower focus. Hands-on emphasis: plant seeds, observe germination, dissect a flower, press specimens. Ask: 'What does a plant need to live? What does your soul need to flourish?'"
+    },
+
+    {
+      "id": "y4-faith-life-4",
+      "title": "Faith and Life Series Book 4: Jesus Our Guide",
+      "author": "Ignatius Press",
+      "subject": "saints",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [1, 2, 3],
+      "concept_tags": ["sacraments", "Jesus", "grace", "prayer", "virtue", "Ten Commandments", "Mass", "Eucharist", "Catholic"],
+      "anti_twaddle": true,
+      "notes": "Ignatius Press series — doctrinally faithful, full of sacred art, excellent questions. Grade 4 covers: the Sacraments (deepening understanding after First Communion), the Ten Commandments, the Mass, and prayer life. Lessons are 30-40 minutes. Ask Bede: 'Why do we receive Jesus at Mass?' 'What is grace?' 'What commandment is hardest and why?' — always connect to lived experience. Sacred art in the book is excellent for short picture study moments."
+    },
+    {
+      "id": "y4-baltimore-catechism-1",
+      "title": "Baltimore Catechism No. 1",
+      "author": "Traditional",
+      "subject": "saints",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [1, 2, 3],
+      "concept_tags": ["catechism", "doctrine", "faith", "prayer", "sacraments", "creed", "Commandments", "memorization"],
+      "anti_twaddle": true,
+      "notes": "Grade 4 reviews and deepens questions 1-127 (through the Sacraments). Method: memorize the exact answer (important for precision), then discuss the meaning in the child's own words. Sample: Q: 'Why did God make you?' A: 'God made me to know Him, to love Him, and to serve Him in this world, and to be happy with Him forever in the next.' Then ask: 'What does it mean to know God? How is knowing a person different from knowing a fact?' Memorize 2-3 questions per week; review previous questions weekly."
+    },
+    {
+      "id": "y4-saint-thomas-aquinas",
+      "title": "Thomas Aquinas: The Dumb Ox",
+      "author": "G. K. Chesterton",
+      "subject": "saints",
+      "type": "supplemental",
+      "difficulty": 4,
+      "terms": [1],
+      "concept_tags": ["Thomas Aquinas", "reason", "faith", "Dominican", "intellect", "philosophy", "Doctor of the Church"],
+      "anti_twaddle": true,
+      "notes": "Chesterton's brilliant short study — excerpts appropriate for Grade 4. Read aloud 1-2 pages and discuss. Focus on: Thomas's childhood (sent to Monte Cassino as a child, like the student), his love of learning, and why he is called 'Doctor of the Church.' Connect to Latin study: Thomas wrote in Latin. Simple introduction to the Five Ways: 'How do we know God exists? What clues did Thomas find?'"
+    },
+    {
+      "id": "y4-saint-stories",
+      "title": "Loyola Kids Book of Saints",
+      "author": "Amy Welborn",
+      "subject": "saints",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [1, 2, 3],
+      "concept_tags": ["saints", "virtue", "martyrdom", "missions", "mercy", "courage", "holiness", "Catholic"],
+      "anti_twaddle": true,
+      "notes": "Accessible, vivid saint biographies tied to the liturgical calendar. One saint per week on or near their feast day. After reading: 'What virtue did this saint show most?' 'Could you practice that virtue today? How?' Grade 4 focus saints: Thomas Aquinas (Jan 28), Catherine of Siena (Apr 29), Francis of Assisi (Oct 4), Joan of Arc (May 30), Thérèse of Lisieux (Oct 1). Bede can quiz feast days."
+    },
+
+    {
+      "id": "y4-morning-scripture",
+      "title": "The Book of Proverbs and Selected Psalms",
+      "author": "Sacred Scripture",
+      "subject": "morning_time",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [1, 2, 3],
+      "concept_tags": ["Scripture", "wisdom", "prayer", "morning", "Psalms", "Proverbs", "lectio divina", "memorization"],
+      "anti_twaddle": true,
+      "notes": "Grade 4 morning Scripture: read one Proverb verse and one Psalm verse each morning. Memorize one Psalm per term — Psalm 23 (Term 1), Psalm 121 (Term 2), Psalm 91 (Term 3). Bede opens Morning Time by asking: 'What is today's Scripture verse? What do you think it means for your day today?' This is lectio divina in miniature."
+    },
+    {
+      "id": "y4-hymns-liturgical",
+      "title": "Liturgical Hymn Cycle — Year 4",
+      "author": "Catholic Tradition",
+      "subject": "morning_time",
+      "type": "spine",
+      "difficulty": 1,
+      "terms": [1, 2, 3],
+      "concept_tags": ["hymns", "liturgy", "liturgical year", "music", "prayer", "worship", "Advent", "Easter", "Ordinary Time"],
+      "anti_twaddle": true,
+      "notes": "Rotate through liturgical hymns tied to the season. Term 1 (Ordinary Time/Advent): *Holy God We Praise Thy Name*, *O Come O Come Emmanuel*. Term 2 (Christmas/Lent): *O Sacred Head Surrounded*, *Stabat Mater* (simple version). Term 3 (Easter/Ordinary Time): *Regina Caeli*, *Praise to the Lord the Almighty*. Learn one new verse each week. Ask: 'What is this hymn saying about God? Which line is your favourite?'"
+    },
+    {
+      "id": "y4-poetry-anthology",
+      "title": "A Child's Book of Poems",
+      "author": "Gyo Fujikawa (ed.)",
+      "subject": "morning_time",
+      "type": "supplemental",
+      "difficulty": 2,
+      "terms": [1, 2, 3],
+      "concept_tags": ["poetry", "recitation", "language", "imagery", "rhythm", "Longfellow", "Stevenson", "Rossetti"],
+      "anti_twaddle": true,
+      "notes": "One poem per week, read aloud by parent and then by child. Memorize one poem per term: *The Arrow and the Song* by Longfellow (Term 1), *The Road Not Taken* by Frost (Term 2 — accessible at this age with discussion), *Who Has Seen the Wind?* by Christina Rossetti (Term 3). Ask Bede to recite the poem of the week. Discuss: 'What picture does this poem paint? What feeling does it give you?'"
+    },
+
+    {
+      "id": "y4-fra-angelico",
+      "title": "Fra Angelico — Picture Study",
+      "author": "Blessed Fra Angelico (Guido di Pietro)",
+      "subject": "art_music",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [1],
+      "concept_tags": ["sacred art", "Renaissance", "Dominican", "Annunciation", "fresco", "Catholic", "beauty", "liturgy"],
+      "anti_twaddle": true,
+      "notes": "Term 1 artist: Fra Angelico (1395–1455), Dominican friar and painter, beatified by Pope John Paul II. Key works: *The Annunciation* (Cortona and San Marco versions), *The Last Judgment*, *The Coronation of the Virgin*. Charlotte Mason picture study method: display the image for 3 minutes of silent looking, then cover it and ask the child to describe everything they remember. Discuss: 'Fra Angelico prayed before every painting. How does that show in his work? What do you feel when you look at this?'"
+    },
+    {
+      "id": "y4-raphael",
+      "title": "Raphael — Picture Study",
+      "author": "Raffaello Sanzio da Urbino",
+      "subject": "art_music",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [2],
+      "concept_tags": ["Renaissance", "sacred art", "Madonna", "beauty", "harmony", "Vatican", "Sistine Madonna"],
+      "anti_twaddle": true,
+      "notes": "Term 2 artist: Raphael (1483–1520). Key works: *Sistine Madonna* (the two famous cherubs at the bottom), *The School of Athens*, *Madonna of the Meadow*. The Sistine Madonna is an ideal entry point — children instantly recognize the cherubs. Ask: 'What do the two little angels seem to be thinking? Where do you think they are looking?' Connect to Vatican: Raphael decorated the Pope's private rooms."
+    },
+    {
+      "id": "y4-durer",
+      "title": "Albrecht Dürer — Picture Study",
+      "author": "Albrecht Dürer",
+      "subject": "art_music",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [3],
+      "concept_tags": ["Northern Renaissance", "printmaking", "engraving", "religious art", "nature", "detail", "Praying Hands"],
+      "anti_twaddle": true,
+      "notes": "Term 3 artist: Dürer (1471–1528). Key works: *Praying Hands* (charcoal study), *Young Hare* (watercolor), *Adam and Eve* (engraving). *Praying Hands* has a moving legend — Dürer drew his brother's hands after his brother sacrificed his own career to pay for Dürer's art education. Ask: 'What sacrifice did Dürer's brother make? Have you ever given something up for someone you love?' *Young Hare* connects to nature study: count every hair."
+    },
+    {
+      "id": "y4-bach",
+      "title": "Johann Sebastian Bach — Composer Study",
+      "author": "Johann Sebastian Bach",
+      "subject": "art_music",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [1],
+      "concept_tags": ["Baroque", "sacred music", "organ", "counterpoint", "Soli Deo Gloria", "cello", "liturgy"],
+      "anti_twaddle": true,
+      "notes": "Term 1 composer: Bach (1685–1750). Key works: *Cello Suite No. 1 in G Major* (Prélude), *Jesu, Joy of Man's Desiring*, *Air on the G String*, *Brandenburg Concerto No. 3*. Bach signed all his works 'S.D.G.' — Soli Deo Gloria (To God Alone the Glory). Ask: 'Why would a composer dedicate his music to God? Can you do your schoolwork to God's glory?' SQUILT (Super Quiet Uninterrupted Listening Time): 10 minutes of attentive listening, then describe the music."
+    },
+    {
+      "id": "y4-handel",
+      "title": "George Frideric Handel — Composer Study",
+      "author": "George Frideric Handel",
+      "subject": "art_music",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [2],
+      "concept_tags": ["Baroque", "oratorio", "Messiah", "Hallelujah", "sacred", "triumph", "orchestra"],
+      "anti_twaddle": true,
+      "notes": "Term 2 composer: Handel (1685–1759). Key works: *Hallelujah Chorus* from Messiah, *Water Music*, *Arrival of the Queen of Sheba*. The Hallelujah Chorus is essential — play it and ask: 'Why do audiences traditionally stand for this? What does Hallelujah mean?' (Hebrew: Praise the Lord). Messiah tells the story of Christ from prophecy to resurrection in music alone. Play sections during Advent and Christmas (Term 1 overflow)."
+    },
+    {
+      "id": "y4-vivaldi",
+      "title": "Antonio Vivaldi — Composer Study",
+      "author": "Antonio Vivaldi",
+      "subject": "art_music",
+      "type": "spine",
+      "difficulty": 2,
+      "terms": [3],
+      "concept_tags": ["Baroque", "violin", "Four Seasons", "priest", "Venice", "concerto", "nature"],
+      "anti_twaddle": true,
+      "notes": "Term 3 composer: Vivaldi (1678–1741), an ordained Catholic priest known as 'the Red Priest' for his red hair. Key works: *The Four Seasons* (all four concerti), *Gloria in D major*. The Four Seasons is perfect for Grade 4 — each concerto depicts a season in sound. Ask: 'Can you hear the birds in Spring? What instruments make that sound? Vivaldi was a priest AND a composer — what does that tell us about beauty and faith?'"
+    },
+
+    {
+      "id": "y4-singapore-math",
+      "title": "Singapore Math Primary Mathematics 4A/4B",
+      "author": "Singapore Math Inc.",
+      "subject": "mathematics",
+      "type": "spine",
+      "difficulty": 3,
+      "terms": [1, 2, 3],
+      "concept_tags": ["multiplication", "long division", "fractions", "decimals", "geometry", "area", "perimeter", "word problems"],
+      "anti_twaddle": true,
+      "notes": "Grade 4 mathematics content (Singapore sequence): Term 1 (4A): multi-digit multiplication (3×2 digit), long division with remainders, factors and multiples, equivalent fractions. Term 2 (4A/4B): adding and subtracting fractions with like denominators, mixed numbers, geometry (angles — acute, obtuse, right; area of rectangles and composite figures). Term 3 (4B): decimals to hundredths, measurement conversions, symmetry, word problems with all operations. Discovery method: never show the algorithm first. Ask: 'How many ways can you think of to solve 4×37?' Draw area models before abstract notation."
+    },
+
+    {
+      "id": "y4-free-study-guide",
+      "title": "Student-Directed Learning — Free Study",
+      "author": "Charlotte Mason tradition",
+      "subject": "free_study",
+      "type": "supplemental",
+      "difficulty": 1,
+      "terms": [1, 2, 3],
+      "concept_tags": ["curiosity", "self-direction", "passion", "deep dive", "creativity", "making", "wonder"],
+      "anti_twaddle": true,
+      "notes": "Free Study is sacred in Charlotte Mason education — it develops the habit of self-direction and feeds the child's real interests. Grade 4 common interests: Greek mythology illustration, bird identification projects, building models of medieval castles, Latin word-root exploration, poetry writing, nature collections and pressed flower albums. Bede's role: ask 'What are you working on?' and follow with Socratic questions that deepen the child's own interest. Never redirect to curriculum topics — this is their time."
+    }
+
+  ]
+}
