@@ -9,7 +9,8 @@ PyYAML>=6.0
 
 # Evaluations (Azure AI Evaluation SDK)
 azure-ai-evaluation>=1.0
-azure-ai-inference>=1.0
+# azure-ai-inference is still on 1.0.0b* — allow the beta line.
+azure-ai-inference>=1.0.0b1
 
 # Observability
 azure-monitor-query>=1.3
