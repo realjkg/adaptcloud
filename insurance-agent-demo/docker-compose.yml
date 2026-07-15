@@ -1,0 +1,72 @@
+services:
+  # Prism mock of the shipped Claims API OpenAPI spec — the same spec APIM
+  # imports in the real deployment. Zero cloud, keeps the demo offline.
+  prism-mock:
+    image: stoplight/prism:5
+    command:
+      - mock
+      - -h
+      - 0.0.0.0
+      - -p
+      - "4010"
+      - /openapi/claims-api.openapi.yaml
+    volumes:
+      - ../azure/workloads/insurance-app/connectors:/openapi:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    networks: [agentnet]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4010/claims"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./api
+    env_file: .env
+    environment:
+      # Reachable from inside the compose network — Caddy proxies /api to here.
+      CLAIMS_API_URL: http://prism-mock:4010/claims
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    depends_on:
+      prism-mock:
+        condition: service_healthy
+    networks: [agentnet]
+
+  ui:
+    build: ./ui
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    cap_drop: [ALL]
+    networks: [agentnet]
+
+  # Caddy front-door: TLS on 443, proxies / -> ui:80, /api/* -> api:8000.
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - ui
+    networks: [agentnet]
+
+networks:
+  agentnet:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
