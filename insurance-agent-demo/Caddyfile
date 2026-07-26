@@ -1,0 +1,16 @@
+# LAN-friendly HTTPS via Caddy's local CA (`caddy trust` installs the root).
+# Serves the UI on / and proxies /api/* to the FastAPI service.
+insurance-agent.local, localhost {
+    tls internal
+
+    # /api/* → FastAPI (strip the /api prefix so the API doesn't need to know
+    # about the front-door path).
+    handle_path /api/* {
+        reverse_proxy api:8000
+    }
+
+    # Everything else → the built UI.
+    handle {
+        reverse_proxy ui:80
+    }
+}
