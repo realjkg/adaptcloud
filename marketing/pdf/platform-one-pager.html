@@ -7,9 +7,12 @@
   @page { size: Letter; margin: 13mm 14mm; }
   :root {
     --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-    --accent: #2a78d6; --accent-soft: #eef4fd;
+    /* Brand: black / yellow / white. On paper the yellow is a FILL or RULE
+       only (1.63:1 on white); coloured text uses the darkened amber. */
+    --brand: #f5c518; --accent: #6d4d00; --accent-soft: #fff8e1;
+    --data-lead: #0b0b0b;
     --rule: #e1e0d9; --surface: #f7f7f5;
-    --good: #0ca30c; --warning: #fab219;
+    --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -22,9 +25,9 @@
   p { margin: 0 0 4pt; }
 
   .masthead { display: flex; justify-content: space-between; align-items: flex-end;
-    border-bottom: 2pt solid var(--accent); padding-bottom: 4pt; margin-bottom: 6.5pt; }
+    border-bottom: 3pt solid var(--brand); padding-bottom: 4pt; margin-bottom: 6.5pt; }
   .brand { font-size: 11pt; font-weight: 700; letter-spacing: -.01em; }
-  .brand span { color: var(--accent); }
+  .brand span { color: var(--ink); box-shadow: inset 0 -.28em 0 var(--brand); }
   .kicker { font-size: 7.4pt; font-weight: 600; letter-spacing: .1em;
     text-transform: uppercase; color: var(--muted); margin-top: 2pt; }
   .masthead-right { text-align: right; font-size: 7.6pt; color: var(--muted); line-height: 1.35; }
@@ -38,7 +41,7 @@
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 11pt; }
 
   .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5pt; margin-bottom: 6.5pt; }
-  .pillar { border: .8pt solid var(--rule); border-top: 2pt solid var(--accent);
+  .pillar { border: .8pt solid var(--rule); border-top: 2pt solid var(--brand);
     border-radius: 3pt; padding: 4.5pt 6pt; }
   .pillar h3 { font-size: 8pt; font-weight: 650; margin-bottom: 1.5pt; }
   .pillar p { font-size: 6.9pt; color: var(--ink-2); margin: 0; line-height: 1.28; }
@@ -46,11 +49,11 @@
   table { border-collapse: collapse; width: 100%; font-size: 7.5pt; }
   th, td { text-align: left; padding: 1.7pt 4pt; border-bottom: .6pt solid var(--rule); vertical-align: top; }
   th { color: var(--ink-2); font-weight: 650; font-size: 6.8pt; text-transform: uppercase; letter-spacing: .045em; }
-  td.chk { width: 13pt; color: var(--good); font-weight: 700; text-align: center; }
+  td.chk { width: 13pt; color: var(--ink); font-weight: 700; text-align: center; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em;
     background: var(--surface); padding: .5pt 2.4pt; border-radius: 2pt; }
 
-  .callout { background: var(--accent-soft); border-radius: 4pt; padding: 5pt 7pt;
+  .callout { background: var(--accent-soft); border-left: 2.4pt solid var(--brand); border-radius: 4pt; padding: 5pt 7pt;
     font-size: 7.6pt; color: var(--ink-2); margin: 5pt 0; line-height: 1.3; }
   .callout strong { color: var(--ink); }
 

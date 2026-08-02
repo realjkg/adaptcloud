@@ -42,6 +42,46 @@ With any of those, the dashboard can be re-skinned to inherit your real classes
 embedded, and the copy in `copy/site-copy.md` can be mapped to actual element IDs
 rather than suggested names.
 
+## Brand palette — and the one rule that matters
+
+Black, yellow, white. The rule that governs every asset here:
+
+> **Brand yellow is a fill or a rule on white. It is never text and never a data
+> mark on white.**
+
+That isn't taste, it's measured: `#f5c518` on white is **1.63:1**, against a 3:1
+gate. On black the same yellow passes comfortably. So the scheme inverts by mode.
+
+| Role | Light (on white) | Dark (on black) |
+|---|---|---|
+| Brand yellow — fills, rules, pills | `#f5c518` | `#f5c518` |
+| Text on yellow | `#0b0b0b` | `#0b0b0b` |
+| Emphasised data mark | `#0b0b0b` (black) | `#f5c518` (yellow) |
+| De-emphasised data mark | `#898781` | `#898781` |
+| Accent *text* (links, numerals) | `#6d4d00` | `#f5c518` |
+| Surface / plane | `#ffffff` / `#fafaf9` | `#0b0b0b` / `#000000` |
+| Primary ink | `#0b0b0b` | `#ffffff` |
+
+So in **dark mode yellow leads** — it's the hero bar, the eyebrow chip, the active
+pill. In **light mode black leads** and yellow steps back to chrome: the masthead
+rule, the pill fill, the callout tint and its left border.
+
+Charts are **emphasis form** — one hue plus gray, top driver highlighted — because
+bar length already encodes magnitude, so color doesn't need to. Measured
+separation between the lead and de-emphasis marks: **ΔE 47.4 light, 27.0 dark**,
+both far above the floor, and both clear 3:1 against their surface.
+
+If you change the yellow, re-run the check before shipping:
+
+```bash
+node scripts/validate_palette.js "#f5c518,#898781" --mode dark --surface "#0b0b0b"
+```
+
+(Ignore the "lightness band" and "chroma floor" FAILs — those are
+categorical-palette checks, and this is an emphasis chart, which is achromatic on
+one side by design. The checks that govern it are CVD separation, normal-vision
+floor, and contrast.)
+
 ## Embedding the FinOps dashboard in Webflow
 
 The dashboard is deliberately self-contained: no external CSS, JS, fonts, or

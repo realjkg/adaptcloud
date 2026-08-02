@@ -16,18 +16,25 @@
 <style>
   .ac-fin {
     color-scheme: light;
-    --surface-1: #fcfcfb;
-    --surface-2: #f2f1ed;
-    --plane: #f9f9f7;
+    --surface-1: #ffffff;
+    --surface-2: #f4f4f2;
+    --plane: #fafaf9;
     --text-primary: #0b0b0b;
     --text-secondary: #52514e;
     --text-muted: #898781;
-    --accent: #2a78d6;
-    --accent-soft: rgba(42, 120, 214, 0.10);
+    /* brand yellow is a FILL/RULE only in light mode — it measures 1.63:1 on
+       white, so it may never carry text or a data mark here. */
+    --brand: #f5c518;
+    --on-brand: #0b0b0b;
+    --accent-text: #6d4d00;
+    --data-lead: #0b0b0b;
     --deemph: #898781;
-    --grid: #e1e0d9;
+    --focus: #0b0b0b;
+    --control: #0b0b0b;
+    --accent-soft: #fff8e1;
+    --grid: #e6e5e0;
     --axis: #c3c2b7;
-    --border: rgba(11, 11, 11, 0.10);
+    --border: rgba(11, 11, 11, 0.12);
     --good: #0ca30c;
     --warning: #fab219;
     --critical: #d03b3b;
@@ -48,43 +55,57 @@
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .ac-fin {
       color-scheme: dark;
-      --surface-1: #101418;
-      --surface-2: #171c22;
-      --plane: #0a0d10;
+      --surface-1: #0b0b0b;
+      --surface-2: #17171a;
+      --plane: #000000;
       --text-primary: #ffffff;
       --text-secondary: #c3c2b7;
       --text-muted: #898781;
-      --accent: #3987e5;
-      --accent-soft: rgba(57, 135, 229, 0.14);
+      /* on black the brand yellow clears 3:1 easily, so here it leads. */
+      --brand: #f5c518;
+      --on-brand: #0b0b0b;
+      --accent-text: #f5c518;
+      --data-lead: #f5c518;
       --deemph: #898781;
+      --focus: #f5c518;
+      --control: #f5c518;
+      --accent-soft: rgba(245, 197, 24, 0.13);
       --grid: #2c2c2a;
       --axis: #383835;
-      --border: rgba(255, 255, 255, 0.10);
+      --border: rgba(255, 255, 255, 0.13);
       --shadow: none;
     }
   }
   :root[data-theme="dark"] .ac-fin {
     color-scheme: dark;
-    --surface-1: #101418;
-    --surface-2: #171c22;
-    --plane: #0a0d10;
+    --surface-1: #0b0b0b;
+    --surface-2: #17171a;
+    --plane: #000000;
     --text-primary: #ffffff;
     --text-secondary: #c3c2b7;
     --text-muted: #898781;
-    --accent: #3987e5;
-    --accent-soft: rgba(57, 135, 229, 0.14);
+    /* on black the brand yellow clears 3:1 easily, so here it leads. */
+    --brand: #f5c518;
+    --on-brand: #0b0b0b;
+    --accent-text: #f5c518;
+    --data-lead: #f5c518;
     --deemph: #898781;
+    --focus: #f5c518;
+    --control: #f5c518;
+    --accent-soft: rgba(245, 197, 24, 0.13);
     --grid: #2c2c2a;
     --axis: #383835;
-    --border: rgba(255, 255, 255, 0.10);
+    --border: rgba(255, 255, 255, 0.13);
     --shadow: none;
   }
 
   .ac-fin__wrap { max-width: 1120px; margin: 0 auto; }
 
   .ac-fin__eyebrow {
-    font-size: 12px; font-weight: 600; letter-spacing: .08em;
-    text-transform: uppercase; color: var(--accent); margin: 0 0 8px;
+    display: inline-block; font-size: 12px; font-weight: 650; letter-spacing: .08em;
+    text-transform: uppercase; margin: 0 0 10px;
+    background: var(--brand); color: var(--on-brand);
+    padding: 4px 10px; border-radius: 999px;
   }
   .ac-fin h2 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -.01em; }
   .ac-fin__lede { margin: 0 0 24px; color: var(--text-secondary); max-width: 62ch; font-size: 15px; }
@@ -98,11 +119,11 @@
     background: var(--surface-1); color: var(--text-secondary);
     border: 1px solid var(--border);
   }
-  .ac-preset:hover { border-color: var(--accent); color: var(--text-primary); }
+  .ac-preset:hover { border-color: var(--brand); color: var(--text-primary); }
   .ac-preset[aria-pressed="true"] {
-    background: var(--accent); border-color: var(--accent); color: #fff;
+    background: var(--brand); border-color: var(--brand); color: var(--on-brand);
   }
-  .ac-preset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ac-preset:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
   .ac-fin__grid { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; }
   @media (max-width: 880px) { .ac-fin__grid { grid-template-columns: minmax(0, 1fr); } }
@@ -128,13 +149,13 @@
     background: var(--surface-2); color: var(--text-primary);
     border: 1px solid var(--border); border-radius: 7px;
   }
-  .ac-fin select:focus-visible, .ac-fin input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .ac-fin input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .ac-fin select:focus-visible, .ac-fin input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .ac-fin input[type="range"] { width: 100%; accent-color: var(--control); }
   .ac-knob__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .ac-knob__val { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-weight: 550; }
 
   .ac-switch { display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: 13px; font-weight: 550; }
-  .ac-switch input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .ac-switch input { accent-color: var(--control); width: 16px; height: 16px; margin: 0; }
 
   /* ---- hero + stat tiles ---------------------------------------------- */
   .ac-hero { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-bottom: 4px; }
@@ -158,7 +179,7 @@
     height: 16px; border-radius: 0 4px 4px 0; background: var(--deemph);
     min-width: 2px; transition: width .18s ease;
   }
-  .ac-bar--lead .ac-bar__fill { background: var(--accent); }
+  .ac-bar--lead .ac-bar__fill { background: var(--data-lead); }
   .ac-bar--zero .ac-bar__fill { background: var(--grid); }
   .ac-bar__value { font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 550; text-align: right; }
   .ac-bar--zero .ac-bar__value, .ac-bar--zero .ac-bar__label { color: var(--text-muted); }
@@ -181,7 +202,7 @@
   @media (max-width: 560px) { .ac-cmp__row { grid-template-columns: 96px minmax(0, 1fr) 80px; gap: 8px; } }
   .ac-cmp__name { font-size: 13px; color: var(--text-secondary); text-align: right; }
   .ac-cmp__bar { height: 14px; border-radius: 0 4px 4px 0; background: var(--deemph); min-width: 2px; transition: width .18s ease; }
-  .ac-cmp__row--you .ac-cmp__bar { background: var(--accent); }
+  .ac-cmp__row--you .ac-cmp__bar { background: var(--data-lead); }
   .ac-cmp__row--you .ac-cmp__name { color: var(--text-primary); font-weight: 620; }
   .ac-cmp__val { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; font-weight: 550; }
 
@@ -193,18 +214,20 @@
   .ac-fin td.num, .ac-fin th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .ac-toggle-table {
     font: inherit; font-size: 13px; background: none; border: 0; padding: 6px 0;
-    color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+    color: var(--accent-text); cursor: pointer; font-weight: 550;
+    text-decoration: underline; text-underline-offset: 3px;
   }
-  .ac-toggle-table:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ac-toggle-table:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
   /* ---- notes ------------------------------------------------------------ */
   .ac-note {
     margin-top: 16px; padding: 13px 15px; border-radius: 10px;
     background: var(--accent-soft); border: 1px solid var(--border);
+    border-left: 3px solid var(--brand);
     font-size: 13px; color: var(--text-secondary);
   }
   .ac-note strong { color: var(--text-primary); }
-  .ac-warn { border-left: 3px solid var(--warning); background: var(--surface-2); }
+  .ac-warn { border-left: 3px solid var(--text-muted); background: var(--surface-2); }
   .ac-fin ol.ac-knobs-list { margin: 8px 0 0; padding-left: 20px; }
   .ac-fin ol.ac-knobs-list li { margin-bottom: 4px; }
   .ac-fin code {
@@ -212,7 +235,7 @@
     font-size: .88em; background: var(--surface-2); padding: .08em .34em; border-radius: 4px;
   }
   .ac-fin__foot { margin-top: 22px; font-size: 12px; color: var(--text-muted); max-width: 82ch; }
-  .ac-fin__foot a { color: var(--accent); }
+  .ac-fin__foot a { color: var(--accent-text); }
   .ac-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
