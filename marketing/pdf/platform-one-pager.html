@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Adapt Cloud — Governed AI Agents on Azure</title>
+<style>
+  @page { size: Letter; margin: 13mm 14mm; }
+  :root {
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --accent: #2a78d6; --accent-soft: #eef4fd;
+    --rule: #e1e0d9; --surface: #f7f7f5;
+    --good: #0ca30c; --warning: #fab219;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink); font-size: 8.3pt; line-height: 1.32;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1, h2, h3 { margin: 0; }
+  p { margin: 0 0 4pt; }
+
+  .masthead { display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 2pt solid var(--accent); padding-bottom: 4pt; margin-bottom: 6.5pt; }
+  .brand { font-size: 11pt; font-weight: 700; letter-spacing: -.01em; }
+  .brand span { color: var(--accent); }
+  .kicker { font-size: 7.4pt; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin-top: 2pt; }
+  .masthead-right { text-align: right; font-size: 7.6pt; color: var(--muted); line-height: 1.35; }
+
+  h1 { font-size: 15.5pt; line-height: 1.12; letter-spacing: -.018em; font-weight: 660; margin-bottom: 3.5pt; }
+  .lede { font-size: 8.5pt; color: var(--ink-2); max-width: 76ch; margin-bottom: 6pt; }
+
+  h2 { font-size: 9.3pt; font-weight: 650; margin-bottom: 2.8pt; letter-spacing: -.005em; }
+  h2 .num { color: var(--accent); margin-right: 4pt; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 11pt; }
+
+  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5pt; margin-bottom: 6.5pt; }
+  .pillar { border: .8pt solid var(--rule); border-top: 2pt solid var(--accent);
+    border-radius: 3pt; padding: 4.5pt 6pt; }
+  .pillar h3 { font-size: 8pt; font-weight: 650; margin-bottom: 1.5pt; }
+  .pillar p { font-size: 6.9pt; color: var(--ink-2); margin: 0; line-height: 1.28; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 7.5pt; }
+  th, td { text-align: left; padding: 1.7pt 4pt; border-bottom: .6pt solid var(--rule); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 650; font-size: 6.8pt; text-transform: uppercase; letter-spacing: .045em; }
+  td.chk { width: 13pt; color: var(--good); font-weight: 700; text-align: center; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em;
+    background: var(--surface); padding: .5pt 2.4pt; border-radius: 2pt; }
+
+  .callout { background: var(--accent-soft); border-radius: 4pt; padding: 5pt 7pt;
+    font-size: 7.6pt; color: var(--ink-2); margin: 5pt 0; line-height: 1.3; }
+  .callout strong { color: var(--ink); }
+
+  .stages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5pt; margin-top: 3pt; }
+  .stage { background: var(--surface); border-radius: 3pt; padding: 4pt 6pt; }
+  .stage .st-when { font-size: 7.2pt; font-weight: 650; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 2pt; }
+  .stage h3 { font-size: 8pt; margin-bottom: 1.5pt; }
+  .stage p { font-size: 7.1pt; color: var(--ink-2); margin: 0; line-height: 1.3; }
+
+  ul.tight { margin: 2pt 0 4pt; padding-left: 11pt; font-size: 7.6pt; color: var(--ink-2); line-height: 1.32; }
+  ul.tight li { margin-bottom: 1.8pt; }
+  ul.tight strong { color: var(--ink); }
+
+  .foot { margin-top: 5pt; border-top: .6pt solid var(--rule); padding-top: 4pt;
+    font-size: 6.9pt; color: var(--muted); line-height: 1.35; }
+  .foot strong { color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div>
+    <div class="brand">Adapt<span>Cloud</span></div>
+    <div class="kicker">Platform overview · Insurance agent platform on Azure</div>
+  </div>
+  <div class="masthead-right">
+    Implements Microsoft CAF<br>
+    “Govern and secure AI agents<br>
+    across your organization”
+  </div>
+</div>
+
+<h1>Your agents are identities. Govern them like it.</h1>
+<p class="lede">
+  Most agent projects die in the gap between “it answered the question” and “it can touch
+  production data.” Adapt Cloud closes that gap with infrastructure rather than policy
+  documents: agents deploy inside a real Azure landing zone, each with its own Entra
+  identity, behind guardrails that <em>deny</em> the bad deployment instead of reporting on
+  it next quarter.
+</p>
+
+<div class="pillars">
+  <div class="pillar">
+    <h3>Agents as first-class identities</h3>
+    <p>One Entra Agent ID or user-assigned managed identity per agent. No shared service principals, no impersonated users, no client secrets — federated credentials instead.</p>
+  </div>
+  <div class="pillar">
+    <h3>A real landing zone</h3>
+    <p>An Application landing zone under an Application Platform management group — created idempotently if your tenant doesn’t already have one, then peered to your connectivity hub.</p>
+  </div>
+  <div class="pillar">
+    <h3>Policy as code, in Deny</h3>
+    <p>Seven definitions in one initiative, assigned at management-group scope — so it covers the workloads nobody told you about.</p>
+  </div>
+  <div class="pillar">
+    <h3>Low-code first</h3>
+    <p>Power Platform Managed Environments with DLP classifying the full connector catalog into Business, Non-Business and Blocked, plus APIM-fronted custom connectors from your own OpenAPI specs.</p>
+  </div>
+  <div class="pillar">
+    <h3>Traceable by design</h3>
+    <p>Central Log Analytics, per-agent Application Insights, diagnostic settings enforced by policy, Defender for Cloud AI threat protection, Purview/DSPM hooks.</p>
+  </div>
+  <div class="pillar">
+    <h3>Human in the loop</h3>
+    <p>Sensitive operations sit behind an APIM policy requiring an approver header. An agent can prepare a payout. It cannot issue one alone.</p>
+  </div>
+</div>
+
+<div class="cols">
+  <!-- LEFT -->
+  <div>
+    <h2><span class="num">01</span>Twelve claims, twelve tests</h2>
+    <p style="font-size:7.6pt;color:var(--ink-2)">
+      Architecture diagrams are easy to draw and impossible to falsify. Every pillar
+      here is paired with a runnable test designed to fail if the control is removed.
+    </p>
+    <table>
+      <thead><tr><th colspan="2">The claim</th><th>Proven by</th></tr></thead>
+      <tbody>
+        <tr><td class="chk">✓</td><td>Per-agent identity, no shared keys</td><td>unauth call → 401/403</td></tr>
+        <tr><td class="chk">✓</td><td>APIM validates the Entra JWT</td><td>federated token → 200</td></tr>
+        <tr><td class="chk">✓</td><td>Tenant-wide rate limit holds</td><td>601-call burst → 429s</td></tr>
+        <tr><td class="chk">✓</td><td>Connectors match the OpenAPI contract</td><td>FNOL → triage → payout</td></tr>
+        <tr><td class="chk">✓</td><td>Approved models only</td><td><code>gpt-3.5-turbo</code> → denied</td></tr>
+        <tr><td class="chk">✓</td><td>No public network access on AI/PaaS</td><td>public endpoint → denied</td></tr>
+        <tr><td class="chk">✓</td><td>Required governance tags</td><td>missing owner → denied</td></tr>
+        <tr><td class="chk">✓</td><td>Prompt Shields catch jailbreaks</td><td>10 adversarial prompts refused</td></tr>
+        <tr><td class="chk">✓</td><td>Domain accuracy of the agent</td><td>10 labelled FNOL cases scored</td></tr>
+        <tr><td class="chk">✓</td><td>Human-in-the-loop on payouts</td><td>no approver header → 403</td></tr>
+        <tr><td class="chk">✓</td><td>Calls traceable to the agent identity</td><td>App Insights trace by agent name</td></tr>
+        <tr><td class="chk">✓</td><td>Initiative enforced at MG scope</td><td><code>RequestDisallowedByPolicy</code></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>The end-to-end script chains all of it</strong> — apply the sandbox
+      profile, wait for the first policy scan, run the contract tests, run the
+      evaluations, prove the denials, print a compliance summary from
+      <code>az policy state list</code>, then destroy. About five cents in tokens.
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <h2><span class="num">02</span>What gets deployed</h2>
+    <ul class="tight">
+      <li><strong>Application Platform landing zone</strong> — management group, vended workload subscription, spoke network, central Log Analytics, platform managed identities.</li>
+      <li><strong>Policy-as-code initiative</strong> — allowed regions, approved model deployments, deny public network access, deny local auth on Cognitive Services, require diagnostic settings, require ownership and classification tags, audit managed identity.</li>
+      <li><strong>Insurance workload landing zone</strong> — Power Platform Managed Environment and connector DLP, APIM-fronted API connectors, Copilot Studio / AI Foundry agents each with their own identity, Key Vault, Application Insights, private endpoints.</li>
+      <li><strong>Control-mapping matrix</strong> — control-by-control traceability from each CAF recommendation to the file implementing it.</li>
+    </ul>
+
+    <h2 style="margin-top:9pt"><span class="num">03</span>What it costs</h2>
+    <p style="font-size:7.6pt;color:var(--ink-2)">
+      A disposable sandbox is roughly <strong>$100/month</strong>; the module defaults
+      land near <strong>$680</strong>; a zone-redundant production posture starts around
+      <strong>$3.6k/month</strong> idle. AI Search and API Management dominate — and both
+      bill while they exist, idle or not. Token spend is $0 until an agent is used.
+      Full model in the FinOps one-pager.
+    </p>
+
+    <h2 style="margin-top:9pt"><span class="num">04</span>How we work</h2>
+    <div class="stages">
+      <div class="stage">
+        <div class="st-when">1 week</div>
+        <h3>Assess</h3>
+        <p>Which identities your agents run under, what they can reach, and a gap map against the CAF governance disciplines.</p>
+      </div>
+      <div class="stage">
+        <div class="st-when">3–4 weeks</div>
+        <h3>Land</h3>
+        <p>Landing zone, initiative in Audit, one real workload agent deployed end to end. You keep the Terraform.</p>
+      </div>
+      <div class="stage">
+        <div class="st-when">Ongoing</div>
+        <h3>Enforce</h3>
+        <p>Audit → Deny once the estate is clean, tests wired into your pipeline, operating model handed over.</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:7pt">
+      <strong>Start with the sandbox.</strong> We stand up the dev-demo profile in your
+      tenant, run the twelve proofs, walk your security and platform teams through what
+      passed and what didn’t — and tear it down the same day if you want.
+    </div>
+  </div>
+</div>
+
+<div class="foot">
+  <strong>Adapt Cloud</strong> — governed AI agent platforms on Azure. Reference implementation:
+  Application Platform landing zone, policy-as-code guardrails, per-agent Entra identities,
+  Power Platform environments governed by connector-classification DLP, and an end-to-end test
+  suite pairing every architectural claim with a runnable proof. Nothing here is meant to go
+  straight to production — review, parameterise, and run it through your own pipeline first.
+</div>
+
+</body>
+</html>

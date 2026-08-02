@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adapt Cloud — FinOps Dashboard</title>
+<!--
+  Adapt Cloud — FinOps dashboard for the Azure insurance agent platform.
+
+  Self-contained: no external CSS, JS, fonts, or network calls. Safe to paste
+  into a Webflow Embed element (see marketing/README.md) or host standalone.
+
+  Every rate in COST_MODEL below is sourced from azure/COSTS.md. When that file
+  changes, change this one — they are meant to agree.
+-->
+<style>
+  .ac-fin {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f2f1ed;
+    --plane: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --accent: #2a78d6;
+    --accent-soft: rgba(42, 120, 214, 0.10);
+    --deemph: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --good: #0ca30c;
+    --warning: #fab219;
+    --critical: #d03b3b;
+    --shadow: 0 1px 2px rgba(11, 11, 11, .05);
+
+    background: var(--plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 28px 20px 48px;
+    box-sizing: border-box;
+  }
+  .ac-fin *, .ac-fin *::before, .ac-fin *::after { box-sizing: border-box; }
+  /* must beat the display:grid/flex rules below, or [hidden] rows still render */
+  .ac-fin [hidden] { display: none !important; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .ac-fin {
+      color-scheme: dark;
+      --surface-1: #101418;
+      --surface-2: #171c22;
+      --plane: #0a0d10;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --accent: #3987e5;
+      --accent-soft: rgba(57, 135, 229, 0.14);
+      --deemph: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255, 255, 255, 0.10);
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] .ac-fin {
+    color-scheme: dark;
+    --surface-1: #101418;
+    --surface-2: #171c22;
+    --plane: #0a0d10;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --accent: #3987e5;
+    --accent-soft: rgba(57, 135, 229, 0.14);
+    --deemph: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --shadow: none;
+  }
+
+  .ac-fin__wrap { max-width: 1120px; margin: 0 auto; }
+
+  .ac-fin__eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 8px;
+  }
+  .ac-fin h2 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -.01em; }
+  .ac-fin__lede { margin: 0 0 24px; color: var(--text-secondary); max-width: 62ch; font-size: 15px; }
+
+  /* ---- filter / knob row --------------------------------------------- */
+  .ac-fin__presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; align-items: center; }
+  .ac-fin__presets-label { font-size: 13px; color: var(--text-secondary); margin-right: 2px; }
+  .ac-preset {
+    font: inherit; font-size: 13px; font-weight: 550;
+    padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    background: var(--surface-1); color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+  .ac-preset:hover { border-color: var(--accent); color: var(--text-primary); }
+  .ac-preset[aria-pressed="true"] {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  .ac-preset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .ac-fin__grid { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 880px) { .ac-fin__grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .ac-card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; box-shadow: var(--shadow);
+  }
+  .ac-card + .ac-card { margin-top: 16px; }
+  .ac-card__title {
+    margin: 0 0 4px; font-size: 15px; font-weight: 620;
+  }
+  .ac-card__sub { margin: 0 0 16px; font-size: 13px; color: var(--text-secondary); }
+
+  .ac-knob { margin-bottom: 15px; }
+  .ac-knob:last-child { margin-bottom: 0; }
+  .ac-knob > label, .ac-knob__legend {
+    display: block; font-size: 13px; font-weight: 550; margin-bottom: 5px; color: var(--text-primary);
+  }
+  .ac-knob__hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; display: block; }
+  .ac-fin select, .ac-fin input[type="number"] {
+    width: 100%; font: inherit; font-size: 14px; padding: 8px 10px;
+    background: var(--surface-2); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 7px;
+  }
+  .ac-fin select:focus-visible, .ac-fin input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ac-fin input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .ac-knob__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ac-knob__val { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-weight: 550; }
+
+  .ac-switch { display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: 13px; font-weight: 550; }
+  .ac-switch input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+
+  /* ---- hero + stat tiles ---------------------------------------------- */
+  .ac-hero { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .ac-hero__figure { font-size: 52px; font-weight: 660; letter-spacing: -.02em; line-height: 1; }
+  .ac-hero__unit { font-size: 15px; color: var(--text-secondary); font-weight: 550; }
+  .ac-hero__note { font-size: 13px; color: var(--text-secondary); margin: 10px 0 0; }
+
+  .ac-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--border); border-radius: 10px; overflow: hidden; margin-top: 18px; }
+  .ac-kpi { background: var(--surface-1); padding: 13px 15px; }
+  .ac-kpi__label { font-size: 12px; color: var(--text-secondary); margin: 0 0 4px; }
+  .ac-kpi__value { font-size: 21px; font-weight: 620; letter-spacing: -.01em; }
+  .ac-kpi__meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ---- bar chart ------------------------------------------------------ */
+  .ac-chart { margin-top: 4px; }
+  .ac-bar { display: grid; grid-template-columns: 168px minmax(0, 1fr) 88px; gap: 12px; align-items: center; padding: 5px 0; position: relative; }
+  @media (max-width: 560px) { .ac-bar { grid-template-columns: 108px minmax(0, 1fr) 74px; gap: 8px; } }
+  .ac-bar__label { font-size: 13px; color: var(--text-secondary); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ac-bar__track { height: 100%; min-height: 22px; display: flex; align-items: center; }
+  .ac-bar__fill {
+    height: 16px; border-radius: 0 4px 4px 0; background: var(--deemph);
+    min-width: 2px; transition: width .18s ease;
+  }
+  .ac-bar--lead .ac-bar__fill { background: var(--accent); }
+  .ac-bar--zero .ac-bar__fill { background: var(--grid); }
+  .ac-bar__value { font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 550; text-align: right; }
+  .ac-bar--zero .ac-bar__value, .ac-bar--zero .ac-bar__label { color: var(--text-muted); }
+  .ac-bar:hover { background: var(--accent-soft); border-radius: 6px; }
+  .ac-bar__axis { border-top: 1px solid var(--axis); margin: 8px 0 0; padding-top: 6px; font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; }
+
+  .ac-tip {
+    position: fixed; z-index: 40; pointer-events: none; opacity: 0;
+    background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 11px; font-size: 12.5px; max-width: 290px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.16); transition: opacity .12s ease;
+  }
+  .ac-tip strong { display: block; margin-bottom: 3px; font-size: 13px; }
+  .ac-tip span { color: var(--text-secondary); }
+
+  /* ---- profile comparison --------------------------------------------- */
+  .ac-cmp { display: grid; gap: 9px; }
+  .ac-cmp__row { display: grid; grid-template-columns: 138px minmax(0, 1fr) 92px; gap: 12px; align-items: center; }
+  @media (max-width: 560px) { .ac-cmp__row { grid-template-columns: 96px minmax(0, 1fr) 80px; gap: 8px; } }
+  .ac-cmp__name { font-size: 13px; color: var(--text-secondary); text-align: right; }
+  .ac-cmp__bar { height: 14px; border-radius: 0 4px 4px 0; background: var(--deemph); min-width: 2px; transition: width .18s ease; }
+  .ac-cmp__row--you .ac-cmp__bar { background: var(--accent); }
+  .ac-cmp__row--you .ac-cmp__name { color: var(--text-primary); font-weight: 620; }
+  .ac-cmp__val { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; font-weight: 550; }
+
+  /* ---- table view ------------------------------------------------------ */
+  .ac-tablewrap { overflow-x: auto; margin-top: 14px; }
+  .ac-fin table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 480px; }
+  .ac-fin th, .ac-fin td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid); }
+  .ac-fin th { color: var(--text-secondary); font-weight: 600; }
+  .ac-fin td.num, .ac-fin th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ac-toggle-table {
+    font: inherit; font-size: 13px; background: none; border: 0; padding: 6px 0;
+    color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+  }
+  .ac-toggle-table:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---- notes ------------------------------------------------------------ */
+  .ac-note {
+    margin-top: 16px; padding: 13px 15px; border-radius: 10px;
+    background: var(--accent-soft); border: 1px solid var(--border);
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .ac-note strong { color: var(--text-primary); }
+  .ac-warn { border-left: 3px solid var(--warning); background: var(--surface-2); }
+  .ac-fin ol.ac-knobs-list { margin: 8px 0 0; padding-left: 20px; }
+  .ac-fin ol.ac-knobs-list li { margin-bottom: 4px; }
+  .ac-fin code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .88em; background: var(--surface-2); padding: .08em .34em; border-radius: 4px;
+  }
+  .ac-fin__foot { margin-top: 22px; font-size: 12px; color: var(--text-muted); max-width: 82ch; }
+  .ac-fin__foot a { color: var(--accent); }
+  .ac-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<section class="ac-fin" aria-labelledby="ac-fin-title">
+<div class="ac-fin__wrap">
+
+  <p class="ac-fin__eyebrow">Adapt Cloud · FinOps</p>
+  <h2 id="ac-fin-title">What this platform actually costs to run</h2>
+  <p class="ac-fin__lede">
+    Every governed-agent deployment lands somewhere between a throwaway sandbox and a
+    zone-redundant production estate — and the gap is roughly 40&times;. Move the knobs
+    that actually move the bill and watch the monthly number respond.
+  </p>
+
+  <div class="ac-fin__presets" role="group" aria-label="Cost posture presets">
+    <span class="ac-fin__presets-label">Posture</span>
+    <button type="button" class="ac-preset" data-preset="demo" aria-pressed="false">Sandbox demo</button>
+    <button type="button" class="ac-preset" data-preset="defaults" aria-pressed="true">Module defaults</button>
+    <button type="button" class="ac-preset" data-preset="prod" aria-pressed="false">Production</button>
+  </div>
+
+  <div class="ac-fin__grid">
+
+    <!-- ===================== CONTROLS ===================== -->
+    <div>
+      <div class="ac-card">
+        <h3 class="ac-card__title">The five knobs</h3>
+        <p class="ac-card__sub">These move the needle. Everything else is rounding.</p>
+
+        <div class="ac-knob">
+          <label for="ac-apim">API Management SKU</label>
+          <select id="ac-apim">
+            <option value="Consumption_0">Consumption — serverless, per-call</option>
+            <option value="Developer_1" selected>Developer — ~$50, no SLA</option>
+            <option value="StandardV2_1">Standard v2 — VNet capable</option>
+            <option value="Premium_1">Premium — Internal VNet + zones</option>
+          </select>
+          <span class="ac-knob__hint" id="ac-apim-hint"></span>
+        </div>
+
+        <div class="ac-knob" id="ac-calls-knob" hidden>
+          <label for="ac-calls">API calls per month (millions)</label>
+          <input type="number" id="ac-calls" min="0" step="0.5" value="2">
+          <span class="ac-knob__hint">Consumption bills ~$3.50 per million calls.</span>
+        </div>
+
+        <div class="ac-knob">
+          <label for="ac-search">AI Search tier</label>
+          <select id="ac-search">
+            <option value="free">Free — 3 indexes, no SLA</option>
+            <option value="basic">Basic — ~$75/unit</option>
+            <option value="standard" selected>Standard S1 — ~$245/unit</option>
+          </select>
+          <div class="ac-knob__row" style="margin-top:10px">
+            <div>
+              <label for="ac-replicas" style="font-size:12px">Replicas</label>
+              <input type="number" id="ac-replicas" min="1" max="12" value="1">
+            </div>
+            <div>
+              <label for="ac-partitions" style="font-size:12px">Partitions</label>
+              <input type="number" id="ac-partitions" min="1" max="12" value="2">
+            </div>
+          </div>
+          <span class="ac-knob__hint" id="ac-search-hint"></span>
+        </div>
+
+        <div class="ac-knob">
+          <span class="ac-knob__legend">Private endpoints</span>
+          <label class="ac-switch">
+            <input type="checkbox" id="ac-pe" checked>
+            <span>Private-endpoint only (no public access)</span>
+          </label>
+          <div style="margin-top:9px" id="ac-pe-count-wrap">
+            <label for="ac-pe-count" style="font-size:12px">Endpoint count</label>
+            <input type="number" id="ac-pe-count" min="0" max="30" value="6">
+          </div>
+          <span class="ac-knob__hint">~$9.50/mo each, plus ~$0.01/GB processed.</span>
+        </div>
+
+        <div class="ac-knob">
+          <label for="ac-law-gb">Log Analytics ingest (GB / month)</label>
+          <input type="number" id="ac-law-gb" min="0" step="1" value="12">
+          <div class="ac-knob__row" style="margin-top:10px">
+            <div>
+              <label for="ac-retention" style="font-size:12px">Retention (days)</label>
+              <input type="number" id="ac-retention" min="30" max="730" step="30" value="90">
+            </div>
+            <div style="display:flex;align-items:flex-end;padding-bottom:8px">
+              <label class="ac-switch">
+                <input type="checkbox" id="ac-sentinel">
+                <span>Sentinel</span>
+              </label>
+            </div>
+          </div>
+          <span class="ac-knob__hint">First 5 GB/mo free; ~$2.53/GB after. Retention past 31 days ~$0.12/GB/mo.</span>
+        </div>
+
+        <div class="ac-knob">
+          <span class="ac-knob__legend">Environments &amp; agents</span>
+          <div class="ac-knob__row">
+            <div>
+              <label for="ac-envs" style="font-size:12px">Prod PP envs</label>
+              <input type="number" id="ac-envs" min="0" max="10" value="0">
+            </div>
+            <div>
+              <label for="ac-agents" style="font-size:12px">Agents</label>
+              <input type="number" id="ac-agents" min="1" max="30" value="4">
+            </div>
+          </div>
+          <span class="ac-knob__hint">Production Dataverse environments draw ~1 GB each from tenant capacity.</span>
+        </div>
+      </div>
+
+      <div class="ac-card">
+        <h3 class="ac-card__title">Metered usage</h3>
+        <p class="ac-card__sub">$0 when idle. This is the part that scales with adoption.</p>
+
+        <div class="ac-knob">
+          <label for="ac-model">Primary model</label>
+          <select id="ac-model">
+            <option value="gpt-4o">gpt-4o — $2.50 / $10 per 1M</option>
+            <option value="gpt-4o-mini" selected>gpt-4o-mini — $0.15 / $0.60 per 1M</option>
+          </select>
+        </div>
+
+        <div class="ac-knob">
+          <label for="ac-convos">Agent conversations / month</label>
+          <input type="number" id="ac-convos" min="0" step="1000" value="20000">
+          <span class="ac-knob__hint">Assumes ~3K input + ~600 output tokens per conversation.</span>
+        </div>
+
+        <div class="ac-knob">
+          <span class="ac-knob__legend">Licensing (not Azure metering)</span>
+          <label class="ac-switch">
+            <input type="checkbox" id="ac-licensing">
+            <span>Include Power Platform &amp; Copilot Studio</span>
+          </label>
+          <div class="ac-knob__row" style="margin-top:10px" id="ac-licensing-inputs" hidden>
+            <div>
+              <label for="ac-users" style="font-size:12px">Premium users</label>
+              <input type="number" id="ac-users" min="0" value="25">
+            </div>
+            <div>
+              <label for="ac-messages" style="font-size:12px">CS msgs/mo (K)</label>
+              <input type="number" id="ac-messages" min="0" step="5" value="25">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== RESULTS ===================== -->
+    <div>
+      <div class="ac-card">
+        <p class="ac-kpi__label" style="margin-bottom:6px">Estimated Azure spend, idle + metered</p>
+        <div class="ac-hero">
+          <span class="ac-hero__figure" id="ac-total">$667</span>
+          <span class="ac-hero__unit">/ month</span>
+        </div>
+        <p class="ac-hero__note" id="ac-total-note"></p>
+
+        <div class="ac-kpis">
+          <div class="ac-kpi">
+            <p class="ac-kpi__label">Fixed (idle)</p>
+            <div class="ac-kpi__value" id="ac-kpi-fixed">—</div>
+            <div class="ac-kpi__meta">bills whether or not anyone logs in</div>
+          </div>
+          <div class="ac-kpi">
+            <p class="ac-kpi__label">Metered</p>
+            <div class="ac-kpi__value" id="ac-kpi-metered">—</div>
+            <div class="ac-kpi__meta">tokens, calls, ingest</div>
+          </div>
+          <div class="ac-kpi">
+            <p class="ac-kpi__label">Annualised</p>
+            <div class="ac-kpi__value" id="ac-kpi-annual">—</div>
+            <div class="ac-kpi__meta">Azure only, list price</div>
+          </div>
+          <div class="ac-kpi">
+            <p class="ac-kpi__label">Per agent</p>
+            <div class="ac-kpi__value" id="ac-kpi-agent">—</div>
+            <div class="ac-kpi__meta">total ÷ governed identities</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ac-card">
+        <h3 class="ac-card__title">Where the money goes</h3>
+        <p class="ac-card__sub">Monthly cost by component. The largest driver is highlighted.</p>
+        <div class="ac-chart" id="ac-chart" role="img" aria-labelledby="ac-chart-desc"></div>
+        <p id="ac-chart-desc" class="ac-sr"></p>
+        <button type="button" class="ac-toggle-table" id="ac-table-btn" aria-expanded="false" aria-controls="ac-table">
+          Show as table
+        </button>
+        <div class="ac-tablewrap" id="ac-table" hidden>
+          <table>
+            <caption class="ac-sr">Estimated monthly cost by component</caption>
+            <thead>
+              <tr><th scope="col">Component</th><th scope="col" class="num">$/month</th><th scope="col" class="num">Share</th><th scope="col">Pricing model</th></tr>
+            </thead>
+            <tbody id="ac-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="ac-card">
+        <h3 class="ac-card__title">Your configuration vs. the shipped profiles</h3>
+        <p class="ac-card__sub">Two ready-made variable sets live in <code>azure/profiles/</code>. The module defaults sit between them.</p>
+        <div class="ac-cmp" id="ac-cmp"></div>
+      </div>
+
+      <div class="ac-note" id="ac-guidance"></div>
+
+      <div class="ac-note">
+        <strong>Can you tear it down at will?</strong> Yes — <code>terraform destroy</code> per module, in
+        reverse order. Two things to know: AI Search and API Management bill while they
+        <em>exist</em>, idle or not, so destroy those first if you just want the meter to
+        stop. And Key Vault purge protection keeps a soft-deleted vault — and its name —
+        for 90 days with no force-purge, which is why the sandbox profile turns it off.
+      </div>
+    </div>
+  </div>
+
+  <p class="ac-fin__foot">
+    List prices, USD, pay-as-you-go, East US 2, no EA/CSP discount, early-2026 rates.
+    Estimates only — confirm against the Azure Pricing Calculator before you commit budget.
+    Power Platform and Copilot Studio are licensing and tenant capacity, not Azure metering,
+    and are excluded from the Azure figure above unless you switch them on.
+    Rates mirror <code>azure/COSTS.md</code> in the Adapt Cloud repository.
+  </p>
+</div>
+</section>
+
+<div class="ac-tip" id="ac-tip" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ----------------------------------------------------------------------
+     COST MODEL — every rate sourced from azure/COSTS.md.
+     Keep the two files in sync.
+  ---------------------------------------------------------------------- */
+  var APIM = {
+    Consumption_0: { base: 0,    perMillion: 3.50, label: "APIM (Consumption)",  note: "Serverless: no gateway charge, ~$3.50 per million calls. Cannot do Internal VNet." },
+    Developer_1:   { base: 50,   perMillion: 0,    label: "APIM (Developer)",    note: "~$50/mo for one gateway unit. No SLA — fine for dev and demos, not production." },
+    StandardV2_1:  { base: 700,  perMillion: 0,    label: "APIM (Standard v2)",  note: "~$700/mo. VNet-capable without the Premium jump." },
+    Premium_1:     { base: 2800, perMillion: 0,    label: "APIM (Premium)",      note: "~$2,800 per unit. Internal VNet + availability zones. This is the line that takes you to four figures." }
+  };
+  var SEARCH = {
+    free:     { perUnit: 0,   label: "Free",         note: "No SLA, 3 indexes. Fine for a demo, not for production grounding." },
+    basic:    { perUnit: 75,  label: "Basic",        note: "~$75 per search unit (replicas × partitions)." },
+    standard: { perUnit: 245, label: "Standard (S1)", note: "~$245 per search unit (replicas × partitions). Billed while the service exists, idle or not." }
+  };
+  var MODELS = {
+    "gpt-4o":      { inM: 2.50, outM: 10.00, label: "gpt-4o" },
+    "gpt-4o-mini": { inM: 0.15, outM: 0.60,  label: "gpt-4o-mini" }
+  };
+  var R = {
+    peMonth: 9.50, lawPerGb: 2.53, lawFreeGb: 5, sentinelPerGb: 2.46,
+    retentionPerGbMonth: 0.12, retentionFreeDays: 31,
+    defenderArm: 4.50, defenderAiPerAgent: 4.00, keyVault: 2, storage: 3, networking: 5,
+    embeddingPerM: 0.13, contentSafetyPer1k: 0.75,
+    tokensInPerConvo: 3000, tokensOutPerConvo: 600,
+    ppPremiumUserMonth: 12, ppDataverseOverageGb: 40, copilotStudioPer25k: 200
+  };
+
+  var PRESETS = {
+    demo: {
+      label: "Sandbox demo", apim: "Consumption_0", calls: 0.5, search: "basic",
+      replicas: 1, partitions: 1, pe: false, peCount: 0, lawGb: 8, retention: 30,
+      sentinel: false, envs: 0, agents: 1, model: "gpt-4o-mini", convos: 2000
+    },
+    defaults: {
+      label: "Module defaults", apim: "Developer_1", calls: 2, search: "standard",
+      replicas: 1, partitions: 2, pe: true, peCount: 6, lawGb: 12, retention: 90,
+      sentinel: false, envs: 0, agents: 4, model: "gpt-4o-mini", convos: 20000
+    },
+    prod: {
+      label: "Production", apim: "Premium_1", calls: 20, search: "standard",
+      replicas: 3, partitions: 1, pe: true, peCount: 7, lawGb: 30, retention: 90,
+      sentinel: true, envs: 1, agents: 4, model: "gpt-4o", convos: 120000
+    }
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    apim: $("ac-apim"), apimHint: $("ac-apim-hint"), callsKnob: $("ac-calls-knob"), calls: $("ac-calls"),
+    search: $("ac-search"), searchHint: $("ac-search-hint"), replicas: $("ac-replicas"), partitions: $("ac-partitions"),
+    pe: $("ac-pe"), peCountWrap: $("ac-pe-count-wrap"), peCount: $("ac-pe-count"),
+    lawGb: $("ac-law-gb"), retention: $("ac-retention"), sentinel: $("ac-sentinel"),
+    envs: $("ac-envs"), agents: $("ac-agents"),
+    model: $("ac-model"), convos: $("ac-convos"),
+    licensing: $("ac-licensing"), licensingInputs: $("ac-licensing-inputs"), users: $("ac-users"), messages: $("ac-messages"),
+    total: $("ac-total"), totalNote: $("ac-total-note"),
+    kpiFixed: $("ac-kpi-fixed"), kpiMetered: $("ac-kpi-metered"), kpiAnnual: $("ac-kpi-annual"), kpiAgent: $("ac-kpi-agent"),
+    chart: $("ac-chart"), chartDesc: $("ac-chart-desc"), cmp: $("ac-cmp"),
+    tableBtn: $("ac-table-btn"), table: $("ac-table"), tableBody: $("ac-table-body"),
+    guidance: $("ac-guidance"), tip: $("ac-tip")
+  };
+
+  function num(el, fallback) {
+    var v = parseFloat(el.value);
+    return isFinite(v) && v >= 0 ? v : (fallback || 0);
+  }
+  function money(v) {
+    if (v >= 10000) return "$" + Math.round(v / 100) * 100 / 1000 + "k";
+    if (v >= 1000) return "$" + (Math.round(v)).toLocaleString("en-US");
+    if (v >= 100) return "$" + Math.round(v);
+    if (v >= 10) return "$" + v.toFixed(0);
+    if (v > 0 && v < 1) return "$" + v.toFixed(2);
+    return "$" + Math.round(v);
+  }
+
+  /* ---- the model ------------------------------------------------------- */
+  function compute(cfg) {
+    var apim = APIM[cfg.apim], search = SEARCH[cfg.search], model = MODELS[cfg.model];
+    var units = Math.max(1, cfg.replicas) * Math.max(1, cfg.partitions);
+    var searchCost = search.perUnit * (cfg.search === "free" ? 0 : units);
+
+    var apimFixed = apim.base;
+    var apimMetered = apim.perMillion * cfg.calls;
+
+    var peCount = cfg.pe ? cfg.peCount : 0;
+    var peCost = peCount * R.peMonth;
+
+    var billableGb = Math.max(0, cfg.lawGb - R.lawFreeGb);
+    var lawCost = billableGb * R.lawPerGb
+      + (cfg.sentinel ? cfg.lawGb * R.sentinelPerGb : 0)
+      + (cfg.retention > R.retentionFreeDays
+          ? cfg.lawGb * R.retentionPerGbMonth * ((cfg.retention - R.retentionFreeDays) / 30)
+          : 0);
+
+    var defender = cfg.defender === false ? 0 : (R.defenderArm + R.defenderAiPerAgent * cfg.agents);
+
+    var inTok = cfg.convos * R.tokensInPerConvo / 1e6;
+    var outTok = cfg.convos * R.tokensOutPerConvo / 1e6;
+    var modelCost = inTok * model.inM + outTok * model.outM;
+    var embedCost = (cfg.convos * 500 / 1e6) * R.embeddingPerM;
+    var safetyCost = (cfg.convos / 1000) * R.contentSafetyPer1k;
+
+    var rows = [
+      { key: "search",   label: "AI Search",            value: searchCost,  fixed: true,
+        pricing: "per search unit (replicas × partitions), hourly",
+        note: search.note + " Current: " + units + " unit" + (units === 1 ? "" : "s") + "." },
+      { key: "apim",     label: apim.label,             value: apimFixed + apimMetered, fixed: apim.perMillion === 0,
+        pricing: apim.perMillion ? "per call" : "per gateway unit, hourly",
+        note: apim.note },
+      { key: "model",    label: "Azure OpenAI tokens",  value: modelCost,   fixed: false,
+        pricing: "per 1M tokens in / out",
+        note: model.label + " at " + cfg.convos.toLocaleString("en-US") + " conversations/mo (~" + inTok.toFixed(1) + "M in, " + outTok.toFixed(1) + "M out). $0 when idle — quota is not a reservation." },
+      { key: "law",      label: "Log Analytics" + (cfg.sentinel ? " + Sentinel" : ""), value: lawCost, fixed: false,
+        pricing: "per GB ingested + retention",
+        note: cfg.lawGb + " GB/mo (" + R.lawFreeGb + " GB free), " + cfg.retention + "-day retention" + (cfg.sentinel ? ", Sentinel on at ~$2.46/GB" : "") + ". Scales with how chatty your diagnostic settings are." },
+      { key: "pe",       label: "Private endpoints",    value: peCost,      fixed: true,
+        pricing: "~$0.013/hr each + $0.01/GB",
+        note: cfg.pe ? peCount + " endpoints at ~$9.50/mo each." : "Off — PaaS is reachable on public endpoints. Acceptable for non-sensitive demo data only." },
+      { key: "defender", label: "Defender for Cloud",   value: defender,    fixed: true,
+        pricing: "per subscription + metered AI plan",
+        note: "ARM plan ~$4–5/sub plus the AI workloads plan across " + cfg.agents + " agent" + (cfg.agents === 1 ? "" : "s") + "." },
+      { key: "safety",   label: "AI Content Safety",    value: safetyCost,  fixed: false,
+        pricing: "per 1K text records",
+        note: "~$0.75 per 1,000 records screened. Metered only — $0 idle." },
+      { key: "storage",  label: "Storage + Key Vault",  value: R.storage + R.keyVault, fixed: true,
+        pricing: "per GB / per 10K operations",
+        note: "AI Foundry's backing store plus Key Vault operations. Grows slowly with artifacts." },
+      { key: "network",  label: "Networking",           value: R.networking, fixed: true,
+        pricing: "VNet free; peering ~$0.01/GB each way",
+        note: "VNet, route tables and NSGs are free; you pay for peering throughput." },
+      { key: "embed",    label: "Embeddings",           value: embedCost,   fixed: false,
+        pricing: "per 1M tokens",
+        note: "text-embedding-3-large at ~$0.13 per 1M tokens." }
+    ];
+
+    var azure = rows.reduce(function (s, r) { return s + r.value; }, 0);
+    var fixedTotal = rows.reduce(function (s, r) { return s + (r.fixed ? r.value : 0); }, 0);
+    var meteredTotal = azure - fixedTotal;
+
+    var licensing = 0;
+    if (cfg.licensing) {
+      licensing = cfg.users * R.ppPremiumUserMonth
+        + cfg.envs * R.ppDataverseOverageGb
+        + Math.ceil(cfg.messages / 25) * R.copilotStudioPer25k;
+    }
+
+    return { rows: rows, azure: azure, fixed: fixedTotal, metered: meteredTotal, licensing: licensing, agents: cfg.agents };
+  }
+
+  function readConfig() {
+    return {
+      apim: els.apim.value, calls: num(els.calls, 0), search: els.search.value,
+      replicas: num(els.replicas, 1), partitions: num(els.partitions, 1),
+      pe: els.pe.checked, peCount: num(els.peCount, 0),
+      lawGb: num(els.lawGb, 0), retention: num(els.retention, 30), sentinel: els.sentinel.checked,
+      envs: num(els.envs, 0), agents: Math.max(1, num(els.agents, 1)),
+      model: els.model.value, convos: num(els.convos, 0),
+      licensing: els.licensing.checked, users: num(els.users, 0), messages: num(els.messages, 0)
+    };
+  }
+
+  /* ---- rendering ------------------------------------------------------- */
+  function renderChart(result) {
+    var rows = result.rows.slice().sort(function (a, b) { return b.value - a.value; });
+    var max = rows.length ? rows[0].value : 1;
+    els.chart.innerHTML = "";
+
+    rows.forEach(function (r, i) {
+      var pct = max > 0 ? (r.value / max) * 100 : 0;
+      var share = result.azure > 0 ? (r.value / result.azure) * 100 : 0;
+      var row = document.createElement("div");
+      row.className = "ac-bar" + (i === 0 && r.value > 0 ? " ac-bar--lead" : "") + (r.value <= 0 ? " ac-bar--zero" : "");
+      row.innerHTML =
+        '<div class="ac-bar__label">' + r.label + '</div>' +
+        '<div class="ac-bar__track"><div class="ac-bar__fill" style="width:' + Math.max(pct, 0.6) + '%"></div></div>' +
+        '<div class="ac-bar__value">' + money(r.value) + '</div>';
+      row.addEventListener("mouseenter", function (e) { showTip(e, r, share); });
+      row.addEventListener("mousemove", moveTip);
+      row.addEventListener("mouseleave", hideTip);
+      els.chart.appendChild(row);
+    });
+
+    var axis = document.createElement("div");
+    axis.className = "ac-bar__axis";
+    axis.innerHTML = "<span>$0</span><span>" + money(max) + " / mo</span>";
+    els.chart.appendChild(axis);
+
+    els.chartDesc.textContent = "Monthly cost by component, largest first: " +
+      rows.filter(function (r) { return r.value > 0; })
+          .map(function (r) { return r.label + " " + money(r.value); }).join("; ") + ".";
+
+    els.tableBody.innerHTML = rows.map(function (r) {
+      var share = result.azure > 0 ? (r.value / result.azure) * 100 : 0;
+      return "<tr><td>" + r.label + "</td><td class='num'>" + money(r.value) +
+             "</td><td class='num'>" + share.toFixed(1) + "%</td><td>" + r.pricing + "</td></tr>";
+    }).join("");
+  }
+
+  function renderComparison(result) {
+    var bars = Object.keys(PRESETS).map(function (k) {
+      var p = PRESETS[k];
+      return { name: p.label, value: compute(withDefaults(p)).azure, you: false };
+    });
+    bars.push({ name: "Your configuration", value: result.azure, you: true });
+    var max = bars.reduce(function (m, b) { return Math.max(m, b.value); }, 1);
+
+    els.cmp.innerHTML = bars.map(function (b) {
+      var pct = Math.max((b.value / max) * 100, 0.6);
+      return '<div class="ac-cmp__row' + (b.you ? " ac-cmp__row--you" : "") + '">' +
+        '<div class="ac-cmp__name">' + b.name + '</div>' +
+        '<div><div class="ac-cmp__bar" style="width:' + pct + '%"></div></div>' +
+        '<div class="ac-cmp__val">' + money(b.value) + '</div></div>';
+    }).join("");
+  }
+
+  function withDefaults(p) {
+    return {
+      apim: p.apim, calls: p.calls, search: p.search, replicas: p.replicas, partitions: p.partitions,
+      pe: p.pe, peCount: p.peCount, lawGb: p.lawGb, retention: p.retention, sentinel: p.sentinel,
+      envs: p.envs, agents: p.agents, model: p.model, convos: p.convos,
+      defender: p.label !== "Sandbox demo", licensing: false, users: 0, messages: 0
+    };
+  }
+
+  function renderGuidance(cfg, result) {
+    var msgs = [];
+    if (!cfg.pe) {
+      msgs.push("<strong>Public endpoints are on.</strong> That saves roughly " +
+        money(cfg.peCount * R.peMonth || 6 * R.peMonth) +
+        "/mo and loses network isolation — acceptable for non-sensitive demo data only. If you also deploy the policy initiative, assign it with <code>enforcement_mode=DoNotEnforce</code> or <code>deny-ai-public-network-access</code> will block the apply.");
+    }
+    if (cfg.apim === "Premium_1") {
+      msgs.push("<strong>APIM Premium is " +
+        Math.round((APIM.Premium_1.base / Math.max(result.azure, 1)) * 100) +
+        "% of your bill.</strong> It buys Internal VNet and availability zones. If you don't need both, Standard v2 does VNet for ~$700.");
+    }
+    if (cfg.search === "standard" && cfg.replicas * cfg.partitions >= 3) {
+      msgs.push("<strong>You're paying for " + (cfg.replicas * cfg.partitions) +
+        " search units.</strong> Replicas buy query SLA and throughput; partitions buy index size. Scale the one you actually need.");
+    }
+    if (cfg.search === "free") {
+      msgs.push("<strong>Free-tier search caps you at 3 indexes with no SLA.</strong> Fine to prove the pattern, not to run it.");
+    }
+    if (!msgs.length) {
+      msgs.push("<strong>This configuration is balanced.</strong> Fixed cost is " +
+        money(result.fixed) + "/mo and metered usage is " + money(result.metered) +
+        "/mo — meaning " + Math.round((result.fixed / Math.max(result.azure, 1)) * 100) +
+        "% of the bill arrives whether or not anyone uses the platform.");
+    }
+    els.guidance.innerHTML = msgs.join(" ");
+  }
+
+  function showTip(e, r, share) {
+    els.tip.innerHTML = "<strong>" + r.label + " — " + money(r.value) + "/mo</strong>" +
+      "<span>" + share.toFixed(1) + "% of the Azure bill · " + r.pricing + "<br>" + r.note + "</span>";
+    els.tip.style.opacity = "1";
+    moveTip(e);
+  }
+  function moveTip(e) {
+    var pad = 14, w = els.tip.offsetWidth, h = els.tip.offsetHeight;
+    var x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - pad;
+    els.tip.style.left = Math.max(8, x) + "px";
+    els.tip.style.top = Math.max(8, y) + "px";
+  }
+  function hideTip() { els.tip.style.opacity = "0"; }
+
+  function syncConditionalUi() {
+    var isConsumption = els.apim.value === "Consumption_0";
+    els.callsKnob.hidden = !isConsumption;
+    els.apimHint.textContent = APIM[els.apim.value].note;
+    els.peCountWrap.hidden = !els.pe.checked;
+    els.licensingInputs.hidden = !els.licensing.checked;
+    var units = Math.max(1, num(els.replicas, 1)) * Math.max(1, num(els.partitions, 1));
+    els.searchHint.textContent = els.search.value === "free"
+      ? SEARCH.free.note
+      : units + " search unit" + (units === 1 ? "" : "s") + " × " + money(SEARCH[els.search.value].perUnit) + " = " + money(units * SEARCH[els.search.value].perUnit) + "/mo.";
+  }
+
+  function update() {
+    syncConditionalUi();
+    var cfg = readConfig();
+    var result = compute(cfg);
+
+    els.total.textContent = money(result.azure);
+    els.kpiFixed.textContent = money(result.fixed);
+    els.kpiMetered.textContent = money(result.metered);
+    els.kpiAnnual.textContent = money(result.azure * 12);
+    els.kpiAgent.textContent = money(result.azure / Math.max(1, result.agents));
+
+    els.totalNote.innerHTML = cfg.licensing
+      ? "Plus <strong>" + money(result.licensing) + "/mo</strong> in Power Platform and Copilot Studio licensing — tenant capacity, billed separately from Azure."
+      : "Azure metering only. Power Platform and Copilot Studio licensing is billed separately.";
+
+    renderChart(result);
+    renderComparison(result);
+    renderGuidance(cfg, result);
+    markActivePreset(cfg);
+  }
+
+  function markActivePreset(cfg) {
+    var active = null;
+    Object.keys(PRESETS).forEach(function (k) {
+      var p = PRESETS[k];
+      if (p.apim === cfg.apim && p.search === cfg.search && p.replicas === cfg.replicas &&
+          p.partitions === cfg.partitions && p.pe === cfg.pe && p.agents === cfg.agents &&
+          p.model === cfg.model && p.convos === cfg.convos) { active = k; }
+    });
+    document.querySelectorAll(".ac-preset").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.preset === active));
+    });
+  }
+
+  function applyPreset(key) {
+    var p = PRESETS[key];
+    els.apim.value = p.apim; els.calls.value = p.calls;
+    els.search.value = p.search; els.replicas.value = p.replicas; els.partitions.value = p.partitions;
+    els.pe.checked = p.pe; els.peCount.value = p.peCount;
+    els.lawGb.value = p.lawGb; els.retention.value = p.retention; els.sentinel.checked = p.sentinel;
+    els.envs.value = p.envs; els.agents.value = p.agents;
+    els.model.value = p.model; els.convos.value = p.convos;
+    update();
+  }
+
+  document.querySelectorAll(".ac-preset").forEach(function (b) {
+    b.addEventListener("click", function () { applyPreset(b.dataset.preset); });
+  });
+  [els.apim, els.calls, els.search, els.replicas, els.partitions, els.pe, els.peCount,
+   els.lawGb, els.retention, els.sentinel, els.envs, els.agents, els.model, els.convos,
+   els.licensing, els.users, els.messages].forEach(function (el) {
+    el.addEventListener("input", update);
+    el.addEventListener("change", update);
+  });
+
+  els.tableBtn.addEventListener("click", function () {
+    var open = els.table.hidden;
+    els.table.hidden = !open;
+    els.tableBtn.setAttribute("aria-expanded", String(open));
+    els.tableBtn.textContent = open ? "Hide table" : "Show as table";
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>

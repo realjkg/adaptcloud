@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Adapt Cloud — FinOps for Governed AI Agents</title>
+<style>
+  @page { size: Letter; margin: 13mm 14mm; }
+  :root {
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --accent: #2a78d6; --accent-soft: #eef4fd;
+    --rule: #e1e0d9; --surface: #f7f7f5;
+    --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink); font-size: 8.4pt; line-height: 1.34;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1, h2, h3 { margin: 0; }
+  p { margin: 0 0 4.5pt; }
+
+  .masthead { display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 2pt solid var(--accent); padding-bottom: 4.5pt; margin-bottom: 8pt; }
+  .brand { font-size: 11pt; font-weight: 700; letter-spacing: -.01em; }
+  .brand span { color: var(--accent); }
+  .kicker { font-size: 7.4pt; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin-top: 2pt; }
+  .masthead-right { text-align: right; font-size: 7.6pt; color: var(--muted); line-height: 1.35; }
+
+  h1 { font-size: 16pt; line-height: 1.12; letter-spacing: -.018em; font-weight: 660; margin-bottom: 4pt; }
+  .lede { font-size: 8.9pt; color: var(--ink-2); max-width: 68ch; margin-bottom: 6pt; }
+
+  /* headline band */
+  .band { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1pt;
+    background: var(--rule); border: 1pt solid var(--rule); border-radius: 4pt;
+    overflow: hidden; margin-bottom: 9pt; }
+  .band > div { background: #fff; padding: 6pt 8pt; }
+  .band .band-label { font-size: 7pt; color: var(--ink-2); font-weight: 600; margin-bottom: 1pt; }
+  .band .band-fig { font-size: 14.5pt; font-weight: 660; letter-spacing: -.02em; line-height: 1.05; }
+  .band .band-note { font-size: 6.8pt; color: var(--muted); margin-top: 1.5pt; line-height: 1.28; }
+  .band .is-accent .band-fig { color: var(--accent); }
+
+  .cols { display: grid; grid-template-columns: 1.32fr 1fr; gap: 11pt; }
+
+  h2 { font-size: 9.4pt; font-weight: 650; margin-bottom: 3.5pt; letter-spacing: -.005em; }
+  h2 .num { color: var(--accent); margin-right: 4pt; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 7.7pt; margin-bottom: 3pt; }
+  th, td { text-align: left; padding: 2.5pt 4pt; border-bottom: .6pt solid var(--rule); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 650; font-size: 6.9pt; text-transform: uppercase; letter-spacing: .045em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { border-top: 1.1pt solid var(--ink); border-bottom: 0; font-weight: 660; }
+  .dim { color: var(--muted); }
+
+  /* bar chart — one hue, largest emphasised */
+  .bars { margin: 1pt 0 4pt; }
+  .bar { display: grid; grid-template-columns: 80pt 1fr 30pt; gap: 5pt; align-items: center; padding: 1.05pt 0; }
+  .bar-label { font-size: 7.4pt; color: var(--ink-2); text-align: right; }
+  .bar-track { background: transparent; }
+  .bar-fill { height: 6.4pt; background: var(--muted); border-radius: 0 2pt 2pt 0; display: block; }
+  .bar.lead .bar-fill { background: var(--accent); }
+  .bar.lead .bar-label { color: var(--ink); font-weight: 620; }
+  .bar-val { font-size: 7.4pt; text-align: right; font-variant-numeric: tabular-nums; font-weight: 550; }
+  .bar-axis { border-top: .6pt solid var(--rule); margin-top: 2pt; padding-top: 1.8pt;
+    display: flex; justify-content: space-between; font-size: 6.5pt; color: var(--muted); }
+
+  .callout { background: var(--accent-soft); border-radius: 4pt; padding: 5pt 7pt;
+    font-size: 7.7pt; color: var(--ink-2); margin-bottom: 6pt; line-height: 1.32; }
+  .callout strong { color: var(--ink); }
+  .callout.warn { background: var(--surface); border-left: 2.4pt solid var(--warning); }
+
+  ol.knobs { margin: 2pt 0 5pt; padding-left: 11pt; font-size: 7.7pt; color: var(--ink-2); line-height: 1.32; }
+  ol.knobs li { margin-bottom: 2pt; }
+  ol.knobs strong { color: var(--ink); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em;
+    background: var(--surface); padding: .5pt 2.4pt; border-radius: 2pt; }
+
+  .foot { margin-top: 5pt; border-top: .6pt solid var(--rule); padding-top: 4pt;
+    font-size: 6.9pt; color: var(--muted); line-height: 1.35; }
+  .foot strong { color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div>
+    <div class="brand">Adapt<span>Cloud</span></div>
+    <div class="kicker">FinOps · Governed AI agents on Azure</div>
+  </div>
+  <div class="masthead-right">
+    List prices · USD · East US 2<br>
+    Pay-as-you-go, no EA/CSP discount<br>
+    Early-2026 rates
+  </div>
+</div>
+
+<h1>Know the bill before you sign for it</h1>
+<p class="lede">
+  Governed doesn't have to mean expensive — but it does have to mean <em>knowable</em>.
+  The same agent architecture runs from roughly a hundred dollars a month in a disposable
+  sandbox to several thousand in a zone-redundant production estate, and the difference is
+  four or five variables rather than a redesign.
+</p>
+
+<div class="band">
+  <div>
+    <div class="band-label">Sandbox demo</div>
+    <div class="band-fig">~$100</div>
+    <div class="band-note">per month · public endpoints, Consumption APIM, Basic search. Non-sensitive demo data only.</div>
+  </div>
+  <div class="is-accent">
+    <div class="band-label">Module defaults</div>
+    <div class="band-fig">~$680</div>
+    <div class="band-note">per month · private endpoints on, Developer APIM, Standard search, 4 governed agents.</div>
+  </div>
+  <div>
+    <div class="band-label">Production</div>
+    <div class="band-fig">~$3.6k</div>
+    <div class="band-note">per month idle · Premium APIM in Internal VNet, S1 search ×3, policies enforced.</div>
+  </div>
+</div>
+
+<div class="cols">
+  <!-- LEFT -->
+  <div>
+    <h2><span class="num">01</span>Where the money goes</h2>
+    <p style="font-size:7.7pt;color:var(--ink-2)">
+      At the module defaults — private endpoints on, four agents, ~20K conversations
+      a month on gpt-4o-mini. Two lines dominate; the rest is rounding.
+    </p>
+
+    <div class="bars">
+      <div class="bar lead">
+        <div class="bar-label">AI Search</div>
+        <div class="bar-track"><span class="bar-fill" style="width:100%"></span></div>
+        <div class="bar-val">$490</div>
+      </div>
+      <div class="bar">
+        <div class="bar-label">Private endpoints</div>
+        <div class="bar-track"><span class="bar-fill" style="width:11.6%"></span></div>
+        <div class="bar-val">$57</div>
+      </div>
+      <div class="bar">
+        <div class="bar-label">API Management</div>
+        <div class="bar-track"><span class="bar-fill" style="width:10.2%"></span></div>
+        <div class="bar-val">$50</div>
+      </div>
+      <div class="bar">
+        <div class="bar-label">Log Analytics</div>
+        <div class="bar-track"><span class="bar-fill" style="width:4.3%"></span></div>
+        <div class="bar-val">$21</div>
+      </div>
+      <div class="bar">
+        <div class="bar-label">Defender for Cloud</div>
+        <div class="bar-track"><span class="bar-fill" style="width:4.3%"></span></div>
+        <div class="bar-val">$21</div>
+      </div>
+      <div class="bar">
+        <div class="bar-label">OpenAI tokens</div>
+        <div class="bar-track"><span class="bar-fill" style="width:3.3%"></span></div>
+        <div class="bar-val">$16</div>
+      </div>
+      <div class="bar">
+        <div class="bar-label">Content Safety</div>
+        <div class="bar-track"><span class="bar-fill" style="width:3.1%"></span></div>
+        <div class="bar-val">$15</div>
+      </div>
+      <div class="bar">
+        <div class="bar-label">Storage + Key Vault</div>
+        <div class="bar-track"><span class="bar-fill" style="width:1%"></span></div>
+        <div class="bar-val">$5</div>
+      </div>
+      <div class="bar">
+        <div class="bar-label">Networking</div>
+        <div class="bar-track"><span class="bar-fill" style="width:1%"></span></div>
+        <div class="bar-val">$5</div>
+      </div>
+      <div class="bar-axis"><span>$0</span><span>$490 / month</span></div>
+    </div>
+
+    <div class="callout">
+      <strong>92% of that bill arrives whether or not anyone logs in.</strong>
+      AI Search and API Management bill while they <em>exist</em>, idle or not. Token
+      spend is the opposite — $0 until an agent is actually used, because deployment
+      quota is a rate limit, not a reservation.
+    </div>
+
+    <h2><span class="num">02</span>The five knobs that move the needle</h2>
+    <ol class="knobs">
+      <li><strong>API Management SKU.</strong> Developer ~$50 (no SLA) versus Premium ~$2,800 per unit. Premium buys Internal VNet <em>and</em> availability zones — if you only need VNet, Standard v2 is ~$700.</li>
+      <li><strong>AI Search tier × units.</strong> Basic 1×1 ~$75 versus Standard 1×3 ~$735. Replicas buy query SLA; partitions buy index size. Scale the one you actually need.</li>
+      <li><strong>Private endpoints.</strong> ~$9.50/mo each, so ~$57 for a typical six. Turning them off saves that and costs you network isolation — demo data only.</li>
+      <li><strong>Log Analytics retention and ingest.</strong> 5&nbsp;GB/mo free, ~$2.53/GB after, plus ~$0.12/GB/mo past 31 days. Reuse the platform workspace rather than standing up your own.</li>
+      <li><strong>Environments and agents.</strong> Mostly licensing and tenant capacity rather than Azure spend — but each production Dataverse environment draws ~1&nbsp;GB from tenant capacity, with overage around $40/GB/mo.</li>
+    </ol>
+
+    <div class="callout">
+      <strong>Cheapest honest evaluation:</strong> the sandbox profile — ~$100 for a
+      month, or a few dollars torn down the same afternoon. It runs the full
+      twelve-proof test suite for about five cents in tokens.
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <h2><span class="num">03</span>Profile comparison</h2>
+    <table>
+      <thead>
+        <tr><th>Setting</th><th>Sandbox</th><th>Defaults</th><th>Prod</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Private endpoints</td><td class="dim">off</td><td>on</td><td>on</td></tr>
+        <tr><td>APIM SKU</td><td class="dim">Consum.</td><td>Dev</td><td>Premium</td></tr>
+        <tr><td>AI Search</td><td class="dim">basic 1×1</td><td>std 1×2</td><td>std 1×3</td></tr>
+        <tr><td>PP environments</td><td class="dim">1 sandbox</td><td>3</td><td>3</td></tr>
+        <tr><td>Governed agents</td><td class="dim">1</td><td>4</td><td>4</td></tr>
+        <tr><td>LAW retention</td><td class="dim">30 d</td><td>90 d</td><td>90 d</td></tr>
+        <tr><td>Defender AI plan</td><td class="dim">off</td><td>on</td><td>on</td></tr>
+        <tr><td>Policies</td><td class="dim">Audit</td><td>Enforced</td><td>Enforced</td></tr>
+        <tr class="total"><td>Idle / month</td><td class="num">~$100</td><td class="num">~$680</td><td class="num">~$3.6k</td></tr>
+      </tbody>
+    </table>
+
+    <h2 style="margin-top:10pt"><span class="num">04</span>Metered, not fixed</h2>
+    <table>
+      <thead><tr><th>Service</th><th class="num">Rate</th></tr></thead>
+      <tbody>
+        <tr><td>gpt-4o</td><td class="num">$2.50 / $10 per 1M</td></tr>
+        <tr><td>gpt-4o-mini</td><td class="num">$0.15 / $0.60 per 1M</td></tr>
+        <tr><td>text-embedding-3-large</td><td class="num">$0.13 per 1M</td></tr>
+        <tr><td>Content Safety</td><td class="num">~$0.75 / 1K records</td></tr>
+        <tr><td>APIM Consumption</td><td class="num">~$3.50 / 1M calls</td></tr>
+      </tbody>
+    </table>
+
+    <h2 style="margin-top:10pt"><span class="num">05</span>Billed outside Azure</h2>
+    <p style="font-size:7.7pt;color:var(--ink-2)">
+      Power Platform and Copilot Studio are licensing and tenant capacity, not Azure
+      metering — they never appear on the Azure invoice. Premium Power Platform runs
+      ~$5–20 per user per month; Copilot Studio runs on a licence or message packs at
+      roughly $200 per 25,000 messages.
+    </p>
+
+    <div class="callout warn">
+      <strong>You can turn it off.</strong> <code>terraform destroy</code> per module, in
+      reverse order. Destroy AI Search and API Management first — those are what stop
+      the meter. Key Vault purge protection holds a soft-deleted vault, and its name,
+      for 90 days with no force-purge, which is exactly why the sandbox profile sets
+      it to <code>false</code>: apply, demo, destroy, rebuild the same day.
+    </div>
+
+  </div>
+</div>
+
+<div class="foot">
+  <strong>Methodology.</strong> Figures are list prices in USD for East US 2, pay-as-you-go,
+  with no EA or CSP discount, at early-2026 rates, and mirror <code>azure/COSTS.md</code> in the
+  Adapt Cloud reference implementation. "Idle" means the cost incurred with the platform
+  deployed and nobody using it. Estimates only — confirm against the Azure Pricing Calculator
+  before committing budget. &nbsp;·&nbsp; <strong>Adapt Cloud</strong> — governed AI agent platforms on Azure.
+</div>
+
+</body>
+</html>
