@@ -285,6 +285,49 @@
     color: var(--ink-faint);
     max-width: 86ch;
   }
+
+  /* ── Print ──────────────────────────────────────────── */
+  @page { size: letter; margin: 16mm 15mm 18mm; }
+
+  @media print {
+    :root {
+      --paper:     #FFFFFF;
+      --surface:   #FFFFFF;
+      --surface-2: #F0F2F4;
+      --ink:       #16191D;
+      --ink-soft:  #3C454D;
+      --ink-faint: #5F6870;
+      --rule:      #B4BCC2;
+      --rule-soft: #DBE0E4;
+      --accent:    #123A63;
+      --ok:        #1F5F3F;
+      --open:      #7A4E0D;
+      --na:        #5B6470;
+      --restrict:  #8A2E1F;
+    }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html { font-size: 10.5pt; }
+    html, body { background: #FFFFFF; margin: 0; padding: 0; font-size: 10.5pt; }
+    .doc { max-width: none; }
+
+    /* Wide content is scrollable on screen and must not be clipped on paper. */
+    .tablewrap { overflow: visible !important; }
+    table { min-width: 0 !important; width: 100%; }
+    th, td { padding: 5px 8px; font-size: 8.4pt; }
+    p, td, .reg li, .srcnote, .notes li, footer { max-width: none; }
+
+    /* Pagination */
+    .sec-h, h3 { break-after: avoid; page-break-after: avoid; }
+    figure, .exec, .decision, .classbar { break-inside: avoid; page-break-inside: avoid; }
+    tr, .reg li, .exec li { break-inside: avoid; page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    .notes { break-before: page; page-break-before: always; }
+    footer { break-inside: avoid; page-break-inside: avoid; }
+
+    .masthead { padding-top: 0; }
+    section { margin-top: 24px; }
+    a { color: inherit; text-decoration: none; }
+  }
 </style>
 
 <div class="doc">
