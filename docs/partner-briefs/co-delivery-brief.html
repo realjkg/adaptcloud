@@ -359,7 +359,7 @@
 
     <dl class="control">
       <div><dt>Version</dt><dd>1.0</dd></div>
-      <div><dt>Date of issue</dt><dd>6 September 2026</dd></div>
+      <div><dt>Date of issue</dt><dd>September 6, 2026</dd></div>
       <div><dt>Status</dt><dd>For discussion</dd></div>
       <div><dt>Prepared for</dt><dd>Prospective co-delivery partner</dd></div>
       <div><dt>Distribution</dt><dd>Restricted — named recipients</dd></div>
@@ -371,11 +371,11 @@
     <div class="body">
       <div class="exec">
         <ol>
-          <li><b>The regulatory obligation persists notwithstanding the programme suspension.</b> Phase II of CMMC was suspended on 13 July 2026.<sup class="fn">1</sup> DFARS 252.204-7012, Phase I self-assessment, and submission of a NIST SP 800-171 Rev 2 score to the Supplier Performance Risk System remain in force.<sup class="fn">2</sup> Demand has shifted from certification readiness to recurring evidence maintenance.</li>
-          <li><b>Competing propositions were constructed around a deadline that no longer exists.</b> Vendors positioned on a November 2026 assessment date have lost their primary close. An offering priced for continuous evidence rather than a one-time sprint faces materially reduced competitive pressure in the near term.</li>
-          <li><b>The constraint on partner margin is delivery repeatability, not demand.</b> Readiness engagements are presently hand-constructed by senior practitioners, so unit cost does not decline across engagements. AdaptCloud supplies a versioned control library, host scanner, remediation playbooks and governed cloud landing-zone modules intended to reduce marginal delivery cost.</li>
-          <li><b>Automated coverage is partial and is stated rather than implied.</b> Seventeen practices across six of fourteen domains are automated at the date of issue (Exhibit 2). The residual practices are predominantly policy and process controls that are not susceptible to automated verification by any vendor.</li>
-          <li><b>The proposed first step is a bounded 60-day pilot</b> on one mutual client, assessed against a single quantitative exit criterion defined at section 8.</li>
+          <li><b>The obligation survived the program suspension, and most of the market has not adjusted.</b> Phase II of CMMC was suspended on July 13, 2026.<sup class="fn">1</sup> DFARS 252.204-7012, Phase I self-assessment, and submission of a NIST SP 800-171 Rev 2 score to the Supplier Performance Risk System all remain in force.<sup class="fn">2</sup> What changed is the deadline, not the requirement. Demand has moved from certification readiness to evidence maintenance, and it recurs annually.</li>
+          <li><b>Competitors built their offers around a date that no longer exists.</b> Any proposition whose close depended on November 10, 2026 has lost it. We regard the next four to six quarters as an unusually open window for an offer priced on continuous evidence rather than on a certification sprint.</li>
+          <li><b>The binding constraint on this practice area is delivery repeatability, not demand.</b> Readiness engagements are built by hand, by senior people, every time. Unit cost does not fall across engagements, so the practice scales only by hiring. AdaptCloud supplies the engine that breaks that curve: a versioned control library, a host scanner, remediation playbooks, and governed cloud landing-zone modules.</li>
+          <li><b>We publish automated coverage rather than characterize it.</b> Seventeen practices across six of fourteen domains are automated today (Exhibit 3). We state that number in the first meeting. In this category, an overstated scope is discovered during the client's assessment, which costs the account and the reference at the same time.</li>
+          <li><b>We propose a bounded 60-day pilot on one mutual client,</b> judged on a single quantitative criterion defined at section 8. If that number does not move, the construct does not scale for the Partner and we would both rather know inside a quarter.</li>
         </ol>
       </div>
     </div>
@@ -384,9 +384,10 @@
   <section>
     <div class="sec-h"><span class="n">2</span><h2>Market context</h2></div>
     <div class="body">
-      <p>The Department suspended Phase II of the CMMC programme on 13 July 2026, deferring the third-party assessment requirement that had been scheduled to take effect on 10 November 2026, and constituted a reform task force to report subsequently.<sup class="fn">1</sup> Phase I self-assessment obligations, DFARS 252.204-7012, and NIST SP 800-171 Rev 2 were unaffected.<sup class="fn">2</sup></p>
-      <p>Two consequences follow for the defence supplier base. First, the compliance obligation continues to attach to contract award, and a supplier's SPRS score degrades as its estate drifts from its assessed state, which establishes a recurring rather than one-time requirement. Second, procurement urgency has diminished, which lengthens sales cycles for propositions dependent on deadline pressure and favours propositions positioned on cost of ongoing compliance.</p>
-      <p>Published estimates of the cost of compliance are set out at Exhibit 1. They are drawn from secondary sources and have not been independently validated; they are presented to establish order of magnitude for the pricing position at section 6, not as a basis for a business case.</p>
+      <p>The Department suspended Phase II of the CMMC program on July 13, 2026, deferring the third-party assessment requirement that had been set for November 10, 2026, and stood up a reform task force.<sup class="fn">1</sup> Phase I self-assessment, the DFARS safeguarding clause, and the underlying NIST standard were untouched.<sup class="fn">2</sup></p>
+      <p>Two things follow for the supplier base, and in our experience only the first is well understood. Compliance still attaches to award, and a supplier's SPRS score decays as its estate drifts from the configuration it was scored against. That makes the requirement recurring rather than one-time. Less well understood is the second: with the deadline gone, the urgency that carried most vendors' sales motions went with it. Offers positioned on fear of a date are stalling. Offers positioned on the cost of staying current are not.</p>
+      <p>The pattern we see in Level 2 programs is that the assessment is rarely the hard part. The twelve to eighteen months of evidence discipline in front of it is where supplier programs fail, and it is the part no one has productized. That is the gap this construct is built for.</p>
+      <p>Published cost estimates appear at Exhibit 1. They are secondary sources, unvalidated by us, and we present them to fix the order of magnitude behind the pricing at section 6 rather than as a business case.</p>
 
       <figure>
         <figcaption><span>Exhibit 1</span> — Indicative cost of Level 2 compliance, per contractor</figcaption>
@@ -402,7 +403,7 @@
             </tbody>
           </table>
         </div>
-        <p class="srcnote">All figures are list or reported estimates in US dollars and exclude taxes. AdaptCloud has not independently verified the underlying methodologies. Validation is a recommended workstream in any pilot (section 8).</p>
+        <p class="srcnote">All figures are list or reported estimates in US dollars and exclude taxes. We have not verified the underlying methodologies. Validating them against observed engagement effort is a pilot workstream (section 8).</p>
       </figure>
     </div>
   </section>
@@ -410,7 +411,7 @@
   <section>
     <div class="sec-h"><span class="n">3</span><h2>Solution description</h2></div>
     <div class="body">
-      <p>The proposition comprises three separable components: intellectual property, an integrated solution, and a delivery construct. The partner retains the client relationship and provides the delivery organisation; AdaptCloud provides the engine, the enablement materials and second-line support.</p>
+      <p>The offer has three separable parts: the intellectual property, the integrated solution, and the delivery construct. The Partner keeps the client relationship and supplies the delivery organization. We supply the engine, the enablement, and second-line support. We do not go direct into accounts the Partner brings.</p>
 
       <figure>
         <figcaption><span>Exhibit 2</span> — Capability architecture</figcaption>
@@ -418,25 +419,25 @@
           <table>
             <thead><tr><th>Component</th><th>Function</th><th>Execution location</th><th>Ownership</th></tr></thead>
             <tbody>
-              <tr><td class="id">Host audit binary</td><td>Assesses a host against the control library, applies remediation on an explicit flag, re-verifies, and emits text and machine-readable output. Returns a non-zero exit status while findings remain outstanding.</td><td>Client host</td><td>AdaptCloud</td></tr>
-              <tr><td class="id">Control library</td><td>Versioned practice definitions with NIST SP 800-171 Rev 2 references, severity classification and remediation actions. Evidence output records the library revision applied.</td><td>Engine</td><td>AdaptCloud</td></tr>
-              <tr><td class="id">Cloud landing zone</td><td>Infrastructure-as-code for a governed application platform, policy-as-code enforcement, and discrete workload identities for AI agents, aligned to published cloud adoption framework guidance.</td><td>Client tenant</td><td>AdaptCloud</td></tr>
-              <tr><td class="id">Container baseline</td><td>Hardened managed-Kubernetes infrastructure-as-code with federated single sign-on enforced at the boundary.</td><td>Client project</td><td>AdaptCloud</td></tr>
-              <tr><td class="id">Evidence pipeline</td><td>Assembles system security plan narrative and plan-of-action entries from assessment output, with provenance classification applied to each item (section 4).</td><td>Partner-operated</td><td>Joint</td></tr>
+              <tr><td class="id">Host audit binary</td><td>Assesses a host against the control library, applies remediation on an explicit flag, re-verifies, and emits both human-readable and machine-readable output. Returns a non-zero exit status while findings remain open, so it drops into a pipeline without a wrapper.</td><td>Client host</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Control library</td><td>Versioned practice definitions with NIST SP 800-171 Rev 2 references, severity, and remediation actions. Every evidence bundle records the library revision that produced it, which is what makes a finding reproducible six months later.</td><td>Engine</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Cloud landing zone</td><td>Infrastructure as code for a governed application platform, policy-as-code enforcement, and a discrete workload identity per AI agent, aligned to published cloud adoption framework guidance.</td><td>Client tenant</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Container baseline</td><td>Hardened managed-Kubernetes infrastructure as code with federated single sign-on enforced at the boundary.</td><td>Client project</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Evidence pipeline</td><td>Assembles system security plan narrative and plan-of-action entries from assessment output, with a provenance classification on every item (section 4.1).</td><td>Partner-operated</td><td>Joint</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="srcnote">Derived from inspection of the AdaptCloud repositories as at the date of issue. Component names are descriptive rather than commercial product names.</p>
+        <p class="srcnote">Derived from inspection of the AdaptCloud repositories as of the date of issue. Component names are descriptive rather than commercial product names.</p>
       </figure>
 
-      <p>The landing-zone component addresses governance of AI agent identities within a policy-enforced environment. This is assessed as the least substitutable element of the proposition, on the basis that it addresses a control requirement the client base is beginning to encounter and for which established delivery patterns are limited.</p>
+      <p>We consider the landing-zone component the least substitutable thing we bring. Governing AI agent identities inside a policy-enforced environment is a control problem the defense supplier base is walking into now, with no established pattern and no tooling aimed at it. Everything else in Exhibit 2 has competitors. That does not.</p>
     </div>
   </section>
 
   <section>
-    <div class="sec-h"><span class="n">4</span><h2>Assessed automated coverage</h2></div>
+    <div class="sec-h"><span class="n">4</span><h2>Automated coverage</h2></div>
     <div class="body">
-      <p>Coverage is published rather than characterised. Overstating automated scope is assessed as the principal reputational risk in this category, on the basis that the misstatement is discovered during assessment rather than during the sale.</p>
+      <p>We publish coverage. We do not characterize it, and we do not let a sales conversation imply more than Exhibit 3 shows. Overstating automated scope is the single fastest way to lose a compliance account, because the correction arrives in front of the client's assessor rather than in front of us.</p>
 
       <figure>
         <figcaption><span>Exhibit 3</span> — Automated practice coverage by control domain</figcaption>
@@ -455,31 +456,34 @@
             <tfoot><tr><td colspan="2">Total automated practices</td><td class="num">17</td><td>of 110 Level 2 practices</td></tr></tfoot>
           </table>
         </div>
-        <p class="srcnote">Derived by enumeration of the control identifiers implemented in the AdaptCloud scanner as at the date of issue. Practices in the eight remaining domains are predominantly policy, training and process controls, a substantial proportion of which are not susceptible to automated verification by any vendor. Coverage constitutes the product roadmap and is expected to increase; no commitment as to timing is made in this document.</p>
+        <p class="srcnote">Derived by enumerating the control identifiers implemented in the AdaptCloud scanner as of the date of issue, and verifiable against the source repository. The eight remaining domains are largely policy, training and process controls, a substantial share of which no vendor can verify automatically. Coverage is the product roadmap and will increase; we make no commitment on timing in this document.</p>
       </figure>
 
+      <p>Read that table the way an assessor will. The automated set is the configuration evidence that is expensive to gather by hand and worthless if it is stale, which is exactly the part worth mechanizing. The human-delivered set is policy and process work that consultants should be doing anyway, and it moves faster once the technical half is already evidenced. That division is the offer, and it is more defensible than a claim of full coverage.</p>
+
       <h3>4.1 Provenance classification</h3>
-      <p>The evidence pipeline applies generative AI to narrative drafting. A generated narrative statement and an observed system fact are visually indistinguishable in a finished package, and conflation of the two is assessed as a material risk to the defensibility of any AI-assisted submission. The two are accordingly separated in the data model and cannot be merged in output.</p>
+      <p>The evidence pipeline uses generative AI for narrative drafting. In a finished package a generated sentence and an observed system fact look identical, and conflating them is the fastest route to an indefensible submission. We separate them in the data model so they cannot be merged in output.</p>
       <ul class="reg">
         <li><span class="k">Observed</span><span><b>Machine-observed.</b> The scanner read live configuration. Carries host, timestamp, and the identifier of the check that produced it.</span></li>
-        <li><span class="k">Asserted</span><span><b>Model-asserted.</b> Drafted from context by the AI layer. Reviewable, and not presented as an observation at any point.</span></li>
+        <li><span class="k">Asserted</span><span><b>Model-asserted.</b> Drafted from context by the AI layer. Reviewable, and never presented as an observation.</span></li>
         <li><span class="k">Attested</span><span><b>Human-attested.</b> Signed by a named individual. Required before any model-asserted item enters a submitted package.</span></li>
       </ul>
+      <p>We regard this as the precondition for using AI in compliance work at all. A partner who cannot show an assessor which sentences were observed and which were drafted has an efficiency story and no defense.</p>
     </div>
   </section>
 
   <section>
     <div class="sec-h"><span class="n">5</span><h2>Data boundary and regulatory scope</h2></div>
     <div class="body">
-      <p>The scanner executes on the client host and returns control status, findings and scores. Configuration artefacts, system files and controlled unclassified information remain within the client environment. This is an architectural constraint adopted in advance of first contract rather than a present limitation to be remediated.</p>
-      <p>The purpose of the constraint is to keep both parties outside the obligations that attach to a cloud service storing or processing CUI under DFARS 252.204-7012, including the requirement for FedRAMP Moderate authorisation or documented equivalency. Where a client requires a fully hosted posture, that constitutes a separate offering with its own authorisation path and commercial treatment, and is out of scope of this document.</p>
+      <p>The scanner runs on the client host and returns control status, findings and scores. Configuration artifacts, system files and controlled unclassified information stay inside the client environment. This is an architectural constraint we adopted before the first contract, not a limitation waiting to be fixed.</p>
+      <p>The reason is specific. A cloud service that stores or processes CUI falls under DFARS 252.204-7012 and needs FedRAMP Moderate authorization or documented equivalency, which is a six-figure, multi-quarter undertaking that would land on both parties. Designing the boundary in is cheap. Remediating it after the first client uploads a system security plan is not. Where a client wants a fully hosted posture, that is a separate offering with its own authorization path and its own commercial treatment, and it is out of scope here.</p>
     </div>
   </section>
 
   <section>
     <div class="sec-h"><span class="n">6</span><h2>Commercial construct</h2></div>
     <div class="body">
-      <p>Pricing is metered on assessment scope, expressed as hosts and enclaves, and not on user seats. Scope is the unit in which the compliance buyer already reasons, and seat-based metering is assessed as adverse to penetration of the smaller subcontractor segment that primes require brought to standard.</p>
+      <p>We price on assessment scope, expressed as hosts and enclaves, and never on user seats. Scope is the unit a compliance buyer already reasons in. Seat pricing penalizes the small subcontractors the primes most need brought to standard, which is the segment where volume lives.</p>
 
       <figure>
         <figcaption><span>Exhibit 4</span> — Indicative list positions</figcaption>
@@ -487,18 +491,20 @@
           <table>
             <thead><tr><th>Tier</th><th class="num">Scope</th><th class="num">List, annual</th><th>Included</th></tr></thead>
             <tbody>
-              <tr><td class="id">Lookup</td><td class="num">Unrestricted</td><td class="num">Nil</td><td>Control reference, 800-171 Rev 2 mapping, score calculator. Demand generation; not gated.</td></tr>
+              <tr><td class="id">Lookup</td><td class="num">Unrestricted</td><td class="num">Nil</td><td>Control reference, 800-171 Rev 2 mapping, score calculator. Demand generation, not gated.</td></tr>
               <tr><td class="id">Scan</td><td class="num">≤ 10 hosts</td><td class="num">$990</td><td>Scheduled assessment, machine-readable evidence, SSP and POA&amp;M export, score tracking.</td></tr>
               <tr><td class="id">Harden</td><td class="num">≤ 25 hosts</td><td class="num">$2,990</td><td>Remediation with rollback, drift re-verification, fleet view, evidence bundle.</td></tr>
               <tr><td class="id">Enclave</td><td class="num">≤ 100 hosts</td><td class="num">$18,000 – 30,000</td><td>Landing zone and container baselines, agent identity governance, federated sign-on.</td></tr>
-              <tr><td class="id">Readiness</td><td class="num">Per engagement</td><td class="num">$8,000 – 20,000</td><td>Fixed-fee scaffold, delivered by partner practitioners on the engine.</td></tr>
+              <tr><td class="id">Readiness</td><td class="num">Per engagement</td><td class="num">$8,000 – 20,000</td><td>Fixed-fee scaffold, delivered by Partner practitioners on the engine.</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="srcnote">List positions in US dollars, exclusive of taxes and of the client's own cloud consumption, which is contracted and billed directly by the client and is never bundled. Partner economics are established against these positions under a co-delivery agreement and are not stated here. The enclave position varies with the number of landing zones and workload environments in scope and is quoted per client.</p>
+        <p class="srcnote">List positions in US dollars, exclusive of taxes and of the client's own cloud consumption, which the client contracts and pays directly and which we never bundle. Partner economics are set against these positions in the co-delivery agreement and are not stated here. The enclave position varies with the number of landing zones and workload environments in scope and is quoted per client.</p>
       </figure>
 
-      <p>Against the cost base at Exhibit 1, the annual subscription tiers represent under one per cent of a first compliance cycle. The recommended anchor in a client conversation is the practitioner hours displaced from assessment preparation, rather than the list price of a comparator tool.</p>
+      <p>Against Exhibit 1, the annual subscription tiers land under one percent of a first compliance cycle. We recommend anchoring the client conversation on the practitioner hours displaced from evidence gathering, never on a competitor's list price. The moment this is compared tool to tool it becomes a feature argument, and feature arguments in this category are won by whoever is most willing to overstate coverage.</p>
+
+      <p>One structural point we would press in the agreement: contract this as an annual subscription with delivery included, not as time and materials. The work is identical and the margin is similar, but T&amp;M re-anchors the client on an hourly rate, makes the revenue lumpy, and values the practice at a services multiple rather than a product one.</p>
     </div>
   </section>
 
@@ -508,10 +514,10 @@
       <h3>7.1 Assumptions</h3>
       <ul class="reg">
         <li><span class="k">A1</span><span>Client hosts are Linux-based and administrative access is provided for the duration of an assessment window.</span></li>
-        <li><span class="k">A2</span><span>The partner provides first-line support to its clients; AdaptCloud provides second-line support to the partner.</span></li>
-        <li><span class="k">A3</span><span>Cloud consumption arising from the landing-zone components is contracted directly by the client and is excluded from all figures in this document.</span></li>
+        <li><span class="k">A2</span><span>The Partner provides first-line support to its clients. AdaptCloud provides second-line support to the Partner.</span></li>
+        <li><span class="k">A3</span><span>Cloud consumption arising from the landing-zone components is contracted directly by the client and is excluded from every figure in this document.</span></li>
         <li><span class="k">A4</span><span>Market figures at Exhibit 1 are secondary and unvalidated, as stated.</span></li>
-        <li><span class="k">A5</span><span>The regulatory position stated at section 2 is current as at the date of issue and is subject to the outcome of the reform task force.</span></li>
+        <li><span class="k">A5</span><span>The regulatory position at section 2 is current as of the date of issue and is subject to the reform task force's output.</span></li>
       </ul>
 
       <h3>7.2 Risk register</h3>
@@ -520,14 +526,14 @@
           <table>
             <thead><tr><th class="num">Ref</th><th>Risk</th><th class="num">Assessment</th><th>Mitigation</th><th>Owner</th></tr></thead>
             <tbody>
-              <tr><td class="id">R1</td><td>Programme reform alters or removes the underlying obligation.</td><td class="num">Medium / High</td><td>Annual contracting with no multi-year commitment; proposition positioned on 800-171 and DFARS obligations, which are independent of the CMMC assessment mechanism.</td><td>Joint</td></tr>
-              <tr><td class="id">R2</td><td>Automated coverage at 17 practices is raised as an objection late in a sales cycle.</td><td class="num">High / Medium</td><td>Coverage published in enablement materials and disclosed at qualification (Exhibit 3).</td><td>AdaptCloud</td></tr>
-              <tr><td class="id">R3</td><td>Scope extension results in client CUI entering the engine, triggering authorisation obligations.</td><td class="num">Low / High</td><td>Architectural boundary at section 5, reinforced by contractual restriction in the co-delivery agreement.</td><td>Joint</td></tr>
-              <tr><td class="id">R4</td><td>Delivery capacity at AdaptCloud constrains partner-led scale.</td><td class="num">Medium / Medium</td><td>Enablement transfer during the pilot; the library ratio at section 8 is the leading indicator.</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">R1</td><td>Program reform alters or removes the underlying obligation.</td><td class="num">Medium / High</td><td>Annual contracting with no multi-year commitment. The offer rests on 800-171 and DFARS obligations, which stand independently of the CMMC assessment mechanism.</td><td>Joint</td></tr>
+              <tr><td class="id">R2</td><td>Automated coverage at 17 practices is raised as an objection late in a sales cycle.</td><td class="num">High / Medium</td><td>Coverage published in enablement materials and disclosed at qualification (Exhibit 3), which converts a late objection into an early credibility point.</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">R3</td><td>Scope extension puts client CUI inside the engine, triggering authorization obligations.</td><td class="num">Low / High</td><td>Architectural boundary at section 5, reinforced by contractual restriction in the co-delivery agreement.</td><td>Joint</td></tr>
+              <tr><td class="id">R4</td><td>AdaptCloud delivery capacity constrains Partner-led scale.</td><td class="num">Medium / Medium</td><td>Enablement transfer during the pilot. The library ratio at section 8 is the leading indicator and will show this before capacity binds.</td><td>AdaptCloud</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="srcnote">Assessment expressed as likelihood / impact. Register is indicative and is expected to be restated jointly at pilot initiation.</p>
+        <p class="srcnote">Assessment expressed as likelihood / impact. The register is ours and is deliberately short; we expect it to be restated jointly at pilot initiation.</p>
       </figure>
     </div>
   </section>
@@ -535,34 +541,34 @@
   <section>
     <div class="sec-h"><span class="n">8</span><h2>Recommended next step</h2></div>
     <div class="body">
-      <p>A bounded pilot on a single mutual client, over 60 days, structured in four workstreams and assessed against one quantitative exit criterion.</p>
+      <p>One mutual client, 60 days, four workstreams, one number that decides it.</p>
       <ul class="reg">
-        <li><span class="k">W1</span><span><b>Selection.</b> One mutual client with an active 800-171 obligation and an estate below 25 hosts. Partner-led.</span></li>
-        <li><span class="k">W2</span><span><b>Baseline.</b> Partner practitioners operate the engine with AdaptCloud in support. Output is a scored, provenance-classified evidence bundle.</span></li>
-        <li><span class="k">W3</span><span><b>Remediation and re-verification</b> of the automated control set, followed by practitioner delivery of the remaining domains on the timeline the technical evidence permits.</span></li>
+        <li><span class="k">W1</span><span><b>Selection.</b> One mutual client with a live 800-171 obligation and an estate under 25 hosts. Partner-led. We would rather start on a straightforward estate than a flagship one.</span></li>
+        <li><span class="k">W2</span><span><b>Baseline.</b> Partner practitioners operate the engine with us in support, not in front. Output is a scored, provenance-classified evidence bundle.</span></li>
+        <li><span class="k">W3</span><span><b>Remediation and re-verification</b> of the automated control set, then Partner delivery of the remaining domains on the compressed timeline the technical evidence buys.</span></li>
         <li><span class="k">W4</span><span><b>Validation</b> of the Exhibit 1 cost assumptions against observed engagement effort.</span></li>
       </ul>
-      <p style="margin-top:18px"><strong>Exit criterion.</strong> The proportion of delivered content originating from existing library components rather than constructed for the engagement, measured at pilot close and compared against a target agreed at initiation. This ratio determines whether the construct scales for the partner, and it is proposed as the sole basis on which the pilot is judged.</p>
+      <p style="margin-top:18px"><strong>Exit criterion.</strong> The share of delivered content that came from existing library components rather than being built for the engagement, measured at close against a target agreed at initiation. We propose this as the only basis on which the pilot is judged. It is the number that tells the Partner whether the second engagement costs less than the first, and it will tell you that a year before the P&amp;L does.</p>
     </div>
   </section>
 
   <section class="notes">
     <h2>Basis of preparation</h2>
-    <p style="font-family:var(--sans); font-size:0.73rem; line-height:1.6; color:var(--ink-faint); max-width:86ch; margin-bottom:14px">This document was prepared from inspection of the AdaptCloud repositories and from publicly available secondary sources cited below. No independent market research, client interview programme or financial audit was undertaken. Coverage figures at Exhibit 3 are derived by direct enumeration of the implemented control set and are verifiable against the source repository. Cost figures at Exhibit 1 are reported estimates that AdaptCloud has not validated. Statements concerning regulatory position are current as at the date of issue and do not constitute legal advice.</p>
+    <p style="font-family:var(--sans); font-size:0.73rem; line-height:1.6; color:var(--ink-faint); max-width:86ch; margin-bottom:14px">Prepared from inspection of the AdaptCloud repositories and from the publicly available secondary sources cited below. No independent market research, client interview program or financial audit was undertaken for this document. The coverage figures at Exhibit 3 are derived by direct enumeration of the implemented control set and are verifiable against the source repository. The cost figures at Exhibit 1 are reported estimates we have not validated. Statements on regulatory position are current as of the date of issue and are not legal advice.</p>
     <h2>Sources</h2>
     <ol>
-      <li>Reporting on the suspension of CMMC Phase II announced 13 July 2026, and on constitution of the reform task force. <i>A-LIGN; Latham &amp; Watkins; Federal News Network</i>, accessed 6 September 2026.</li>
-      <li>Continuing effect of Phase I self-assessment, DFARS 252.204-7012, NIST SP 800-171 Rev 2 and SPRS submission. <i>A-LIGN; SC Media</i>, accessed 6 September 2026.</li>
-      <li>First-cycle Level 2 compliance cost estimates. <i>IBSS; Godlan</i>, accessed 6 September 2026.</li>
-      <li>Reported departmental three-year cost estimate for a small defence contractor. <i>Godlan</i>, accessed 6 September 2026.</li>
-      <li>Prevailing pricing for purpose-built small-supplier CMMC tooling. <i>CMMC Map; Totem Technologies published pricing</i>, accessed 6 September 2026.</li>
-      <li>Published entry and scale pricing for a mid-market compliance automation platform. <i>Sprinto; vendor-published pricing</i>, accessed 6 September 2026.</li>
+      <li>Reporting on the suspension of CMMC Phase II announced July 13, 2026, and on the constitution of the reform task force. <i>A-LIGN; Latham &amp; Watkins; Federal News Network</i>, accessed September 6, 2026.</li>
+      <li>Continuing effect of Phase I self-assessment, DFARS 252.204-7012, NIST SP 800-171 Rev 2 and SPRS submission. <i>A-LIGN; SC Media</i>, accessed September 6, 2026.</li>
+      <li>First-cycle Level 2 compliance cost estimates. <i>IBSS; Godlan</i>, accessed September 6, 2026.</li>
+      <li>Reported departmental three-year cost estimate for a small defense contractor. <i>Godlan</i>, accessed September 6, 2026.</li>
+      <li>Prevailing pricing for purpose-built small-supplier CMMC tooling. <i>CMMC Map; Totem Technologies published pricing</i>, accessed September 6, 2026.</li>
+      <li>Published entry and scale pricing for a mid-market compliance automation platform. <i>Sprinto; vendor-published pricing</i>, accessed September 6, 2026.</li>
     </ol>
   </section>
 
   <footer>
-    AdaptCloud · Partner Brief · Version 1.0 · 6 September 2026 · Restricted distribution.<br>
-    This document contains no client-identifying information and no past-performance representation. Reference engagements will be provided under non-disclosure agreement where they exist. Pricing is indicative list and subject to change.
+    AdaptCloud · Partner Brief · Version 1.0 · September 6, 2026 · Restricted distribution.<br>
+    This document contains no client-identifying information and makes no past-performance representation. Reference engagements are provided under non-disclosure agreement. Pricing is indicative list and subject to change.
   </footer>
 
 </div>
