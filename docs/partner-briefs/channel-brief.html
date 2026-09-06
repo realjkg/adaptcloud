@@ -1,60 +1,59 @@
 <title>AdaptCloud Channel Brief</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <style>
   :root {
-    --paper:      #F2F4F2;
-    --surface:    #FBFCFB;
-    --surface-2:  #E8EDEA;
-    --ink:        #131B1A;
-    --ink-soft:   #4A5654;
-    --ink-faint:  #77837F;
-    --rule:       #C9D2CE;
-    --rule-soft:  #DDE4E1;
-    --accent:     #0F6B63;
-    --brass:      #8F6318;
-    --ok:         #2E6E4E;
-    --warn:       #A8590C;
-    --idle:       #7C8886;
+    --paper:     #FBFBFA;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F3F4;
+    --ink:       #16191D;
+    --ink-soft:  #4C555E;
+    --ink-faint: #79828A;
+    --rule:      #CFD5DA;
+    --rule-soft: #E4E8EB;
+    --accent:    #123A63;
+    --accent-2:  #2E6FA8;
+    --ok:        #1F5F3F;
+    --open:      #8A5A10;
+    --na:        #6B7280;
 
-    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
-    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
-    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --paper:     #0B1211;
-      --surface:   #121C1A;
-      --surface-2: #1A2624;
-      --ink:       #E7EDEA;
-      --ink-soft:  #A8B5B1;
-      --ink-faint: #7C8A86;
-      --rule:      #2B3937;
-      --rule-soft: #1E2A28;
-      --accent:    #4FB3A6;
-      --brass:     #C79B49;
-      --ok:        #5EA97E;
-      --warn:      #D68A38;
-      --idle:      #6E7C79;
+      --paper:     #0F1214;
+      --surface:   #171B1F;
+      --surface-2: #1F252A;
+      --ink:       #E3E7EA;
+      --ink-soft:  #A8B1B8;
+      --ink-faint: #7C868D;
+      --rule:      #333C43;
+      --rule-soft: #242B31;
+      --accent:    #7FAAD6;
+      --accent-2:  #9CC1E5;
+      --ok:        #5CA37C;
+      --open:      #C89340;
+      --na:        #8A939A;
     }
   }
 
   :root[data-theme="dark"] {
-    --paper:     #0B1211;
-    --surface:   #121C1A;
-    --surface-2: #1A2624;
-    --ink:       #E7EDEA;
-    --ink-soft:  #A8B5B1;
-    --ink-faint: #7C8A86;
-    --rule:      #2B3937;
-    --rule-soft: #1E2A28;
-    --accent:    #4FB3A6;
-    --brass:     #C79B49;
-    --ok:        #5EA97E;
-    --warn:      #D68A38;
-    --idle:      #6E7C79;
+    --paper:     #0F1214;
+    --surface:   #171B1F;
+    --surface-2: #1F252A;
+    --ink:       #E3E7EA;
+    --ink-soft:  #A8B1B8;
+    --ink-faint: #7C868D;
+    --rule:      #333C43;
+    --rule-soft: #242B31;
+    --accent:    #7FAAD6;
+    --accent-2:  #9CC1E5;
+    --ok:        #5CA37C;
+    --open:      #C89340;
+    --na:        #8A939A;
   }
 
   * { box-sizing: border-box; }
@@ -62,349 +61,448 @@
   body {
     background: var(--paper);
     color: var(--ink);
-    font-family: var(--body);
-    font-size: 16.5px;
-    line-height: 1.62;
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
     margin: 0;
-    padding: 0 20px 96px;
+    padding: 0 22px 88px;
     -webkit-font-smoothing: antialiased;
   }
 
-  .sheet { max-width: 880px; margin: 0 auto; }
+  .doc { max-width: 940px; margin: 0 auto; }
 
-  .docblock {
-    padding-top: 40px;
-    border-bottom: 3px solid var(--brass);
-    padding-bottom: 18px;
-  }
-  .org {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--brass);
-    margin: 0 0 26px;
-  }
-  h1 {
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: clamp(1.85rem, 4.4vw, 2.7rem);
-    line-height: 1.1;
-    letter-spacing: -0.022em;
-    text-wrap: balance;
-    margin: 0 0 20px;
-    max-width: 20ch;
-  }
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 30px;
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.05em;
-    color: var(--ink-faint);
-  }
-  .meta b { color: var(--ink-soft); font-weight: 500; }
-
-  section { margin-top: 52px; }
-  .eyebrow {
-    font-family: var(--mono);
+  .masthead { padding-top: 44px; }
+  .issuer {
+    font-family: var(--sans);
     font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.15em;
+    font-weight: 700;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--accent);
-    margin: 0 0 14px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--rule);
+    margin: 0 0 6px;
   }
-  h2 {
-    font-family: var(--display);
+  .doctype {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 22px;
+  }
+  h1 {
+    font-family: var(--sans);
     font-weight: 600;
-    font-size: 1.32rem;
-    letter-spacing: -0.012em;
-    line-height: 1.25;
+    font-size: clamp(1.5rem, 3.4vw, 2.05rem);
+    line-height: 1.2;
+    letter-spacing: -0.014em;
     text-wrap: balance;
-    margin: 0 0 14px;
+    margin: 0 0 26px;
+    max-width: 26ch;
   }
-  p { margin: 0 0 16px; max-width: 68ch; }
+
+  .control {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .control div {
+    padding: 11px 16px 12px 0;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .control div:last-child { border-right: none; }
+  .control dt {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 4px;
+  }
+  .control dd {
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  section { margin-top: 44px; }
+  .sec-h {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 9px;
+    margin-bottom: 18px;
+  }
+  .sec-h .n {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .sec-h h2 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.02rem;
+    letter-spacing: 0.004em;
+    line-height: 1.3;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .body { padding-left: 42px; }
+  @media (max-width: 620px) {
+    .sec-h { grid-template-columns: 30px 1fr; }
+    .body { padding-left: 0; }
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.86rem;
+    letter-spacing: 0.02em;
+    margin: 24px 0 8px;
+    color: var(--ink);
+  }
+  p { margin: 0 0 14px; max-width: 70ch; }
   p:last-child { margin-bottom: 0; }
   strong { font-weight: 600; }
-  .lede { font-size: 1.08rem; color: var(--ink-soft); }
-  .lede strong { color: var(--ink); }
 
-  code, .m { font-family: var(--mono); font-size: 0.85em; }
-  code {
-    background: var(--surface-2);
-    padding: 0.1em 0.36em;
-    border-radius: 2px;
-    color: var(--ink);
+  sup.fn {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--accent);
+    vertical-align: super;
+    line-height: 0;
+    padding-left: 1px;
+  }
+
+  .exec {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 22px 26px 24px;
+  }
+  .exec ol { margin: 0; padding-left: 20px; }
+  .exec li { margin-bottom: 12px; font-size: 0.95rem; line-height: 1.55; max-width: 68ch; }
+  .exec li:last-child { margin-bottom: 0; }
+  .exec li b { font-weight: 600; }
+
+  figure { margin: 22px 0; }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  figcaption span { color: var(--accent); }
+  .srcnote {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--ink-faint);
+    margin-top: 7px;
+    max-width: 78ch;
   }
 
   .tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
   table { border-collapse: collapse; width: 100%; min-width: 600px; background: var(--surface); }
-  th, td { text-align: left; padding: 11px 15px; vertical-align: top; border-bottom: 1px solid var(--rule-soft); }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--sans);
+  }
   th {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.11em;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--ink-faint);
+    color: var(--ink-soft);
     background: var(--surface-2);
     border-bottom: 1px solid var(--rule);
     white-space: nowrap;
   }
-  td { font-size: 0.92rem; line-height: 1.5; }
+  td { font-size: 0.84rem; line-height: 1.5; color: var(--ink-soft); }
+  td b, td strong { color: var(--ink); font-weight: 600; }
   tr:last-child td { border-bottom: none; }
-  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  td.k { font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; color: var(--ink); letter-spacing: 0.02em; }
+  td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.id { font-weight: 600; color: var(--ink); white-space: nowrap; letter-spacing: 0.01em; }
 
-  /* ── Demand signal figures ──────────────────────────── */
-  .figs {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1px;
-    background: var(--rule);
-    border: 1px solid var(--rule);
-  }
-  .fig { background: var(--surface); padding: 18px 18px 20px; }
-  .fig .v {
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: 1.5rem;
-    letter-spacing: -0.015em;
-    font-variant-numeric: tabular-nums;
-    display: block;
-    color: var(--accent);
-    line-height: 1.1;
-  }
-  .fig .l {
-    font-size: 0.85rem;
-    line-height: 1.45;
-    color: var(--ink-soft);
-    display: block;
-    margin-top: 8px;
-  }
-
-  /* ── Status rows for vehicles ───────────────────────── */
   .pill {
-    font-family: var(--mono);
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
-    padding: 2px 7px;
+    padding: 2px 6px;
     border: 1px solid currentColor;
     white-space: nowrap;
     display: inline-block;
   }
-  .pill.open { color: var(--warn); }
-  .pill.ready { color: var(--ok); }
-  .pill.na { color: var(--idle); }
+  .pill.ok { color: var(--ok); }
+  .pill.open { color: var(--open); }
+  .pill.na { color: var(--na); }
 
-  .bounds { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
-  .bounds li {
-    font-size: 0.93rem;
-    line-height: 1.5;
-    padding-left: 26px;
-    position: relative;
-    color: var(--ink-soft);
-    max-width: 70ch;
-  }
-  .bounds li::before {
-    content: "—";
-    position: absolute;
-    left: 0;
-    top: 0;
-    font-family: var(--mono);
-    color: var(--warn);
-    font-weight: 600;
-  }
-  .bounds li b { color: var(--ink); font-weight: 600; }
-
-  .callout {
-    background: var(--surface);
-    border-left: 3px solid var(--brass);
-    padding: 16px 20px;
-    margin-top: 22px;
-  }
-  .callout p { font-size: 0.95rem; margin: 0; color: var(--ink-soft); }
-  .callout p b { color: var(--ink); }
-
-  .kit { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
-  .kit div { background: var(--surface); padding: 16px 18px 18px; }
-  .kit .t {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--brass);
-    display: block;
-    margin-bottom: 8px;
-  }
-  .kit p { font-size: 0.9rem; line-height: 1.5; margin: 0; color: var(--ink-soft); }
-
-  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
-  .steps li {
-    counter-increment: s;
+  .reg { list-style: none; padding: 0; margin: 0; }
+  .reg li {
     display: grid;
-    grid-template-columns: 30px 1fr;
-    gap: 14px;
-    align-items: start;
-    font-size: 0.95rem;
+    grid-template-columns: 46px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 0.9rem;
     line-height: 1.55;
-    max-width: 68ch;
+    color: var(--ink-soft);
+    max-width: 76ch;
   }
-  .steps li::before {
-    content: "T" counter(s);
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--brass);
-    border: 1px solid var(--rule);
-    background: var(--surface);
-    padding: 3px 0;
-    text-align: center;
-    letter-spacing: 0.04em;
+  .reg li:first-child { padding-top: 0; }
+  .reg li:last-child { border-bottom: none; }
+  .reg .k {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    padding-top: 2px;
   }
+  .reg b { color: var(--ink); font-weight: 600; }
+
+  .notes {
+    margin-top: 46px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+  }
+  .notes h2 {
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+  .notes ol { margin: 0; padding-left: 20px; }
+  .notes li {
+    font-family: var(--sans);
+    font-size: 0.73rem;
+    line-height: 1.6;
+    color: var(--ink-faint);
+    margin-bottom: 7px;
+    max-width: 86ch;
+  }
+  .notes li i { font-style: italic; }
 
   footer {
-    margin-top: 56px;
-    padding-top: 18px;
-    border-top: 1px solid var(--rule);
-    font-family: var(--mono);
+    margin-top: 34px;
+    padding-top: 14px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--sans);
     font-size: 0.7rem;
-    letter-spacing: 0.05em;
+    line-height: 1.65;
     color: var(--ink-faint);
-    line-height: 1.7;
-  }
-
-  @media (max-width: 560px) {
-    body { font-size: 15.5px; padding: 0 16px 72px; }
-    .meta { gap: 4px 18px; }
+    max-width: 86ch;
   }
 </style>
 
-<div class="sheet">
+<div class="doc">
 
-  <header class="docblock">
-    <p class="org">AdaptCloud · Channel Brief</p>
-    <h1>A compliance SKU for a market that still has the obligation</h1>
-    <div class="meta">
-      <span><b>Issue</b> 1.0</span>
-      <span><b>Date</b> 2026-09-06</span>
-      <span><b>Audience</b> Public sector distribution evaluation</span>
-      <span><b>Category</b> Cybersecurity compliance software</span>
-    </div>
+  <header class="masthead">
+    <p class="issuer">AdaptCloud</p>
+    <p class="doctype">Partner Brief — Distribution Construct</p>
+    <h1>Compliance software for the defence supplier base: catalogue structure and contracting position</h1>
+
+    <dl class="control">
+      <div><dt>Version</dt><dd>1.0</dd></div>
+      <div><dt>Date of issue</dt><dd>6 September 2026</dd></div>
+      <div><dt>Status</dt><dd>For discussion</dd></div>
+      <div><dt>Prepared for</dt><dd>Prospective distribution partner</dd></div>
+      <div><dt>Distribution</dt><dd>Restricted — named recipients</dd></div>
+    </dl>
   </header>
 
   <section>
-    <p class="lede"><strong>The deadline moved. The requirement did not.</strong> With Phase II suspended, a large share of the defense industrial base has quietly stopped buying certification-driven products — while Phase I self-assessment, DFARS 252.204-7012 and SPRS score submission against NIST SP 800-171 Rev 2 all remain mandatory.</p>
-    <p>That gap is the channel opportunity. Every vendor whose pitch was a November date has lost its close, and the buyers still carry an unmet, recurring obligation with no urgency attached. A product priced for continuous evidence rather than a one-time certification sprint has an open field and a renewing revenue line.</p>
-  </section>
-
-  <section>
-    <p class="eyebrow">Addressable demand</p>
-    <div class="figs">
-      <div class="fig"><span class="v">$75k–300k</span><span class="l">Typical first-cycle Level 2 compliance cost per contractor</span></div>
-      <div class="fig"><span class="v">~$488k</span><span class="l">Published DoD three-year estimate for a small contractor</span></div>
-      <div class="fig"><span class="v">$990/yr</span><span class="l">Entry SKU — under one percent of that budget</span></div>
-    </div>
-    <p style="margin-top:18px">The price point is deliberately below the threshold that triggers a procurement review at a small or mid-size subcontractor. It closes on a card or a single purchase order, which is the transaction profile that actually moves volume through a catalog rather than through a sales cycle.</p>
-  </section>
-
-  <section>
-    <p class="eyebrow">Catalog structure</p>
-    <h2>Five SKUs, scope-metered, annual term</h2>
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr><th>SKU</th><th>Metric</th><th>List</th><th>Term</th><th>Delivery</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="k">AC-LOOKUP</td><td class="num">unlimited</td><td class="num">$0</td><td class="num">—</td><td>Hosted, ungated. Demand generation.</td></tr>
-          <tr><td class="k">AC-SCAN-10</td><td class="num">10 hosts</td><td class="num">$990</td><td class="num">12 mo</td><td>Download + hosted console</td></tr>
-          <tr><td class="k">AC-HARDEN-25</td><td class="num">25 hosts</td><td class="num">$2,990</td><td class="num">12 mo</td><td>Download + hosted console</td></tr>
-          <tr><td class="k">AC-ENCLAVE-100</td><td class="num">100 hosts</td><td class="num">$18,000–30,000</td><td class="num">12 mo</td><td>Subscription with deployment included</td></tr>
-          <tr><td class="k">AC-HOST-ADD</td><td class="num">per host / yr</td><td class="num">$120</td><td class="num">co-term</td><td>Overage above tier</td></tr>
-          <tr><td class="k">AC-READY</td><td class="num">per engagement</td><td class="num">$8,000–20,000</td><td class="num">fixed</td><td>Professional services, fixed fee</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p style="margin-top:18px">Metering is by hosts in scope, never by user seat. Compliance buyers already reason in scope, and seat pricing penalizes exactly the small subcontractors this catalog is meant to reach. <strong>Cloud consumption is never bundled</strong> — where a customer's own Azure or Google Cloud spend is involved it is quoted separately and billed by them, so no SKU carries a pass-through that inflates the catalog price against comparable products.</p>
-    <div class="callout">
-      <p><b>Renewal profile:</b> the underlying obligation is annual and recurring, and a customer's SPRS score decays as their estate drifts. This is a renewing subscription with a natural re-engagement event every twelve months, not a perpetual license with an attach-rate problem.</p>
+    <div class="sec-h"><span class="n">1</span><h2>Executive summary</h2></div>
+    <div class="body">
+      <div class="exec">
+        <ol>
+          <li><b>A recurring, mandatory obligation remains in place following the suspension of CMMC Phase II on 13 July 2026.</b><sup class="fn">1</sup> Phase I self-assessment, DFARS 252.204-7012, NIST SP 800-171 Rev 2 and submission of a score to the Supplier Performance Risk System were unaffected.<sup class="fn">2</sup></li>
+          <li><b>Category demand has been displaced rather than removed.</b> Propositions constructed around the November 2026 assessment date have lost their close, while the underlying compliance requirement continues to attach to contract award and recurs annually. A catalogue position framed on continuous evidence rather than certification faces reduced competition in the near term.</li>
+          <li><b>The proposed entry price is set below procurement-review thresholds at typical small suppliers.</b> The $990 annual tier represents under one per cent of an indicative first compliance cycle (Exhibit 1), which supports transaction on a single purchase order rather than a managed sales cycle.</li>
+          <li><b>No federal contract vehicle is presently held.</b> This is stated at section 5 and again at section 7. Vehicle strategy is a principal reason for the discussion and is proposed as joint work rather than as a precondition to listing.</li>
+          <li><b>The proposed first step is a 90-day listing test</b> on the two self-service stock-keeping units, with no services dependency, assessed against registration and quotation volume rather than revenue.</li>
+        </ol>
+      </div>
     </div>
   </section>
 
   <section>
-    <p class="eyebrow">Contracting readiness</p>
-    <h2>What is in place, and what is not</h2>
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr><th>Item</th><th>Status</th><th>Note</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="k">Commercial product</td><td><span class="pill ready">Ready</span></td><td>Scanner, control library and cloud modules exist and run today.</td></tr>
-          <tr><td class="k">Price list</td><td><span class="pill ready">Ready</span></td><td>Published above. Distributor terms open for negotiation.</td></tr>
-          <tr><td class="k">Federal contract vehicle</td><td><span class="pill open">Not held</span></td><td>No schedule or GWAC held. Candidate paths to be selected with the distributor — vehicle strategy is a primary reason for this conversation.</td></tr>
-          <tr><td class="k">Product classification</td><td><span class="pill open">In review</span></td><td>Software publishing versus IT services classification affects both eligibility and how the product is carried. Being decided deliberately rather than by default.</td></tr>
-          <tr><td class="k">FedRAMP authorization</td><td><span class="pill na">Not applicable</span></td><td>Architecture keeps customer CUI on the customer's side, so the SKUs above do not require it. Any future fully hosted offering would be a separate path.</td></tr>
-          <tr><td class="k">Reseller enablement</td><td><span class="pill ready">Ready</span></td><td>Kit below.</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p style="margin-top:18px">The vehicle line is stated openly because it is the first question a public sector catalog asks and the one most likely to be fudged. There is no schedule today. Selecting the right path — and whether it is held directly or accessed through the distributor — is work we expect to do jointly.</p>
-  </section>
+    <div class="sec-h"><span class="n">2</span><h2>Demand basis</h2></div>
+    <div class="body">
+      <p>The Department suspended Phase II of the CMMC programme on 13 July 2026, deferring the third-party assessment requirement scheduled for 10 November 2026 and constituting a reform task force.<sup class="fn">1</sup> Self-assessment obligations under Phase I, the DFARS safeguarding clause, and the underlying NIST standard were not suspended.<sup class="fn">2</sup></p>
+      <p>The commercial consequence for a catalogue is that the addressable requirement persists and renews, while the urgency that had been driving competitor sales motions has been withdrawn. Suppliers must continue to maintain and submit a current score, and that score degrades as the estate drifts from its assessed configuration, which establishes an annual re-engagement event independent of the assessment regime.</p>
 
-  <section>
-    <p class="eyebrow">Enablement kit</p>
-    <div class="kit">
-      <div><span class="t">Demo environment</span><p>A hosted lookup tool and a scripted scan-to-evidence walkthrough a sales engineer can run in fifteen minutes without a customer host.</p></div>
-      <div><span class="t">Qualification script</span><p>Four questions that establish whether a prospect has an active 800-171 obligation, a current SPRS score, and hosts in scope.</p></div>
-      <div><span class="t">Coverage sheet</span><p>Exactly which practices are automated and which are human-delivered, published rather than implied. Removes the most common late-stage objection.</p></div>
-      <div><span class="t">Deal registration</span><p>Standard protection terms, with services attach handled by the partner or by us at the partner's election.</p></div>
+      <figure>
+        <figcaption><span>Exhibit 1</span> — Indicative cost of Level 2 compliance, per contractor</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Measure</th><th class="num">Indicative range</th><th>Basis</th></tr></thead>
+            <tbody>
+              <tr><td class="id">First compliance cycle, total</td><td class="num">$75,000 – $300,000</td><td>Industry estimate inclusive of assessment, remediation and documentation<sup class="fn">3</sup></td></tr>
+              <tr><td class="id">Three-year lifecycle, small contractor</td><td class="num">~$488,000</td><td>Departmental estimate as reported<sup class="fn">4</sup></td></tr>
+              <tr><td class="id">Purpose-built tooling, annual</td><td class="num">$600 – $1,800</td><td>Prevailing market range for small-supplier tools<sup class="fn">5</sup></td></tr>
+              <tr><td class="id">Mid-market GRC platform, annual</td><td class="num">$10,000 – $80,000</td><td>Published entry and scale pricing for a comparator platform<sup class="fn">6</sup></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Figures are reported estimates in US dollars, exclusive of taxes, drawn from secondary sources and not independently validated by AdaptCloud. Presented to establish order of magnitude for the catalogue position at section 4.</p>
+      </figure>
     </div>
   </section>
 
   <section>
-    <p class="eyebrow">Product substance</p>
-    <h2>What a buyer actually receives</h2>
-    <p>A Go binary that scans a host against a versioned control library, applies remediation, re-verifies the result, and emits machine-readable evidence — <strong>17 practices automated across 6 of the 14 domains</strong> today, with the remaining domains delivered by people. That figure is on the coverage sheet and in the sales conversation, because a compliance product caught overstating its scope loses the account and the reference at the same time.</p>
-    <p>Alongside it: Terraform for a governed cloud landing zone with policy-as-code and per-agent workload identities, which addresses AI agent governance — a control problem defense buyers are acquiring right now and have no established pattern for.</p>
-    <p>Every item in an evidence bundle is tagged as machine-observed, model-asserted or human-attested. AI drafts narrative; it never poses as an observation. That separation is what makes an AI-assisted package survive an assessor's review.</p>
+    <div class="sec-h"><span class="n">3</span><h2>Offering description</h2></div>
+    <div class="body">
+      <p>The offering comprises a host assessment binary, a versioned control library, and infrastructure-as-code modules for governed cloud deployment. The binary assesses a host against the control library, applies remediation on an explicit flag, re-verifies the result and emits machine-readable evidence.</p>
+      <p><strong>Automated coverage is seventeen practices across six of the fourteen control domains at the date of issue</strong>, against 110 practices at Level 2. The remaining domains are predominantly policy, training and process controls, a substantial proportion of which are not susceptible to automated verification by any vendor. This figure is published in the enablement materials and disclosed at qualification rather than characterised in general terms; the reputational exposure from an overstated scope is realised during a client's assessment, at which point the account and the reference are lost together.</p>
+      <p>The cloud modules provide a governed application platform with policy-as-code enforcement and discrete workload identities for AI agents, aligned to published cloud adoption framework guidance. This addresses AI agent governance, an emerging control requirement in the buyer base for which established patterns are limited, and is assessed as the least substitutable element of the offering.</p>
+      <p>Each item in an evidence bundle carries a provenance classification of machine-observed, model-asserted or human-attested. Generative AI is applied to narrative drafting and is never presented as observation. The separation is enforced in the data model and is the basis on which an AI-assisted submission remains defensible under assessment.</p>
+    </div>
   </section>
 
   <section>
-    <p class="eyebrow">Stated limits</p>
-    <ul class="bounds">
-      <li><b>No contract vehicle is held today.</b> Stated above and repeated here so it cannot be missed in a catalog review.</li>
-      <li><b>Not a C3PAO.</b> The product produces evidence; it does not certify and does not replace an authorized assessment.</li>
-      <li><b>93 of 110 practices are not automated.</b> Many never can be by any vendor, being policy and process rather than configuration.</li>
-      <li><b>No FedRAMP authorization is held or claimed.</b> The catalog SKUs are architected not to require one.</li>
-      <li><b>No customer references are named in this document.</b> They will be provided under NDA when they exist, and not before.</li>
-    </ul>
+    <div class="sec-h"><span class="n">4</span><h2>Catalogue structure</h2></div>
+    <div class="body">
+      <p>Metering is on assessment scope, expressed as hosts, and not on user seats. Scope is the unit the compliance buyer already reasons in, and seat metering is assessed as adverse to penetration of the small-supplier segment that constitutes the volume opportunity.</p>
+
+      <figure>
+        <figcaption><span>Exhibit 2</span> — Proposed catalogue</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Reference</th><th class="num">Metric</th><th class="num">List</th><th class="num">Term</th><th>Fulfilment</th></tr></thead>
+            <tbody>
+              <tr><td class="id">AC-LOOKUP</td><td class="num">Unrestricted</td><td class="num">Nil</td><td class="num">—</td><td>Hosted, ungated. Demand generation.</td></tr>
+              <tr><td class="id">AC-SCAN-10</td><td class="num">10 hosts</td><td class="num">$990</td><td class="num">12 months</td><td>Download and hosted console</td></tr>
+              <tr><td class="id">AC-HARDEN-25</td><td class="num">25 hosts</td><td class="num">$2,990</td><td class="num">12 months</td><td>Download and hosted console</td></tr>
+              <tr><td class="id">AC-ENCLAVE-100</td><td class="num">100 hosts</td><td class="num">$18,000 – 30,000</td><td class="num">12 months</td><td>Subscription inclusive of deployment</td></tr>
+              <tr><td class="id">AC-HOST-ADD</td><td class="num">Per host</td><td class="num">$120</td><td class="num">Co-terminous</td><td>Overage above tier</td></tr>
+              <tr><td class="id">AC-READY</td><td class="num">Per engagement</td><td class="num">$8,000 – 20,000</td><td class="num">Fixed</td><td>Professional services, fixed fee</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">List positions in US dollars, exclusive of taxes. Client cloud consumption arising from AC-ENCLAVE-100 is contracted and billed directly by the client and is not bundled into any catalogue price, so no reference carries a pass-through that would distort comparison against competing products. Distributor terms are open. The enclave band is wide pending validation of deployment effort and is a candidate for narrowing to a single list position before listing.</p>
+      </figure>
+
+      <p>The renewal profile follows the obligation: annual, recurring, with a natural re-engagement event at each cycle. The catalogue is accordingly structured as renewing subscription rather than perpetual licence.</p>
+    </div>
   </section>
 
   <section>
-    <p class="eyebrow">Proposed first step</p>
-    <h2>Catalog listing on two SKUs, ninety days</h2>
-    <ol class="steps">
-      <li><b>List the two self-serve SKUs</b> — the ten-host and twenty-five-host tiers — as a low-friction test of catalog pull with no services dependency.</li>
-      <li><b>Run the free lookup tool as a demand capture asset</b> against the distributor's existing defense contractor base, measuring registrations rather than revenue in the first sixty days.</li>
-      <li><b>Select the vehicle path jointly</b> and begin whichever qualification it requires, in parallel with the listing rather than as a precondition.</li>
-      <li><b>Review at ninety days</b> against registrations, quote requests and conversion — and decide together whether the enclave and services SKUs join the catalog.</li>
+    <div class="sec-h"><span class="n">5</span><h2>Contracting readiness</h2></div>
+    <div class="body">
+      <figure>
+        <figcaption><span>Exhibit 3</span> — Readiness position by item</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Item</th><th>Position</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Commercial product</td><td><span class="pill ok">In place</span></td><td>Assessment binary, control library and cloud modules exist and operate at the date of issue.</td></tr>
+              <tr><td class="id">Price list</td><td><span class="pill ok">In place</span></td><td>Exhibit 2. Distributor terms subject to negotiation.</td></tr>
+              <tr><td class="id">Federal contract vehicle</td><td><span class="pill open">Not held</span></td><td>No schedule or government-wide acquisition contract is held. Path selection, and whether access is direct or through the distributor, is proposed as joint work at section 8.</td></tr>
+              <tr><td class="id">Product classification</td><td><span class="pill open">Under review</span></td><td>Classification as software publishing rather than IT services affects both size-standard eligibility and catalogue treatment. Being determined deliberately rather than by default.</td></tr>
+              <tr><td class="id">FedRAMP authorisation</td><td><span class="pill na">Not applicable</span></td><td>Client CUI remains within the client environment by architectural constraint, so the catalogue references do not require authorisation. Any future fully hosted offering would follow a separate path.</td></tr>
+              <tr><td class="id">Channel enablement</td><td><span class="pill ok">In place</span></td><td>Section 6.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Positions stated as at the date of issue. The vehicle position is disclosed prominently because it is the first item a public sector catalogue review examines and the item most commonly overstated at this stage.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">6</span><h2>Channel enablement</h2></div>
+    <div class="body">
+      <ul class="reg">
+        <li><span class="k">E1</span><span><b>Demonstration environment.</b> Hosted reference tool and a scripted assessment-to-evidence walkthrough executable by a sales engineer in approximately fifteen minutes without access to a client host.</span></li>
+        <li><span class="k">E2</span><span><b>Qualification script.</b> Four questions establishing whether a prospect holds an active 800-171 obligation, a current SPRS score, and hosts within scope.</span></li>
+        <li><span class="k">E3</span><span><b>Coverage schedule.</b> The practices automated and those practitioner-delivered, published in full. Addresses the most frequent late-stage objection in the category.</span></li>
+        <li><span class="k">E4</span><span><b>Deal registration.</b> Standard protection terms, with services attachment executed by the partner or by AdaptCloud at the partner's election.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">7</span><h2>Assumptions and risks</h2></div>
+    <div class="body">
+      <h3>7.1 Assumptions</h3>
+      <ul class="reg">
+        <li><span class="k">A1</span><span>Client hosts are Linux-based and administrative access is available during an assessment window.</span></li>
+        <li><span class="k">A2</span><span>Cloud consumption arising from AC-ENCLAVE-100 is contracted directly by the client and is excluded from all figures.</span></li>
+        <li><span class="k">A3</span><span>First-line support is provided by the partner where the transaction is partner-led; AdaptCloud provides second line.</span></li>
+        <li><span class="k">A4</span><span>Market figures at Exhibit 1 are secondary and unvalidated, as stated.</span></li>
+        <li><span class="k">A5</span><span>The regulatory position at section 2 is current at the date of issue and subject to the outcome of the reform task force.</span></li>
+      </ul>
+
+      <h3>7.2 Risk register</h3>
+      <figure>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="num">Ref</th><th>Risk</th><th class="num">Assessment</th><th>Mitigation</th><th>Owner</th></tr></thead>
+            <tbody>
+              <tr><td class="id">R1</td><td>Absence of a contract vehicle restricts addressable procurement routes.</td><td class="num">High / High</td><td>Joint path selection at section 8, executed in parallel with listing rather than as a precondition.</td><td>Joint</td></tr>
+              <tr><td class="id">R2</td><td>Programme reform alters or removes the underlying obligation.</td><td class="num">Medium / High</td><td>Annual terms without multi-year commitment; positioning rests on 800-171 and DFARS obligations independent of the assessment mechanism.</td><td>Joint</td></tr>
+              <tr><td class="id">R3</td><td>Automated coverage raised as an objection late in a sales cycle.</td><td class="num">High / Medium</td><td>Coverage schedule published and disclosed at qualification (E3).</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">R4</td><td>Low catalogue pull at the entry price point owing to absent brand recognition.</td><td class="num">Medium / Medium</td><td>Free reference tool operated as demand capture against the existing base; assessed at 60 days under section 8.</td><td>Joint</td></tr>
+              <tr><td class="id">R5</td><td>Scope extension results in client CUI entering the service, triggering authorisation obligations.</td><td class="num">Low / High</td><td>Architectural constraint reinforced by contractual restriction in the distribution agreement.</td><td>AdaptCloud</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Assessment expressed as likelihood / impact. Register is indicative and expected to be restated jointly at listing.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">8</span><h2>Recommended next step</h2></div>
+    <div class="body">
+      <p>A 90-day listing test on the two self-service references, structured in four workstreams.</p>
+      <ul class="reg">
+        <li><span class="k">W1</span><span><b>List AC-SCAN-10 and AC-HARDEN-25</b> as a low-friction test of catalogue pull carrying no services dependency.</span></li>
+        <li><span class="k">W2</span><span><b>Operate the reference tool as a demand capture asset</b> against the existing defence supplier base, measured on registrations rather than revenue through the first 60 days.</span></li>
+        <li><span class="k">W3</span><span><b>Select the contract vehicle path jointly</b> and commence the qualification it requires, in parallel with listing.</span></li>
+        <li><span class="k">W4</span><span><b>Resolve the enclave band</b> to a single list position on the basis of observed deployment effort.</span></li>
+      </ul>
+      <p style="margin-top:18px"><strong>Review point.</strong> At 90 days, against registration volume, quotation requests and conversion, the parties determine whether the enclave and services references join the catalogue.</p>
+    </div>
+  </section>
+
+  <section class="notes">
+    <h2>Basis of preparation</h2>
+    <p style="font-family:var(--sans); font-size:0.73rem; line-height:1.6; color:var(--ink-faint); max-width:86ch; margin-bottom:14px">This document was prepared from inspection of the AdaptCloud repositories and from publicly available secondary sources cited below. No independent market research, buyer interview programme or financial audit was undertaken. The coverage figure at section 3 is derived by direct enumeration of the implemented control set and is verifiable against the source repository. Cost figures at Exhibit 1 are reported estimates that AdaptCloud has not validated. Statements concerning regulatory position are current as at the date of issue and do not constitute legal advice. No representation is made as to contract vehicle eligibility, which is stated as not held at Exhibit 3.</p>
+    <h2>Sources</h2>
+    <ol>
+      <li>Reporting on the suspension of CMMC Phase II announced 13 July 2026, and on constitution of the reform task force. <i>A-LIGN; Latham &amp; Watkins; Federal News Network</i>, accessed 6 September 2026.</li>
+      <li>Continuing effect of Phase I self-assessment, DFARS 252.204-7012, NIST SP 800-171 Rev 2 and SPRS submission. <i>A-LIGN; SC Media</i>, accessed 6 September 2026.</li>
+      <li>First-cycle Level 2 compliance cost estimates. <i>IBSS; Godlan</i>, accessed 6 September 2026.</li>
+      <li>Reported departmental three-year cost estimate for a small defence contractor. <i>Godlan</i>, accessed 6 September 2026.</li>
+      <li>Prevailing pricing for purpose-built small-supplier CMMC tooling. <i>CMMC Map; Totem Technologies published pricing</i>, accessed 6 September 2026.</li>
+      <li>Published entry and scale pricing for a mid-market compliance automation platform. <i>Sprinto; vendor-published pricing</i>, accessed 6 September 2026.</li>
     </ol>
   </section>
 
   <footer>
-    AdaptCloud · Issue 1.0 · 2026-09-06<br>
-    Prepared for distribution partner evaluation. Contains no customer-identifying information.<br>
-    Pricing shown is list and is subject to change. Regulatory statements reflect published guidance current at the issue date and are not legal advice.
+    AdaptCloud · Partner Brief · Version 1.0 · 6 September 2026 · Restricted distribution.<br>
+    This document contains no client-identifying information and no past-performance representation. Reference accounts will be provided under non-disclosure agreement where they exist. Pricing is indicative list and subject to change.
   </footer>
 
 </div>

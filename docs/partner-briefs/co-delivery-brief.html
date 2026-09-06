@@ -1,60 +1,59 @@
 <title>AdaptCloud Co-Delivery Brief</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <style>
   :root {
-    --paper:      #F2F4F2;
-    --surface:    #FBFCFB;
-    --surface-2:  #E8EDEA;
-    --ink:        #131B1A;
-    --ink-soft:   #4A5654;
-    --ink-faint:  #77837F;
-    --rule:       #C9D2CE;
-    --rule-soft:  #DDE4E1;
-    --accent:     #0F6B63;
-    --brass:      #8F6318;
-    --ok:         #2E6E4E;
-    --warn:       #A8590C;
-    --idle:       #7C8886;
+    --paper:     #FBFBFA;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F3F4;
+    --ink:       #16191D;
+    --ink-soft:  #4C555E;
+    --ink-faint: #79828A;
+    --rule:      #CFD5DA;
+    --rule-soft: #E4E8EB;
+    --accent:    #123A63;
+    --accent-2:  #2E6FA8;
+    --ok:        #1F5F3F;
+    --open:      #8A5A10;
+    --na:        #6B7280;
 
-    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
-    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
-    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --paper:     #0B1211;
-      --surface:   #121C1A;
-      --surface-2: #1A2624;
-      --ink:       #E7EDEA;
-      --ink-soft:  #A8B5B1;
-      --ink-faint: #7C8A86;
-      --rule:      #2B3937;
-      --rule-soft: #1E2A28;
-      --accent:    #4FB3A6;
-      --brass:     #C79B49;
-      --ok:        #5EA97E;
-      --warn:      #D68A38;
-      --idle:      #6E7C79;
+      --paper:     #0F1214;
+      --surface:   #171B1F;
+      --surface-2: #1F252A;
+      --ink:       #E3E7EA;
+      --ink-soft:  #A8B1B8;
+      --ink-faint: #7C868D;
+      --rule:      #333C43;
+      --rule-soft: #242B31;
+      --accent:    #7FAAD6;
+      --accent-2:  #9CC1E5;
+      --ok:        #5CA37C;
+      --open:      #C89340;
+      --na:        #8A939A;
     }
   }
 
   :root[data-theme="dark"] {
-    --paper:     #0B1211;
-    --surface:   #121C1A;
-    --surface-2: #1A2624;
-    --ink:       #E7EDEA;
-    --ink-soft:  #A8B5B1;
-    --ink-faint: #7C8A86;
-    --rule:      #2B3937;
-    --rule-soft: #1E2A28;
-    --accent:    #4FB3A6;
-    --brass:     #C79B49;
-    --ok:        #5EA97E;
-    --warn:      #D68A38;
-    --idle:      #6E7C79;
+    --paper:     #0F1214;
+    --surface:   #171B1F;
+    --surface-2: #1F252A;
+    --ink:       #E3E7EA;
+    --ink-soft:  #A8B1B8;
+    --ink-faint: #7C868D;
+    --rule:      #333C43;
+    --rule-soft: #242B31;
+    --accent:    #7FAAD6;
+    --accent-2:  #9CC1E5;
+    --ok:        #5CA37C;
+    --open:      #C89340;
+    --na:        #8A939A;
   }
 
   * { box-sizing: border-box; }
@@ -62,455 +61,509 @@
   body {
     background: var(--paper);
     color: var(--ink);
-    font-family: var(--body);
-    font-size: 16.5px;
-    line-height: 1.62;
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
     margin: 0;
-    padding: 0 20px 96px;
+    padding: 0 22px 88px;
     -webkit-font-smoothing: antialiased;
   }
 
-  .sheet { max-width: 880px; margin: 0 auto; }
+  .doc { max-width: 940px; margin: 0 auto; }
 
-  /* ── Document control block ─────────────────────────── */
-  .docblock {
-    padding-top: 40px;
-    border-bottom: 3px solid var(--brass);
-    padding-bottom: 18px;
-  }
-  .org {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--brass);
-    margin: 0 0 26px;
-  }
-  h1 {
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: clamp(1.85rem, 4.4vw, 2.7rem);
-    line-height: 1.1;
-    letter-spacing: -0.022em;
-    text-wrap: balance;
-    margin: 0 0 20px;
-    max-width: 20ch;
-  }
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 30px;
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.05em;
-    color: var(--ink-faint);
-  }
-  .meta b { color: var(--ink-soft); font-weight: 500; }
-
-  /* ── Sections ───────────────────────────────────────── */
-  section { margin-top: 52px; }
-  .eyebrow {
-    font-family: var(--mono);
+  /* ── Masthead ───────────────────────────────────────── */
+  .masthead { padding-top: 44px; }
+  .issuer {
+    font-family: var(--sans);
     font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.15em;
+    font-weight: 700;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--accent);
-    margin: 0 0 14px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--rule);
-  }
-  h2 {
-    font-family: var(--display);
-    font-weight: 600;
-    font-size: 1.32rem;
-    letter-spacing: -0.012em;
-    line-height: 1.25;
-    text-wrap: balance;
-    margin: 0 0 14px;
-  }
-  h3 {
-    font-family: var(--display);
-    font-weight: 600;
-    font-size: 0.95rem;
-    letter-spacing: 0.005em;
     margin: 0 0 6px;
   }
-  p { margin: 0 0 16px; max-width: 68ch; }
-  p:last-child { margin-bottom: 0; }
-  strong { font-weight: 600; }
-  .lede { font-size: 1.08rem; color: var(--ink-soft); }
-  .lede strong { color: var(--ink); }
-
-  code, .m { font-family: var(--mono); font-size: 0.85em; }
-  code {
-    background: var(--surface-2);
-    padding: 0.1em 0.36em;
-    border-radius: 2px;
-    color: var(--ink);
+  .doctype {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 22px;
+  }
+  h1 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(1.5rem, 3.4vw, 2.05rem);
+    line-height: 1.2;
+    letter-spacing: -0.014em;
+    text-wrap: balance;
+    margin: 0 0 26px;
+    max-width: 26ch;
   }
 
-  /* ── Three-pillar row ───────────────────────────────── */
-  .pillars {
+  .control {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 1px;
-    background: var(--rule);
-    border: 1px solid var(--rule);
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
-  .pillar { background: var(--surface); padding: 20px 20px 22px; }
-  .pillar .tag {
-    font-family: var(--mono);
-    font-size: 0.68rem;
+  .control div {
+    padding: 11px 16px 12px 0;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .control div:last-child { border-right: none; }
+  .control dt {
+    font-family: var(--sans);
+    font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 0.13em;
     text-transform: uppercase;
-    color: var(--brass);
-    display: block;
-    margin-bottom: 10px;
+    color: var(--ink-faint);
+    margin: 0 0 4px;
   }
-  .pillar p { font-size: 0.92rem; line-height: 1.55; margin: 0; color: var(--ink-soft); }
+  .control dd {
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin: 0;
+    color: var(--ink);
+  }
 
-  /* ── Tables ─────────────────────────────────────────── */
+  /* ── Sections ───────────────────────────────────────── */
+  section { margin-top: 44px; }
+  .sec-h {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 0;
+    align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 9px;
+    margin-bottom: 18px;
+  }
+  .sec-h .n {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .sec-h h2 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.02rem;
+    letter-spacing: 0.004em;
+    line-height: 1.3;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .body { padding-left: 42px; }
+  @media (max-width: 620px) {
+    .sec-h { grid-template-columns: 30px 1fr; }
+    .body { padding-left: 0; }
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.86rem;
+    letter-spacing: 0.02em;
+    margin: 24px 0 8px;
+    color: var(--ink);
+  }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+
+  sup.fn {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--accent);
+    vertical-align: super;
+    line-height: 0;
+    padding-left: 1px;
+  }
+
+  .mono-ref {
+    font-family: var(--sans);
+    font-size: 0.86em;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Executive summary ──────────────────────────────── */
+  .exec {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 22px 26px 24px;
+  }
+  .exec ol { margin: 0; padding-left: 20px; }
+  .exec li { margin-bottom: 12px; font-size: 0.95rem; line-height: 1.55; max-width: 68ch; }
+  .exec li:last-child { margin-bottom: 0; }
+  .exec li b { font-weight: 600; }
+
+  /* ── Exhibits ───────────────────────────────────────── */
+  figure { margin: 22px 0; }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  figcaption span { color: var(--accent); }
+  .srcnote {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--ink-faint);
+    margin-top: 7px;
+    max-width: 78ch;
+  }
+
   .tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
   table { border-collapse: collapse; width: 100%; min-width: 560px; background: var(--surface); }
-  th, td { text-align: left; padding: 11px 15px; vertical-align: top; border-bottom: 1px solid var(--rule-soft); }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--sans);
+  }
   th {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.11em;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--ink-faint);
+    color: var(--ink-soft);
     background: var(--surface-2);
     border-bottom: 1px solid var(--rule);
     white-space: nowrap;
   }
-  td { font-size: 0.92rem; line-height: 1.5; }
+  td { font-size: 0.84rem; line-height: 1.5; color: var(--ink-soft); }
+  td b, td strong { color: var(--ink); font-weight: 600; }
   tr:last-child td { border-bottom: none; }
-  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  td.k { font-family: var(--mono); font-size: 0.82rem; white-space: nowrap; color: var(--ink); }
+  td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.id { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  tfoot td {
+    background: var(--surface-2);
+    font-weight: 600;
+    color: var(--ink);
+    border-top: 1px solid var(--rule);
+  }
 
-  /* ── Coverage strip ─────────────────────────────────── */
-  .coverage {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
-    gap: 6px;
-    margin-bottom: 16px;
+  .bar {
+    display: inline-block;
+    height: 9px;
+    background: var(--accent);
+    vertical-align: middle;
+    min-width: 2px;
   }
-  .dom {
-    border: 1px solid var(--rule);
-    background: var(--surface);
-    padding: 10px 8px 9px;
-    text-align: center;
+  .barcell { white-space: nowrap; }
+  .barcell em {
+    font-style: normal;
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    margin-left: 7px;
+    font-variant-numeric: tabular-nums;
   }
-  .dom .c {
-    font-family: var(--display);
+
+  .pill {
+    font-family: var(--sans);
+    font-size: 0.62rem;
     font-weight: 700;
-    font-size: 1.05rem;
-    letter-spacing: 0.02em;
-    display: block;
-    color: var(--ink-faint);
-  }
-  .dom .n {
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.06em;
-    color: var(--ink-faint);
-    display: block;
-    margin-top: 3px;
-  }
-  .dom.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
-  .dom.on .c { color: var(--accent); }
-  .dom.on .n { color: var(--accent); }
-
-  .legend {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.04em;
-    color: var(--ink-faint);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 20px;
-  }
-
-  /* ── Provenance states ──────────────────────────────── */
-  .states { display: grid; gap: 10px; }
-  .state {
-    display: grid;
-    grid-template-columns: 4px 1fr;
-    gap: 16px;
-    background: var(--surface);
-    border: 1px solid var(--rule);
-  }
-  .state .bar { background: var(--idle); }
-  .state.obs .bar { background: var(--ok); }
-  .state.mod .bar { background: var(--warn); }
-  .state.att .bar { background: var(--accent); }
-  .state .in { padding: 14px 16px 15px 0; }
-  .state .lbl {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
-    margin: 0 0 5px;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+    display: inline-block;
   }
-  .state.obs .lbl { color: var(--ok); }
-  .state.mod .lbl { color: var(--warn); }
-  .state.att .lbl { color: var(--accent); }
-  .state p { font-size: 0.9rem; line-height: 1.5; margin: 0; color: var(--ink-soft); }
+  .pill.ok { color: var(--ok); }
+  .pill.open { color: var(--open); }
+  .pill.na { color: var(--na); }
 
-  /* ── Boundary list ──────────────────────────────────── */
-  .bounds { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
-  .bounds li {
-    font-size: 0.93rem;
-    line-height: 1.5;
-    padding-left: 26px;
-    position: relative;
-    color: var(--ink-soft);
-    max-width: 70ch;
-  }
-  .bounds li::before {
-    content: "—";
-    position: absolute;
-    left: 0;
-    top: 0;
-    font-family: var(--mono);
-    color: var(--warn);
-    font-weight: 600;
-  }
-  .bounds li b { color: var(--ink); font-weight: 600; }
-
-  .callout {
-    background: var(--surface);
-    border-left: 3px solid var(--brass);
-    padding: 16px 20px;
-    margin-top: 22px;
-  }
-  .callout p { font-size: 0.95rem; margin: 0; color: var(--ink-soft); }
-  .callout p b { color: var(--ink); }
-
-  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
-  .steps li {
-    counter-increment: s;
+  /* ── Numbered registers ─────────────────────────────── */
+  .reg { list-style: none; padding: 0; margin: 0; }
+  .reg li {
     display: grid;
-    grid-template-columns: 30px 1fr;
-    gap: 14px;
-    align-items: start;
-    font-size: 0.95rem;
+    grid-template-columns: 46px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 0.9rem;
     line-height: 1.55;
-    max-width: 68ch;
+    color: var(--ink-soft);
+    max-width: 76ch;
   }
-  .steps li::before {
-    content: "T" counter(s);
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--brass);
-    border: 1px solid var(--rule);
-    background: var(--surface);
-    padding: 3px 0;
-    text-align: center;
-    letter-spacing: 0.04em;
+  .reg li:first-child { padding-top: 0; }
+  .reg li:last-child { border-bottom: none; }
+  .reg .k {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    padding-top: 2px;
   }
+  .reg b { color: var(--ink); font-weight: 600; }
+
+  /* ── Footnotes ──────────────────────────────────────── */
+  .notes {
+    margin-top: 46px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+  }
+  .notes h2 {
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+  .notes ol { margin: 0; padding-left: 20px; }
+  .notes li {
+    font-family: var(--sans);
+    font-size: 0.73rem;
+    line-height: 1.6;
+    color: var(--ink-faint);
+    margin-bottom: 7px;
+    max-width: 86ch;
+  }
+  .notes li i { font-style: italic; }
 
   footer {
-    margin-top: 56px;
-    padding-top: 18px;
-    border-top: 1px solid var(--rule);
-    font-family: var(--mono);
+    margin-top: 34px;
+    padding-top: 14px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--sans);
     font-size: 0.7rem;
-    letter-spacing: 0.05em;
+    line-height: 1.65;
     color: var(--ink-faint);
-    line-height: 1.7;
-  }
-
-  @media (max-width: 560px) {
-    body { font-size: 15.5px; padding: 0 16px 72px; }
-    .meta { gap: 4px 18px; }
+    max-width: 86ch;
   }
 </style>
 
-<div class="sheet">
+<div class="doc">
 
-  <header class="docblock">
-    <p class="org">AdaptCloud · Partner Brief</p>
-    <h1>The compliance engine your DIB practice delivers with</h1>
-    <div class="meta">
-      <span><b>Issue</b> 1.0</span>
-      <span><b>Date</b> 2026-09-06</span>
-      <span><b>Audience</b> Co-delivery partner evaluation</span>
-      <span><b>Scope</b> NIST SP 800-171 R2 · CMMC L2</span>
-    </div>
+  <header class="masthead">
+    <p class="issuer">AdaptCloud</p>
+    <p class="doctype">Partner Brief — Co-Delivery Construct</p>
+    <h1>Managed NIST SP 800-171 compliance: co-delivery construct and commercial terms</h1>
+
+    <dl class="control">
+      <div><dt>Version</dt><dd>1.0</dd></div>
+      <div><dt>Date of issue</dt><dd>6 September 2026</dd></div>
+      <div><dt>Status</dt><dd>For discussion</dd></div>
+      <div><dt>Prepared for</dt><dd>Prospective co-delivery partner</dd></div>
+      <div><dt>Distribution</dt><dd>Restricted — named recipients</dd></div>
+    </dl>
   </header>
 
   <section>
-    <p class="lede"><strong>Phase II is suspended. The obligation is not.</strong> DFARS 252.204-7012, Phase I self-assessment, and SPRS score submission against NIST SP 800-171 Rev 2 all remain in force. What went away was the certification deadline — not the requirement that a contractor's score be current, evidenced, and defensible.</p>
-    <p>That shift is bad news for anyone selling assessment urgency and good news for anyone selling continuous evidence. Your defense clients still need their posture proven on a rolling basis, and your practice can bill that work today. The constraint is that each engagement is hand-built by senior people, so margin is capped by bench hours and the tenth engagement costs about what the first one did.</p>
-    <p>AdaptCloud is the engine that breaks that curve. It is the IP layer underneath a readiness or managed-compliance offer: your consultants run it, your name is on the delivery, and engagement <span class="m">N+1</span> costs materially less to produce than engagement <span class="m">N</span>.</p>
-  </section>
-
-  <section>
-    <p class="eyebrow">Differentiator</p>
-    <div class="pillars">
-      <div class="pillar">
-        <span class="tag">IP</span>
-        <p>A versioned control library, host scanner rules, remediation playbooks, and governed cloud landing-zone modules. Owned, not assembled per client.</p>
-      </div>
-      <div class="pillar">
-        <span class="tag">Solution</span>
-        <p>Scan, remediate, re-verify — a closed loop that produces timestamped evidence, not a checklist someone filled in from memory.</p>
-      </div>
-      <div class="pillar">
-        <span class="tag">Delivery</span>
-        <p>Fixed-fee engagement scaffolds your bench executes. We supply the engine and the enablement; the client relationship stays yours.</p>
+    <div class="sec-h"><span class="n">1</span><h2>Executive summary</h2></div>
+    <div class="body">
+      <div class="exec">
+        <ol>
+          <li><b>The regulatory obligation persists notwithstanding the programme suspension.</b> Phase II of CMMC was suspended on 13 July 2026.<sup class="fn">1</sup> DFARS 252.204-7012, Phase I self-assessment, and submission of a NIST SP 800-171 Rev 2 score to the Supplier Performance Risk System remain in force.<sup class="fn">2</sup> Demand has shifted from certification readiness to recurring evidence maintenance.</li>
+          <li><b>Competing propositions were constructed around a deadline that no longer exists.</b> Vendors positioned on a November 2026 assessment date have lost their primary close. An offering priced for continuous evidence rather than a one-time sprint faces materially reduced competitive pressure in the near term.</li>
+          <li><b>The constraint on partner margin is delivery repeatability, not demand.</b> Readiness engagements are presently hand-constructed by senior practitioners, so unit cost does not decline across engagements. AdaptCloud supplies a versioned control library, host scanner, remediation playbooks and governed cloud landing-zone modules intended to reduce marginal delivery cost.</li>
+          <li><b>Automated coverage is partial and is stated rather than implied.</b> Seventeen practices across six of fourteen domains are automated at the date of issue (Exhibit 2). The residual practices are predominantly policy and process controls that are not susceptible to automated verification by any vendor.</li>
+          <li><b>The proposed first step is a bounded 60-day pilot</b> on one mutual client, assessed against a single quantitative exit criterion defined at section 8.</li>
+        </ol>
       </div>
     </div>
   </section>
 
   <section>
-    <p class="eyebrow">What the engine is made of</p>
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr><th>Component</th><th>What it does</th><th>Where it runs</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="k">cmmc-audit</td>
-            <td>Go binary. Scans a host against the control library, applies remediation under <code>-apply</code>, re-verifies, emits text and JSON reports. Non-zero exit while findings remain.</td>
-            <td>Customer host</td>
-          </tr>
-          <tr>
-            <td class="k">control-library</td>
-            <td>Practice definitions with NIST 800-171 R2 references, severity, and remediation actions. Versioned, so an evidence bundle names the library revision that produced it.</td>
-            <td>In engine</td>
-          </tr>
-          <tr>
-            <td class="k">azure-alz</td>
-            <td>Terraform for a CAF-aligned Application Platform management group, a policy-as-code governance initiative, and a per-agent Entra workload identity. Creates the platform landing zone if the tenant lacks one.</td>
-            <td>Customer tenant</td>
-          </tr>
-          <tr>
-            <td class="k">gke-baseline</td>
-            <td>Hardened GKE Terraform with OIDC or SAML SSO enforced at the boundary.</td>
-            <td>Customer project</td>
-          </tr>
-          <tr>
-            <td class="k">evidence-pipeline</td>
-            <td>Assembles SSP narrative and POA&amp;M entries from scan output, every item carrying its provenance tag.</td>
-            <td>Partner-operated</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="callout">
-      <p><b>The landing-zone module is the part nobody else brings.</b> Governed AI agent identities inside a policy-enforced landing zone is a control problem your defense clients are about to have and have no pattern for. It is already built, and it maps to published cloud-adoption governance guidance control by control.</p>
+    <div class="sec-h"><span class="n">2</span><h2>Market context</h2></div>
+    <div class="body">
+      <p>The Department suspended Phase II of the CMMC programme on 13 July 2026, deferring the third-party assessment requirement that had been scheduled to take effect on 10 November 2026, and constituted a reform task force to report subsequently.<sup class="fn">1</sup> Phase I self-assessment obligations, DFARS 252.204-7012, and NIST SP 800-171 Rev 2 were unaffected.<sup class="fn">2</sup></p>
+      <p>Two consequences follow for the defence supplier base. First, the compliance obligation continues to attach to contract award, and a supplier's SPRS score degrades as its estate drifts from its assessed state, which establishes a recurring rather than one-time requirement. Second, procurement urgency has diminished, which lengthens sales cycles for propositions dependent on deadline pressure and favours propositions positioned on cost of ongoing compliance.</p>
+      <p>Published estimates of the cost of compliance are set out at Exhibit 1. They are drawn from secondary sources and have not been independently validated; they are presented to establish order of magnitude for the pricing position at section 6, not as a basis for a business case.</p>
+
+      <figure>
+        <figcaption><span>Exhibit 1</span> — Indicative cost of Level 2 compliance, per contractor</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Measure</th><th class="num">Indicative range</th><th>Basis</th></tr></thead>
+            <tbody>
+              <tr><td class="id">First compliance cycle, total</td><td class="num">$75,000 – $300,000</td><td>Industry estimate, inclusive of assessment fees, remediation and documentation<sup class="fn">3</sup></td></tr>
+              <tr><td class="id">Third-party assessment component</td><td class="num">$30,000 – $150,000</td><td>Subset of the above<sup class="fn">3</sup></td></tr>
+              <tr><td class="id">Three-year lifecycle, small contractor</td><td class="num">~$488,000</td><td>Departmental estimate as reported<sup class="fn">4</sup></td></tr>
+              <tr><td class="id">Purpose-built tooling, annual</td><td class="num">$600 – $1,800</td><td>Prevailing market range for small-supplier tools<sup class="fn">5</sup></td></tr>
+              <tr><td class="id">Mid-market GRC platform, annual</td><td class="num">$10,000 – $80,000</td><td>Published entry and scale pricing for a comparator platform<sup class="fn">6</sup></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">All figures are list or reported estimates in US dollars and exclude taxes. AdaptCloud has not independently verified the underlying methodologies. Validation is a recommended workstream in any pilot (section 8).</p>
+      </figure>
     </div>
   </section>
 
   <section>
-    <p class="eyebrow">Automated coverage, stated plainly</p>
-    <h2>17 practices across 6 of the 14 domains</h2>
-    <div class="coverage">
-      <div class="dom on"><span class="c">AC</span><span class="n">5</span></div>
-      <div class="dom on"><span class="c">AU</span><span class="n">3</span></div>
-      <div class="dom on"><span class="c">CM</span><span class="n">3</span></div>
-      <div class="dom on"><span class="c">IA</span><span class="n">3</span></div>
-      <div class="dom on"><span class="c">SC</span><span class="n">2</span></div>
-      <div class="dom on"><span class="c">SI</span><span class="n">1</span></div>
-      <div class="dom"><span class="c">AT</span><span class="n">—</span></div>
-      <div class="dom"><span class="c">CA</span><span class="n">—</span></div>
-      <div class="dom"><span class="c">IR</span><span class="n">—</span></div>
-      <div class="dom"><span class="c">MA</span><span class="n">—</span></div>
-      <div class="dom"><span class="c">MP</span><span class="n">—</span></div>
-      <div class="dom"><span class="c">PE</span><span class="n">—</span></div>
-      <div class="dom"><span class="c">PS</span><span class="n">—</span></div>
-      <div class="dom"><span class="c">RA</span><span class="n">—</span></div>
-    </div>
-    <p class="legend"><span>Filled = automated today, with practice count</span><span>Hollow = human-delivered</span></p>
-    <p style="margin-top:18px">A large share of the 110 practices describe policy, training and process — personnel screening, incident response exercises, awareness records. Those are not scannable by anyone, and a vendor implying otherwise is telling your assessor something that will not survive contact. The honest split is the sales asset: <strong>the technically verifiable controls are automated and re-verified continuously; the rest are delivered by your people, faster, because the technical half is already evidenced.</strong></p>
-    <p>Coverage is the roadmap. Every engagement is expected to return a control check, a remediation rule, or a reference module to the library, which is what compounds across your client base rather than being spent on one of them.</p>
-  </section>
+    <div class="sec-h"><span class="n">3</span><h2>Solution description</h2></div>
+    <div class="body">
+      <p>The proposition comprises three separable components: intellectual property, an integrated solution, and a delivery construct. The partner retains the client relationship and provides the delivery organisation; AdaptCloud provides the engine, the enablement materials and second-line support.</p>
 
-  <section>
-    <p class="eyebrow">Why an assessor trusts the output</p>
-    <h2>Every finding carries its provenance</h2>
-    <p>AI drafts the narrative. That is a real efficiency and a real risk, because a generated SSP paragraph and an observed system fact look identical on the page. They are separated in the data model, so they can never be conflated in a bundle.</p>
-    <div class="states">
-      <div class="state obs"><div class="bar"></div><div class="in">
-        <p class="lbl">Machine-observed</p>
-        <p>The scanner read the live configuration. Carries a host, a timestamp, and the check that produced it.</p>
-      </div></div>
-      <div class="state mod"><div class="bar"></div><div class="in">
-        <p class="lbl">Model-asserted</p>
-        <p>Drafted from context by the AI layer. Useful, reviewable, and never presented as an observation.</p>
-      </div></div>
-      <div class="state att"><div class="bar"></div><div class="in">
-        <p class="lbl">Human-attested</p>
-        <p>A named person signed it. Required before any model-asserted item enters a submitted package.</p>
-      </div></div>
+      <figure>
+        <figcaption><span>Exhibit 2</span> — Capability architecture</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Component</th><th>Function</th><th>Execution location</th><th>Ownership</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Host audit binary</td><td>Assesses a host against the control library, applies remediation on an explicit flag, re-verifies, and emits text and machine-readable output. Returns a non-zero exit status while findings remain outstanding.</td><td>Client host</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Control library</td><td>Versioned practice definitions with NIST SP 800-171 Rev 2 references, severity classification and remediation actions. Evidence output records the library revision applied.</td><td>Engine</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Cloud landing zone</td><td>Infrastructure-as-code for a governed application platform, policy-as-code enforcement, and discrete workload identities for AI agents, aligned to published cloud adoption framework guidance.</td><td>Client tenant</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Container baseline</td><td>Hardened managed-Kubernetes infrastructure-as-code with federated single sign-on enforced at the boundary.</td><td>Client project</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Evidence pipeline</td><td>Assembles system security plan narrative and plan-of-action entries from assessment output, with provenance classification applied to each item (section 4).</td><td>Partner-operated</td><td>Joint</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Derived from inspection of the AdaptCloud repositories as at the date of issue. Component names are descriptive rather than commercial product names.</p>
+      </figure>
+
+      <p>The landing-zone component addresses governance of AI agent identities within a policy-enforced environment. This is assessed as the least substitutable element of the proposition, on the basis that it addresses a control requirement the client base is beginning to encounter and for which established delivery patterns are limited.</p>
     </div>
   </section>
 
   <section>
-    <p class="eyebrow">Data boundary</p>
-    <h2>The engine does not hold the client's CUI</h2>
-    <p>The scanner runs on the customer's host and returns control status, findings and scores. Configuration artifacts, system files and CUI stay on the customer's side of the line. This is a deliberate architectural constraint, not a current limitation: it is what keeps both parties out of the obligations that attach to a cloud service storing or processing CUI under DFARS 252.204-7012, and it is designed in before the first contract rather than remediated after it.</p>
-    <p>Where a client wants a fully hosted posture, that is a scoped conversation with its own compliance path, priced separately, and not what this brief proposes.</p>
-  </section>
+    <div class="sec-h"><span class="n">4</span><h2>Assessed automated coverage</h2></div>
+    <div class="body">
+      <p>Coverage is published rather than characterised. Overstating automated scope is assessed as the principal reputational risk in this category, on the basis that the misstatement is discovered during assessment rather than during the sale.</p>
 
-  <section>
-    <p class="eyebrow">Commercial model</p>
-    <h2>Priced by scope, never by seat</h2>
-    <p>Scope is what a compliance buyer already reasons about, and per-seat pricing punishes exactly the small subcontractors your primes need brought up to standard. List positions below; partner economics are set against these in a co-delivery agreement.</p>
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr><th>Tier</th><th>Scope</th><th>List</th><th>What it carries</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="k">Lookup</td><td class="num">unlimited</td><td class="num">$0</td><td>Control search, 800-171 R2 mapping, SPRS score calculator. Demand generation, ungated.</td></tr>
-          <tr><td class="k">Scan</td><td class="num">≤ 10 hosts</td><td class="num">$990 / yr</td><td>Scheduled scans, JSON evidence, SSP and POA&amp;M export, score tracking.</td></tr>
-          <tr><td class="k">Harden</td><td class="num">≤ 25 hosts</td><td class="num">$2,990 / yr</td><td>Remediation with rollback, drift re-verification, fleet view, evidence bundle.</td></tr>
-          <tr><td class="k">Enclave</td><td class="num">≤ 100 hosts</td><td class="num">$1,500–2,500 / mo</td><td>Landing-zone and GKE modules, agent identity governance, SSO. Customer's own cloud spend billed separately and never bundled.</td></tr>
-          <tr><td class="k">Readiness</td><td class="num">per engagement</td><td class="num">$8k–20k</td><td>Fixed-fee scaffold. Delivered by partner bench on the engine.</td></tr>
-        </tbody>
-      </table>
+      <figure>
+        <figcaption><span>Exhibit 3</span> — Automated practice coverage by control domain</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Domain</th><th>Control family</th><th class="num">Automated checks</th><th>Delivery method</th></tr></thead>
+            <tbody>
+              <tr><td class="id">AC</td><td>Access Control</td><td class="barcell"><span class="bar" style="width:60px"></span><em>5</em></td><td>Automated, re-verified</td></tr>
+              <tr><td class="id">AU</td><td>Audit and Accountability</td><td class="barcell"><span class="bar" style="width:36px"></span><em>3</em></td><td>Automated, re-verified</td></tr>
+              <tr><td class="id">CM</td><td>Configuration Management</td><td class="barcell"><span class="bar" style="width:36px"></span><em>3</em></td><td>Automated, re-verified</td></tr>
+              <tr><td class="id">IA</td><td>Identification and Authentication</td><td class="barcell"><span class="bar" style="width:36px"></span><em>3</em></td><td>Automated, re-verified</td></tr>
+              <tr><td class="id">SC</td><td>System and Communications Protection</td><td class="barcell"><span class="bar" style="width:24px"></span><em>2</em></td><td>Automated, re-verified</td></tr>
+              <tr><td class="id">SI</td><td>System and Information Integrity</td><td class="barcell"><span class="bar" style="width:12px"></span><em>1</em></td><td>Automated, re-verified</td></tr>
+              <tr><td class="id">AT, CA, IR, MA, MP, PE, PS, RA</td><td>Eight remaining domains</td><td class="barcell"><em>—</em></td><td>Practitioner-delivered</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="2">Total automated practices</td><td class="num">17</td><td>of 110 Level 2 practices</td></tr></tfoot>
+          </table>
+        </div>
+        <p class="srcnote">Derived by enumeration of the control identifiers implemented in the AdaptCloud scanner as at the date of issue. Practices in the eight remaining domains are predominantly policy, training and process controls, a substantial proportion of which are not susceptible to automated verification by any vendor. Coverage constitutes the product roadmap and is expected to increase; no commitment as to timing is made in this document.</p>
+      </figure>
+
+      <h3>4.1 Provenance classification</h3>
+      <p>The evidence pipeline applies generative AI to narrative drafting. A generated narrative statement and an observed system fact are visually indistinguishable in a finished package, and conflation of the two is assessed as a material risk to the defensibility of any AI-assisted submission. The two are accordingly separated in the data model and cannot be merged in output.</p>
+      <ul class="reg">
+        <li><span class="k">Observed</span><span><b>Machine-observed.</b> The scanner read live configuration. Carries host, timestamp, and the identifier of the check that produced it.</span></li>
+        <li><span class="k">Asserted</span><span><b>Model-asserted.</b> Drafted from context by the AI layer. Reviewable, and not presented as an observation at any point.</span></li>
+        <li><span class="k">Attested</span><span><b>Human-attested.</b> Signed by a named individual. Required before any model-asserted item enters a submitted package.</span></li>
+      </ul>
     </div>
-    <div class="callout">
-      <p><b>Context for the buyer conversation:</b> a first L2 compliance cycle runs into six figures, and published DoD estimates put the three-year cost for a small contractor near half a million dollars. A $2,990 subscription is not a line item anyone defends — it is rounding. Anchor against assessment preparation hours, never against another tool's price.</p>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">5</span><h2>Data boundary and regulatory scope</h2></div>
+    <div class="body">
+      <p>The scanner executes on the client host and returns control status, findings and scores. Configuration artefacts, system files and controlled unclassified information remain within the client environment. This is an architectural constraint adopted in advance of first contract rather than a present limitation to be remediated.</p>
+      <p>The purpose of the constraint is to keep both parties outside the obligations that attach to a cloud service storing or processing CUI under DFARS 252.204-7012, including the requirement for FedRAMP Moderate authorisation or documented equivalency. Where a client requires a fully hosted posture, that constitutes a separate offering with its own authorisation path and commercial treatment, and is out of scope of this document.</p>
     </div>
   </section>
 
   <section>
-    <p class="eyebrow">What this brief does not claim</p>
-    <ul class="bounds">
-      <li><b>Not a FedRAMP-authorized service.</b> No authorization is held or asserted, and the architecture is designed so none is required for the proposed scope.</li>
-      <li><b>Not a C3PAO and not an assessment.</b> The engine produces evidence. It does not certify, and it does not substitute for an authorized assessor.</li>
-      <li><b>93 practices are not automated.</b> Six of fourteen domains have automated checks today. The rest are human-delivered, and the coverage figure is published rather than implied.</li>
-      <li><b>No CUI is processed by the engine.</b> Findings and scores cross the boundary; artifacts do not.</li>
-      <li><b>No past-performance claim is made in this document.</b> Reference engagements will be named under a mutual NDA, or not at all.</li>
-    </ul>
+    <div class="sec-h"><span class="n">6</span><h2>Commercial construct</h2></div>
+    <div class="body">
+      <p>Pricing is metered on assessment scope, expressed as hosts and enclaves, and not on user seats. Scope is the unit in which the compliance buyer already reasons, and seat-based metering is assessed as adverse to penetration of the smaller subcontractor segment that primes require brought to standard.</p>
+
+      <figure>
+        <figcaption><span>Exhibit 4</span> — Indicative list positions</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Tier</th><th class="num">Scope</th><th class="num">List, annual</th><th>Included</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Lookup</td><td class="num">Unrestricted</td><td class="num">Nil</td><td>Control reference, 800-171 Rev 2 mapping, score calculator. Demand generation; not gated.</td></tr>
+              <tr><td class="id">Scan</td><td class="num">≤ 10 hosts</td><td class="num">$990</td><td>Scheduled assessment, machine-readable evidence, SSP and POA&amp;M export, score tracking.</td></tr>
+              <tr><td class="id">Harden</td><td class="num">≤ 25 hosts</td><td class="num">$2,990</td><td>Remediation with rollback, drift re-verification, fleet view, evidence bundle.</td></tr>
+              <tr><td class="id">Enclave</td><td class="num">≤ 100 hosts</td><td class="num">$18,000 – 30,000</td><td>Landing zone and container baselines, agent identity governance, federated sign-on.</td></tr>
+              <tr><td class="id">Readiness</td><td class="num">Per engagement</td><td class="num">$8,000 – 20,000</td><td>Fixed-fee scaffold, delivered by partner practitioners on the engine.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">List positions in US dollars, exclusive of taxes and of the client's own cloud consumption, which is contracted and billed directly by the client and is never bundled. Partner economics are established against these positions under a co-delivery agreement and are not stated here. The enclave band is wide pending validation of deployment effort; narrowing it is a pilot objective (section 8).</p>
+      </figure>
+
+      <p>Against the cost base at Exhibit 1, the annual subscription tiers represent under one per cent of a first compliance cycle. The recommended anchor in a client conversation is the practitioner hours displaced from assessment preparation, rather than the list price of a comparator tool.</p>
+    </div>
   </section>
 
   <section>
-    <p class="eyebrow">Proposed first step</p>
-    <h2>One shared client, sixty days, defined exit criteria</h2>
-    <ol class="steps">
-      <li><b>Select one mutual DIB client</b> with an active 800-171 obligation and a host estate under 25 machines.</li>
-      <li><b>Joint scan and baseline.</b> Your consultants run the engine; we sit behind them. Output is a scored, provenance-tagged evidence bundle.</li>
-      <li><b>Remediate and re-verify</b> the technically automated controls, then hand the human-delivered domains to your practice on the accelerated timeline the technical evidence buys.</li>
-      <li><b>Measure the library ratio</b> — the share of the delivery that came from existing components versus written fresh. That single number decides whether this scales for you, and it is the criterion we both agree to judge the pilot on.</li>
+    <div class="sec-h"><span class="n">7</span><h2>Assumptions, dependencies and risks</h2></div>
+    <div class="body">
+      <h3>7.1 Assumptions</h3>
+      <ul class="reg">
+        <li><span class="k">A1</span><span>Client hosts are Linux-based and administrative access is provided for the duration of an assessment window.</span></li>
+        <li><span class="k">A2</span><span>The partner provides first-line support to its clients; AdaptCloud provides second-line support to the partner.</span></li>
+        <li><span class="k">A3</span><span>Cloud consumption arising from the landing-zone components is contracted directly by the client and is excluded from all figures in this document.</span></li>
+        <li><span class="k">A4</span><span>Market figures at Exhibit 1 are secondary and unvalidated, as stated.</span></li>
+        <li><span class="k">A5</span><span>The regulatory position stated at section 2 is current as at the date of issue and is subject to the outcome of the reform task force.</span></li>
+      </ul>
+
+      <h3>7.2 Risk register</h3>
+      <figure>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="num">Ref</th><th>Risk</th><th class="num">Assessment</th><th>Mitigation</th><th>Owner</th></tr></thead>
+            <tbody>
+              <tr><td class="id">R1</td><td>Programme reform alters or removes the underlying obligation.</td><td class="num">Medium / High</td><td>Annual contracting with no multi-year commitment; proposition positioned on 800-171 and DFARS obligations, which are independent of the CMMC assessment mechanism.</td><td>Joint</td></tr>
+              <tr><td class="id">R2</td><td>Automated coverage at 17 practices is raised as an objection late in a sales cycle.</td><td class="num">High / Medium</td><td>Coverage published in enablement materials and disclosed at qualification (Exhibit 3).</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">R3</td><td>Engine licensing permits a third party to operate a competing hosted service.</td><td class="num">Medium / High</td><td>Licence position under review; resolution scheduled prior to external contribution to the codebase.</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">R4</td><td>Scope extension results in client CUI entering the engine, triggering authorisation obligations.</td><td class="num">Low / High</td><td>Architectural boundary at section 5, reinforced by contractual restriction in the co-delivery agreement.</td><td>Joint</td></tr>
+              <tr><td class="id">R5</td><td>Delivery capacity at AdaptCloud constrains partner-led scale.</td><td class="num">Medium / Medium</td><td>Enablement transfer during the pilot; the library ratio at section 8 is the leading indicator.</td><td>AdaptCloud</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Assessment expressed as likelihood / impact. Register is indicative and is expected to be restated jointly at pilot initiation.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">8</span><h2>Recommended next step</h2></div>
+    <div class="body">
+      <p>A bounded pilot on a single mutual client, over 60 days, structured in four workstreams and assessed against one quantitative exit criterion.</p>
+      <ul class="reg">
+        <li><span class="k">W1</span><span><b>Selection.</b> One mutual client with an active 800-171 obligation and an estate below 25 hosts. Partner-led.</span></li>
+        <li><span class="k">W2</span><span><b>Baseline.</b> Partner practitioners operate the engine with AdaptCloud in support. Output is a scored, provenance-classified evidence bundle.</span></li>
+        <li><span class="k">W3</span><span><b>Remediation and re-verification</b> of the automated control set, followed by practitioner delivery of the remaining domains on the timeline the technical evidence permits.</span></li>
+        <li><span class="k">W4</span><span><b>Validation</b> of the Exhibit 1 cost assumptions and the Exhibit 4 enclave band against observed effort.</span></li>
+      </ul>
+      <p style="margin-top:18px"><strong>Exit criterion.</strong> The proportion of delivered content originating from existing library components rather than constructed for the engagement, measured at pilot close and compared against a target agreed at initiation. This ratio determines whether the construct scales for the partner, and it is proposed as the sole basis on which the pilot is judged.</p>
+    </div>
+  </section>
+
+  <section class="notes">
+    <h2>Basis of preparation</h2>
+    <p style="font-family:var(--sans); font-size:0.73rem; line-height:1.6; color:var(--ink-faint); max-width:86ch; margin-bottom:14px">This document was prepared from inspection of the AdaptCloud repositories and from publicly available secondary sources cited below. No independent market research, client interview programme or financial audit was undertaken. Coverage figures at Exhibit 3 are derived by direct enumeration of the implemented control set and are verifiable against the source repository. Cost figures at Exhibit 1 are reported estimates that AdaptCloud has not validated. Statements concerning regulatory position are current as at the date of issue and do not constitute legal advice.</p>
+    <h2>Sources</h2>
+    <ol>
+      <li>Reporting on the suspension of CMMC Phase II announced 13 July 2026, and on constitution of the reform task force. <i>A-LIGN; Latham &amp; Watkins; Federal News Network</i>, accessed 6 September 2026.</li>
+      <li>Continuing effect of Phase I self-assessment, DFARS 252.204-7012, NIST SP 800-171 Rev 2 and SPRS submission. <i>A-LIGN; SC Media</i>, accessed 6 September 2026.</li>
+      <li>First-cycle Level 2 compliance cost estimates. <i>IBSS; Godlan</i>, accessed 6 September 2026.</li>
+      <li>Reported departmental three-year cost estimate for a small defence contractor. <i>Godlan</i>, accessed 6 September 2026.</li>
+      <li>Prevailing pricing for purpose-built small-supplier CMMC tooling. <i>CMMC Map; Totem Technologies published pricing</i>, accessed 6 September 2026.</li>
+      <li>Published entry and scale pricing for a mid-market compliance automation platform. <i>Sprinto; vendor-published pricing</i>, accessed 6 September 2026.</li>
     </ol>
   </section>
 
   <footer>
-    AdaptCloud · Issue 1.0 · 2026-09-06<br>
-    Prepared for partner evaluation. Contains no customer-identifying information.<br>
-    Pricing shown is list and is subject to change. Regulatory statements reflect published guidance current at the issue date and are not legal advice.
+    AdaptCloud · Partner Brief · Version 1.0 · 6 September 2026 · Restricted distribution.<br>
+    This document contains no client-identifying information and no past-performance representation. Reference engagements will be provided under non-disclosure agreement where they exist. Pricing is indicative list and subject to change.
   </footer>
 
 </div>
