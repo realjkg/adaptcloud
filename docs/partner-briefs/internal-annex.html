@@ -316,8 +316,10 @@
     th, td { padding: 5px 8px; font-size: 8.4pt; }
     p, td, .reg li, .srcnote, .notes li, footer { max-width: none; }
 
-    /* Pagination */
-    .sec-h, h3 { break-after: avoid; page-break-after: avoid; }
+    /* Pagination. Chromium honors break-after: avoid in paged media (verified),
+       so a heading is pulled forward rather than stranded at a page foot. */
+    .sec-h, h3, figcaption, thead { break-after: avoid; page-break-after: avoid; }
+    p, li, td, dd, .srcnote { orphans: 3; widows: 3; }
     figure, .exec, .decision, .classbar { break-inside: avoid; page-break-inside: avoid; }
     tr, .reg li, .exec li { break-inside: avoid; page-break-inside: avoid; }
     thead { display: table-header-group; }
@@ -385,11 +387,11 @@
       <p>The enclave tier is quoted externally as a range, described in both briefs as varying with the number of landing zones and workload environments in scope. That description is accurate. What is withheld is that <strong>the band has not been validated against observed deployment effort</strong>, because no enclave deployment has yet been delivered at commercial scope. The range is a construction from component cost and estimated effort rather than a measurement.</p>
 
       <h3>3.1 Basis of the current figure</h3>
-      <p>Reference infrastructure cost is documented in the repository at three postures, from approximately $80 to $150 per month at demonstration settings, through module defaults, to several thousand per month at production settings, driven principally by API gateway tier, search unit count and private endpoint count. That cost is the client's and is excluded from the AdaptCloud price under assumption A3. The band therefore expresses deployment and governance effort only, and that effort is the unmeasured quantity.</p>
+      <p>Reference infrastructure cost is documented in the repository at three postures, from approximately $80 to $150 per month at demonstration settings, through module defaults, to several thousand per month at production settings, driven principally by API gateway tier, search unit count, and private endpoint count. That cost is the client's and is excluded from the AdaptCloud price under assumption A3. The band therefore expresses deployment and governance effort only, and that effort is the unmeasured quantity.</p>
 
       <h3>3.2 What would resolve it</h3>
       <ul class="reg">
-        <li><span class="k">M1</span><span>Record practitioner hours to first governed landing zone at production posture, separated into platform establishment, policy assignment and workload onboarding.</span></li>
+        <li><span class="k">M1</span><span>Record practitioner hours to first governed landing zone at production posture, separated into platform establishment, policy assignment, and workload onboarding.</span></li>
         <li><span class="k">M2</span><span>Record the incremental hours for each additional workload environment, which is the variable the band is actually indexed to.</span></li>
         <li><span class="k">M3</span><span>Restate as a fixed platform establishment fee plus a per-environment increment, which removes the range without requiring a single blended figure.</span></li>
       </ul>
