@@ -393,6 +393,48 @@
     section { margin-top: 24px; }
     a { color: inherit; text-decoration: none; }
   }
+
+  .capability {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    padding: 20px 24px 22px;
+    margin-top: 26px;
+  }
+  .capability h2 {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+  .capability p { font-size: 0.95rem; line-height: 1.6; margin: 0 0 12px; max-width: 72ch; }
+  .capability dl {
+    margin: 14px 0 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 16px;
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 14px;
+  }
+  .capability dt {
+    font-family: var(--sans);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: 3px;
+    white-space: nowrap;
+  }
+  .capability dd { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-soft); max-width: 66ch; }
+  .capability dd b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 620px) {
+    .capability dl { grid-template-columns: 1fr; gap: 3px; }
+    .capability dt { padding-top: 10px; }
+  }
 </style>
 
 <div class="doc">
@@ -410,6 +452,20 @@
       <div><dt>Distribution</dt><dd>Restricted — named recipients</dd></div>
     </dl>
   </header>
+
+  <section class="capability" aria-label="Capability statement">
+    <h2>Capability statement</h2>
+    <p>AdaptCloud is a focused compliance-automation platform built to make partner-led delivery more repeatable, auditable, and commercially viable. We do not ask partners to take unbounded product or delivery risk. We provide an accredited delivery method, controlled releases, escalation support, and contractual account protection. Early programs are deliberately structured as joint proof engagements, with evidence and commercial upside shared.</p>
+    <p>The product is built around cloud, security, compliance as code, compliance automation, and hardening use cases. Partner delivery is supported through enablement, documented methods, second-line technical support, and controlled escalation.</p>
+    <dl>
+      <dt>Current stage</dt>
+      <dd>Production-oriented platform and partner-launch program. Early reference engagements are structured as joint, evidence-producing deliveries.</dd>
+      <dt>What we seek<br>to prove</dt>
+      <dd>Faster, more repeatable production of reviewable control evidence and remediation outputs, under the partner's client relationship and brand.</dd>
+      <dt>What we<br>do not claim</dt>
+      <dd>AdaptCloud does not independently grant certifications, and does not replace the judgment of an authorized assessor, auditor, or client accountable official.</dd>
+    </dl>
+  </section>
 
   <section>
     <div class="sec-h"><span class="n">1</span><h2>Executive summary</h2></div>
@@ -501,7 +557,7 @@
             <tfoot><tr><td colspan="2">Total automated practices</td><td class="num">17</td><td>of 110 Level 2 practices</td></tr></tfoot>
           </table>
         </div>
-        <p class="srcnote">Derived by enumerating the control identifiers implemented in the AdaptCloud scanner as of the date of issue, and verifiable against the source repository. The eight remaining domains are largely policy, training, and process controls, a substantial share of which no vendor can verify automatically. Coverage is the product roadmap and will increase; we make no commitment on timing in this document.</p>
+        <p class="srcnote">Internal validation result, not an independently verified production metric. Derived by enumerating the control identifiers implemented in the AdaptCloud scanner at commit 150aaec, July 6, 2026, and reproducible against that revision. A partner may verify it directly against the source at that commit. The eight remaining domains are largely policy, training, and process controls, a substantial share of which no vendor can verify automatically. Coverage is the product roadmap and will increase; we make no commitment on timing in this document.</p>
       </figure>
 
       <p>Read that table the way an assessor will. The automated set is the configuration evidence that is expensive to gather by hand and worthless if it is stale, which is exactly the part worth mechanizing. The human-delivered set is policy and process work that consultants should be doing anyway, and it moves faster once the technical half is already evidenced. That division is the offer, and it is more defensible than a claim of full coverage.</p>
@@ -598,6 +654,27 @@
       </figure>
 
       <p>Against Exhibit 1, the annual subscription tiers land under one percent of a first compliance cycle. We recommend anchoring the client conversation on the practitioner hours displaced from evidence gathering, never on a competitor's list price. The moment this is compared tool to tool it becomes a feature argument, and feature arguments in this category are won by whoever is most willing to overstate coverage.</p>
+
+      <h3>7.1 Partner economics</h3>
+      <p>We publish the framework rather than a single universal percentage, because one number leaves no room for deal quality, services intensity, or volume. A partner should be able to model the deal before committing sellers or consultants.</p>
+
+      <figure>
+        <figcaption><span>Exhibit 6</span> — Margin framework by revenue component</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Revenue component</th><th class="num">Distribution</th><th class="num">Delivery partner</th><th>AdaptCloud</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Software subscription resale</td><td class="num">10–20%</td><td class="num">20–35% when sourcing or owning the opportunity</td><td>Remainder</td></tr>
+              <tr><td class="id">Partner-delivered services</td><td class="num">Nil unless sourced and contracted</td><td class="num">60–80% of client services revenue</td><td>20–40%, and only for enablement, quality assurance, or named specialist support</td></tr>
+              <tr><td class="id">AdaptCloud co-delivery</td><td class="num">Referral or sourcing fee</td><td class="num">Client-facing services margin plus program management</td><td>Specialist day rate or fixed co-delivery package</td></tr>
+              <tr><td class="id">Accreditation and enablement</td><td class="num">Optional resale margin</td><td class="num">May bundle into its services offer</td><td>Training and certification revenue</td></tr>
+              <tr><td class="id">Renewals and expansion</td><td class="num">5–10% on qualified renewal influence</td><td class="num">10–20% where the partner remains active</td><td>Remainder</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Bands, not fixed percentages: deal quality, services intensity, and volume move the number, and exact terms are set in the agreement. The highest software discounts are tied to annual commitment, qualified pipeline, accreditation, or minimum deal size. Solution architecture, custom integration, regulated-environment support, and on-site work are charged separately. A partner price floor applies on registered deals, so a partner knows we will not destabilize its proposal.</p>
+      </figure>
+      <p>The intent is that a delivery partner preserves the economics it already expects: software margin for carrying the platform, services margin for owning delivery, recurring revenue for account stewardship, upside for creating pipeline, and no direct-sales conflict.</p>
 
       <p>One structural point we would press in the agreement: contract this as an annual subscription with delivery included, not as time and materials. The work is identical and the margin is similar, but T&amp;M re-anchors the client on an hourly rate, makes the revenue lumpy, and values the practice at a services multiple rather than a product one.</p>
     </div>

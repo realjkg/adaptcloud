@@ -1,0 +1,191 @@
+<title>AdaptCloud Partner FAQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --paper:#FBFBFA; --surface:#FFFFFF; --surface-2:#F1F3F4;
+    --ink:#16191D; --ink-soft:#4C555E; --ink-faint:#79828A;
+    --rule:#CFD5DA; --rule-soft:#E4E8EB; --accent:#123A63; --proof:#1F5F3F;
+    --sans:"Libre Franklin","Helvetica Neue",Arial,sans-serif;
+    --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0F1214; --surface:#171B1F; --surface-2:#1F252A;
+      --ink:#E3E7EA; --ink-soft:#A8B1B8; --ink-faint:#7C868D;
+      --rule:#333C43; --rule-soft:#242B31; --accent:#7FAAD6; --proof:#5CA37C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0F1214; --surface:#171B1F; --surface-2:#1F252A;
+    --ink:#E3E7EA; --ink-soft:#A8B1B8; --ink-faint:#7C868D;
+    --rule:#333C43; --rule-soft:#242B31; --accent:#7FAAD6; --proof:#5CA37C;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--serif);
+         font-size: 16.5px; line-height: 1.62; margin: 0; padding: 0 22px 96px;
+         -webkit-font-smoothing: antialiased; }
+  .page { max-width: 800px; margin: 0 auto; }
+
+  header { padding: 56px 0 0; }
+  .eyebrow { font-family: var(--sans); font-size: 0.7rem; font-weight: 700;
+             letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+  h1 { font-family: var(--sans); font-weight: 600; font-size: clamp(1.7rem, 4vw, 2.3rem);
+       line-height: 1.15; letter-spacing: -0.018em; text-wrap: balance; margin: 0 0 18px; max-width: 20ch; }
+  .lede { font-size: 1.06rem; color: var(--ink-soft); max-width: 66ch; margin: 0 0 10px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  hr { border: none; border-top: 2px solid var(--ink); margin: 34px 0 0; }
+
+  h2 { font-family: var(--sans); font-weight: 700; font-size: 0.7rem; letter-spacing: 0.15em;
+       text-transform: uppercase; color: var(--ink-faint); margin: 48px 0 4px;
+       padding-bottom: 9px; border-bottom: 1px solid var(--rule); }
+
+  .qa { padding: 24px 0; border-bottom: 1px solid var(--rule-soft); }
+  .qa:last-of-type { border-bottom: none; }
+  h3 { font-family: var(--sans); font-weight: 600; font-size: 1.03rem; line-height: 1.35;
+       letter-spacing: -0.006em; text-wrap: balance; margin: 0 0 10px; color: var(--ink); }
+  .qa p { margin: 0 0 12px; max-width: 68ch; color: var(--ink-soft); }
+  .qa p:last-child { margin-bottom: 0; }
+  .qa p strong { color: var(--ink); font-weight: 600; }
+
+  .proof { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .proof span { font-family: var(--sans); font-size: 0.68rem; font-weight: 500;
+                letter-spacing: 0.02em; color: var(--proof); border: 1px solid var(--proof);
+                border-radius: 2px; padding: 3px 8px; }
+  .proof b { font-family: var(--sans); font-size: 0.66rem; font-weight: 700;
+             letter-spacing: 0.11em; text-transform: uppercase; color: var(--ink-faint);
+             align-self: center; margin-right: 4px; }
+
+  footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--rule);
+           font-family: var(--sans); font-size: 0.74rem; line-height: 1.65;
+           color: var(--ink-faint); max-width: 80ch; }
+
+  @page { size: letter; margin: 16mm 15mm 18mm; }
+  @media print {
+    :root { --paper:#FFF; --surface:#FFF; --ink:#16191D; --ink-soft:#3C454D;
+            --ink-faint:#5F6870; --rule:#B4BCC2; --rule-soft:#DBE0E4; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { background:#FFF; font-size: 10.5pt; padding: 0; margin: 0; }
+    h2, h3 { break-after: avoid; page-break-after: avoid; }
+    .qa { break-inside: avoid; page-break-inside: avoid; }
+    p, li { orphans: 3; widows: 3; max-width: none; }
+  }
+</style>
+
+<div class="page">
+  <header>
+    <p class="eyebrow">AdaptCloud · Partner Program</p>
+    <h1>Partner questions, answered directly</h1>
+    <p class="lede">These are the questions partners actually ask us, with the mechanism behind each answer rather than a reassurance. <strong>Where the honest answer is a limit, we state the limit.</strong></p>
+    <hr>
+  </header>
+
+  <h2>Working with a newer vendor</h2>
+
+  <div class="qa">
+    <h3>You are new. Why should we bet our client relationship on you?</h3>
+    <p>Do not bet the account on us. Start with a bounded, partner-led proof engagement with a defined scope, written acceptance criteria, and a joint escalation model. If it does not meet the criteria, it ends there and the client relationship is untouched.</p>
+    <div class="proof"><b>Mechanism</b><span>Paid pilot SOW</span><span>Readiness checklist</span><span>Acceptance test</span><span>Named escalation path</span><span>Post-engagement report</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Your team is too small. Can you support several deals at once?</h3>
+    <p>We cap accredited launch cohorts and delivery capacity, and we do not oversell. The model transfers repeatable work to trained partner teams while AdaptCloud retains product escalations. If we cannot support a cohort, we say so before you commit sellers, not after.</p>
+    <div class="proof"><b>Mechanism</b><span>Capacity plan</span><span>Partner tiering</span><span>Onboarding gates</span><span>Service-level boundaries</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Who are your references?</h3>
+    <p>We will not invent references. For initial programs we offer a joint reference path: an NDA case study with a measured baseline and outcome, and the option for the partner to use the engagement as its own reference. Reference rights move up a ladder — internal evidence, anonymized case study, named case study, reference call — each step requiring specific client permission.</p>
+    <div class="proof"><b>Mechanism</b><span>Reference agreement</span><span>Anonymized case-study template</span><span>Client permission workflow</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>What if you do not survive as a company?</h3>
+    <p>We address continuity contractually and architecturally: exportable evidence in open formats, documented configurations, and an agreed transition or escrow plan proportionate to the engagement. Your client's evidence is not hostage to our corporate status.</p>
+    <div class="proof"><b>Mechanism</b><span>Data export terms</span><span>Transition assistance</span><span>Source escrow where commercially appropriate</span><span>Continuity plan</span></div>
+  </div>
+
+  <h2>Delivery and operational risk</h2>
+
+  <div class="qa">
+    <h3>What happens when the product fails in a customer environment?</h3>
+    <p>The partner remains the client-facing delivery lead. AdaptCloud provides second-line product support, documented rollback procedures, and agreed severity targets for the supported scope. Ownership of the client conversation does not change mid-incident.</p>
+    <div class="proof"><b>Mechanism</b><span>Support policy</span><span>Incident process</span><span>Release notes</span><span>Rollback plan</span><span>Severity matrix</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Can our consultants deliver it without you?</h3>
+    <p>Yes, after accreditation. We co-deliver the first engagements to transfer the method; accredited consultants lead subsequent engagements while we provide second-line support. Only accredited personnel may lead a production delivery, which is a rule we hold to rather than a preference.</p>
+    <div class="proof"><b>Mechanism</b><span>Certification path</span><span>Facilitator guide</span><span>Delivery runbook</span><span>Partner sandbox</span><span>Quality gates</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Will this work for our clients' environments?</h3>
+    <p>We qualify environment fit before the statement of work. Where prerequisites are not met we identify that explicitly rather than burying it in implementation and discovering it in week three.</p>
+    <div class="proof"><b>Mechanism</b><span>Discovery questionnaire</span><span>Deployment prerequisites</span><span>Integration matrix</span><span>Exclusion list</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>What is the implementation timeline?</h3>
+    <p>We provide a phased plan with prerequisites, partner and client responsibilities, weekly checkpoints, and a written definition of done. We do not quote a universal timeline before qualification, because a timeline given before discovery is a guess wearing a date.</p>
+    <div class="proof"><b>Mechanism</b><span>Delivery plan</span><span>Milestone plan</span><span>Discovery output</span><span>Dependencies register</span></div>
+  </div>
+
+  <h2>Commercial terms</h2>
+
+  <div class="qa">
+    <h3>Where is the margin?</h3>
+    <p>We publish margin bands by role and attach model. Partners choose the commercial model per deal, and the economics are transparent before you invest sales or delivery capacity. Bands rather than one fixed percentage, because deal quality, services intensity, and volume all move the number.</p>
+    <div class="proof"><b>Mechanism</b><span>Rate card</span><span>Discount schedule</span><span>Sample deal economics</span><span>Program funds where offered</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Will you go direct after we create demand?</h3>
+    <p>No. Registered accounts are partner-protected. We do not sell direct into partner-sourced or partner-led registered opportunities without written partner consent, and that is a contract term rather than an assurance.</p>
+    <div class="proof"><b>Mechanism</b><span>Deal registration</span><span>Protection term</span><span>Non-circumvention clause</span><span>CRM attribution</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Will you undercut us on price?</h3>
+    <p>Partner-led opportunities follow registered-opportunity pricing. Any exception requires joint approval, and we do not quote below the agreed partner floor into protected accounts.</p>
+    <div class="proof"><b>Mechanism</b><span>Pricing governance</span><span>Opportunity registration</span><span>Discount-approval rules</span><span>Partner price floor</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Can we white-label it?</h3>
+    <p>We support a defined co-branded or partner-led delivery model. White-labeling is a commercial and support commitment rather than an informal promise, and it is available only at accredited tiers.</p>
+    <div class="proof"><b>Mechanism</b><span>Brand-use policy</span><span>Tier benefits</span><span>Minimum commitments</span><span>Support boundaries</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>What exactly are you selling?</h3>
+    <p>Three separable components: platform subscription, partner-delivered professional services, and optional AdaptCloud enablement and support. Customers and partners can see each cost and each responsibility rather than a bundled figure.</p>
+    <div class="proof"><b>Mechanism</b><span>Offer catalog</span><span>Order form</span><span>SOW templates</span><span>RACI</span></div>
+  </div>
+
+  <h2>Product, evidence, and AI</h2>
+
+  <div class="qa">
+    <h3>Why not use an established platform?</h3>
+    <p>Use the incumbent where it is already the operational standard. Use AdaptCloud where the constraint is repeatable evidence, faster control implementation, or a partner-owned delivery motion. We compete on a defined wedge and do not claim to replace every platform.</p>
+    <div class="proof"><b>Mechanism</b><span>Narrow-use-case comparison</span><span>Time-to-evidence benchmark</span><span>Library coverage metrics</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Can you prove the controls and evidence are reliable?</h3>
+    <p>Every output is traceable to its source, version, execution context, reviewer, and supporting artifact. We distinguish platform-generated evidence from client-attested evidence, so a reviewer can tell which is which without asking.</p>
+    <div class="proof"><b>Mechanism</b><span>Provenance model</span><span>Evidence schema</span><span>Sample export</span><span>Audit trail</span><span>QA review procedure</span></div>
+  </div>
+
+  <div class="qa">
+    <h3>Is AI creating unacceptable risk?</h3>
+    <p>AI assists analysis and workflow. It does not replace accountable human review and does not make unsubstantiated compliance determinations. High-impact outputs are reviewable, traceable, and policy-controlled.</p>
+    <div class="proof"><b>Mechanism</b><span>Human-in-the-loop policy</span><span>AI usage statement</span><span>Logging</span><span>Output review controls</span></div>
+  </div>
+
+  <footer>
+    AdaptCloud does not independently grant certifications and does not replace the judgment of an authorized assessor, auditor, or client accountable official. Margin bands, protection terms, and support levels are indicative and are set in the partner agreement. Nothing on this page is legal advice.
+  </footer>
+</div>

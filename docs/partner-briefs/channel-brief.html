@@ -357,6 +357,48 @@
     section { margin-top: 24px; }
     a { color: inherit; text-decoration: none; }
   }
+
+  .capability {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    padding: 20px 24px 22px;
+    margin-top: 26px;
+  }
+  .capability h2 {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+  .capability p { font-size: 0.95rem; line-height: 1.6; margin: 0 0 12px; max-width: 72ch; }
+  .capability dl {
+    margin: 14px 0 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 16px;
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 14px;
+  }
+  .capability dt {
+    font-family: var(--sans);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: 3px;
+    white-space: nowrap;
+  }
+  .capability dd { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-soft); max-width: 66ch; }
+  .capability dd b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 620px) {
+    .capability dl { grid-template-columns: 1fr; gap: 3px; }
+    .capability dt { padding-top: 10px; }
+  }
 </style>
 
 <div class="doc">
@@ -374,6 +416,20 @@
       <div><dt>Distribution</dt><dd>Restricted — named recipients</dd></div>
     </dl>
   </header>
+
+  <section class="capability" aria-label="Capability statement">
+    <h2>Capability statement</h2>
+    <p>AdaptCloud is a focused compliance-automation platform built to make partner-led delivery more repeatable, auditable, and commercially viable. We do not ask partners to take unbounded product or delivery risk. We provide an accredited delivery method, controlled releases, escalation support, and contractual account protection. Early programs are deliberately structured as joint proof engagements, with evidence and commercial upside shared.</p>
+    <p>The product is built around cloud, security, compliance as code, compliance automation, and hardening use cases. Partner delivery is supported through enablement, documented methods, second-line technical support, and controlled escalation.</p>
+    <dl>
+      <dt>Current stage</dt>
+      <dd>Production-oriented platform and partner-launch program. Early reference engagements are structured as joint, evidence-producing deliveries.</dd>
+      <dt>What we seek<br>to prove</dt>
+      <dd>Faster, more repeatable production of reviewable control evidence and remediation outputs, under the partner's client relationship and brand.</dd>
+      <dt>What we<br>do not claim</dt>
+      <dd>AdaptCloud does not independently grant certifications, and does not replace the judgment of an authorized assessor, auditor, or client accountable official.</dd>
+    </dl>
+  </section>
 
   <section>
     <div class="sec-h"><span class="n">1</span><h2>Executive summary</h2></div>
@@ -419,7 +475,7 @@
     <div class="sec-h"><span class="n">3</span><h2>Offering description</h2></div>
     <div class="body">
       <p>The offering is a host assessment binary, a versioned control library, and infrastructure-as-code modules for governed cloud deployment. The binary assesses a host against the library, applies remediation on an explicit flag, re-verifies the result, and emits machine-readable evidence. It returns a non-zero exit status while findings remain open, so it drops into an existing pipeline without a wrapper.</p>
-      <p><strong>Automated coverage is seventeen practices across six of the fourteen control domains,</strong> against 110 practices at Level 2. The remaining domains are largely policy, training, and process controls, a substantial share of which no vendor can verify automatically. We publish that figure in the enablement materials and disclose it at qualification rather than describing coverage in general terms. In this category an overstated scope is discovered in front of the client's assessor, and it costs the account and the reference together.</p>
+      <p><strong>Automated coverage is seventeen practices across six of the fourteen control domains,</strong> against 110 practices at Level 2. That figure is an internal validation result at commit 150aaec, July 6, 2026, reproducible against that revision, and is not presented as an independently verified production metric. The remaining domains are largely policy, training, and process controls, a substantial share of which no vendor can verify automatically. We publish that figure in the enablement materials and disclose it at qualification rather than describing coverage in general terms. In this category an overstated scope is discovered in front of the client's assessor, and it costs the account and the reference together.</p>
       <p>The cloud modules stand up a governed application platform with policy-as-code enforcement and a discrete workload identity per AI agent, aligned to published cloud adoption framework guidance. This addresses governance of AI agents, a control problem the buyer base is walking into now with no established pattern. We regard it as the least substitutable part of the offering and the strongest differentiator in a catalog where the scanning category is crowded.</p>
       <p>Every item in an evidence bundle carries a provenance classification: machine-observed, model-asserted, or human-attested. Generative AI drafts narrative and is never presented as observation. That separation is enforced in the data model, and it is what allows an AI-assisted submission to survive an assessor's review rather than collapse under it.</p>
     </div>
@@ -448,6 +504,26 @@
         <p class="srcnote">List positions in US dollars, exclusive of taxes. Client cloud consumption arising from AC-ENCLAVE-100 is contracted and paid directly by the client and is never bundled into a catalog price, so no reference carries a pass-through that would distort comparison against competing products. Distributor terms are open. The enclave position varies with the number of landing zones and workload environments in scope and is quoted per client.</p>
       </figure>
 
+      <h3>4.1 Channel economics</h3>
+      <p>We publish the framework rather than a single universal percentage, because one number leaves no room for deal quality, services intensity, or volume. A partner manager should be able to model the line before allocating sellers.</p>
+
+      <figure>
+        <figcaption><span>Exhibit 3</span> — Margin framework by revenue component</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Revenue component</th><th class="num">Distribution</th><th class="num">Delivery partner</th><th>AdaptCloud</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Software subscription resale</td><td class="num">10–20%</td><td class="num">20–35% when sourcing or owning the opportunity</td><td>Remainder</td></tr>
+              <tr><td class="id">Partner-delivered services</td><td class="num">Nil unless sourced and contracted</td><td class="num">60–80% of client services revenue</td><td>20–40%, and only for enablement, quality assurance, or named specialist support</td></tr>
+              <tr><td class="id">AdaptCloud co-delivery</td><td class="num">Referral or sourcing fee</td><td class="num">Client-facing services margin plus program management</td><td>Specialist day rate or fixed co-delivery package</td></tr>
+              <tr><td class="id">Accreditation and enablement</td><td class="num">Optional resale margin</td><td class="num">May bundle into its services offer</td><td>Training and certification revenue</td></tr>
+              <tr><td class="id">Renewals and expansion</td><td class="num">5–10% on qualified renewal influence</td><td class="num">10–20% where the partner remains active</td><td>Remainder</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Bands, not fixed percentages: deal quality, services intensity, and volume move the number, and exact terms are set in the agreement. The highest software discounts are tied to annual commitment, qualified pipeline, accreditation, or minimum deal size. Solution architecture, custom integration, regulated-environment support, and on-site work are charged separately. A partner price floor applies on registered deals, so a partner knows we will not destabilize its proposal.</p>
+      </figure>
+
       <p>The renewal profile follows the obligation: annual, recurring, with a natural re-engagement event each cycle. We have structured the catalog as renewing subscription rather than perpetual license for that reason, and we would resist any restructuring toward perpetual, which converts a compounding revenue line into an attach-rate problem.</p>
     </div>
   </section>
@@ -456,7 +532,7 @@
     <div class="sec-h"><span class="n">5</span><h2>Contracting readiness</h2></div>
     <div class="body">
       <figure>
-        <figcaption><span>Exhibit 3</span> — Readiness position by item</figcaption>
+        <figcaption><span>Exhibit 4</span> — Readiness position by item</figcaption>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Item</th><th>Position</th><th>Note</th></tr></thead>
@@ -563,7 +639,7 @@
 
   <section class="notes">
     <h2>Basis of preparation</h2>
-    <p style="font-family:var(--sans); font-size:0.73rem; line-height:1.6; color:var(--ink-faint); max-width:86ch; margin-bottom:14px">Prepared from inspection of the AdaptCloud repositories and from the publicly available secondary sources cited below. No independent market research, buyer interview program or financial audit was undertaken for this document. The coverage figure at section 3 is derived by direct enumeration of the implemented control set and is verifiable against the source repository. The cost figures at Exhibit 1 are reported estimates we have not validated. Statements on regulatory position are current as of the date of issue and are not legal advice. No representation is made as to contract vehicle eligibility, which is stated as not held at Exhibit 3.</p>
+    <p style="font-family:var(--sans); font-size:0.73rem; line-height:1.6; color:var(--ink-faint); max-width:86ch; margin-bottom:14px">Prepared from inspection of the AdaptCloud repositories and from the publicly available secondary sources cited below. No independent market research, buyer interview program or financial audit was undertaken for this document. The coverage figure at section 3 is derived by direct enumeration of the implemented control set and is verifiable against the source repository. The cost figures at Exhibit 1 are reported estimates we have not validated. Statements on regulatory position are current as of the date of issue and are not legal advice. No representation is made as to contract vehicle eligibility, which is stated as not held at Exhibit 4.</p>
     <h2>Sources</h2>
     <ol>
       <li>Reporting on the suspension of CMMC Phase II announced July 13, 2026, and on the constitution of the reform task force. <i>A-LIGN; Latham &amp; Watkins; Federal News Network</i>, accessed September 6, 2026.</li>
