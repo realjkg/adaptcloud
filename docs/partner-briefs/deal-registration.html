@@ -1,0 +1,562 @@
+<title>AdaptCloud Deal Registration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --paper:     #FBFBFA;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F3F4;
+    --ink:       #16191D;
+    --ink-soft:  #4C555E;
+    --ink-faint: #79828A;
+    --rule:      #CFD5DA;
+    --rule-soft: #E4E8EB;
+    --accent:    #123A63;
+    --accent-2:  #2E6FA8;
+    --ok:        #1F5F3F;
+    --open:      #8A5A10;
+    --na:        #6B7280;
+
+    --sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F1214;
+      --surface:   #171B1F;
+      --surface-2: #1F252A;
+      --ink:       #E3E7EA;
+      --ink-soft:  #A8B1B8;
+      --ink-faint: #7C868D;
+      --rule:      #333C43;
+      --rule-soft: #242B31;
+      --accent:    #7FAAD6;
+      --accent-2:  #9CC1E5;
+      --ok:        #5CA37C;
+      --open:      #C89340;
+      --na:        #8A939A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F1214;
+    --surface:   #171B1F;
+    --surface-2: #1F252A;
+    --ink:       #E3E7EA;
+    --ink-soft:  #A8B1B8;
+    --ink-faint: #7C868D;
+    --rule:      #333C43;
+    --rule-soft: #242B31;
+    --accent:    #7FAAD6;
+    --accent-2:  #9CC1E5;
+    --ok:        #5CA37C;
+    --open:      #C89340;
+    --na:        #8A939A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 22px 88px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .doc { max-width: 940px; margin: 0 auto; }
+
+  .masthead { padding-top: 44px; }
+  .issuer {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+  .doctype {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 22px;
+  }
+  h1 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(1.5rem, 3.4vw, 2.05rem);
+    line-height: 1.2;
+    letter-spacing: -0.014em;
+    text-wrap: balance;
+    margin: 0 0 26px;
+    max-width: 26ch;
+  }
+
+  .control {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .control div {
+    padding: 11px 16px 12px 0;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .control div:last-child { border-right: none; }
+  .control dt {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 4px;
+  }
+  .control dd {
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  section { margin-top: 44px; }
+  .sec-h {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 9px;
+    margin-bottom: 18px;
+  }
+  .sec-h .n {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .sec-h h2 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.02rem;
+    letter-spacing: 0.004em;
+    line-height: 1.3;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .body { padding-left: 42px; }
+  @media (max-width: 620px) {
+    .sec-h { grid-template-columns: 30px 1fr; }
+    .body { padding-left: 0; }
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.86rem;
+    letter-spacing: 0.02em;
+    margin: 24px 0 8px;
+    color: var(--ink);
+  }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+
+  sup.fn {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--accent);
+    vertical-align: super;
+    line-height: 0;
+    padding-left: 1px;
+  }
+
+  .exec {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 22px 26px 24px;
+  }
+  .exec ol { margin: 0; padding-left: 20px; }
+  .exec li { margin-bottom: 12px; font-size: 0.95rem; line-height: 1.55; max-width: 68ch; }
+  .exec li:last-child { margin-bottom: 0; }
+  .exec li b { font-weight: 600; }
+
+  figure { margin: 22px 0; }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  figcaption span { color: var(--accent); }
+  .srcnote {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--ink-faint);
+    margin-top: 7px;
+    max-width: 78ch;
+  }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; min-width: 600px; background: var(--surface); }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--sans);
+  }
+  th {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td { font-size: 0.84rem; line-height: 1.5; color: var(--ink-soft); }
+  td b, td strong { color: var(--ink); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.id { font-weight: 600; color: var(--ink); white-space: nowrap; letter-spacing: 0.01em; }
+
+  .pill {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+    display: inline-block;
+  }
+  .pill.ok { color: var(--ok); }
+  .pill.open { color: var(--open); }
+  .pill.na { color: var(--na); }
+
+  .reg { list-style: none; padding: 0; margin: 0; }
+  .reg li {
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 76ch;
+  }
+  .reg li:first-child { padding-top: 0; }
+  .reg li:last-child { border-bottom: none; }
+  .reg .k {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    padding-top: 2px;
+  }
+  .reg b { color: var(--ink); font-weight: 600; }
+
+  .notes {
+    margin-top: 46px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+  }
+  .notes h2 {
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+  .notes ol { margin: 0; padding-left: 20px; }
+  .notes li {
+    font-family: var(--sans);
+    font-size: 0.73rem;
+    line-height: 1.6;
+    color: var(--ink-faint);
+    margin-bottom: 7px;
+    max-width: 86ch;
+  }
+  .notes li i { font-style: italic; }
+
+  footer {
+    margin-top: 34px;
+    padding-top: 14px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.65;
+    color: var(--ink-faint);
+    max-width: 86ch;
+  }
+
+  /* ── Print ──────────────────────────────────────────── */
+  
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 15px 20px 16px;
+  }
+  .callout p { font-size: 0.9rem; line-height: 1.55; margin: 0; color: var(--ink-soft); max-width: 74ch; }
+  .callout p b { color: var(--ink); font-weight: 600; }
+
+  @page { size: letter; margin: 16mm 15mm 18mm; }
+
+  @media print {
+    :root {
+      --paper:     #FFFFFF;
+      --surface:   #FFFFFF;
+      --surface-2: #F0F2F4;
+      --ink:       #16191D;
+      --ink-soft:  #3C454D;
+      --ink-faint: #5F6870;
+      --rule:      #B4BCC2;
+      --rule-soft: #DBE0E4;
+      --accent:    #123A63;
+      --ok:        #1F5F3F;
+      --open:      #7A4E0D;
+      --na:        #5B6470;
+      --restrict:  #8A2E1F;
+    }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html { font-size: 10.5pt; }
+    html, body { background: #FFFFFF; margin: 0; padding: 0; font-size: 10.5pt; }
+    .doc { max-width: none; }
+
+    /* Wide content is scrollable on screen and must not be clipped on paper. */
+    .tablewrap { overflow: visible !important; }
+    table { min-width: 0 !important; width: 100%; }
+    th, td { padding: 5px 8px; font-size: 8.4pt; }
+    p, td, .reg li, .srcnote, .notes li, footer { max-width: none; }
+
+    /* Pagination. Chromium honors break-after: avoid in paged media (verified),
+       so a heading is pulled forward rather than stranded at a page foot. */
+    .sec-h, h3, figcaption, thead { break-after: avoid; page-break-after: avoid; }
+    p, li, td, dd, .srcnote { orphans: 3; widows: 3; }
+    figure, .exec, .decision, .classbar, .callout { break-inside: avoid; page-break-inside: avoid; }
+    tr, .reg li, .exec li { break-inside: avoid; page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    .notes { break-before: page; page-break-before: always; }
+    footer { break-inside: avoid; page-break-inside: avoid; }
+
+    .masthead { padding-top: 0; }
+    section { margin-top: 24px; }
+    a { color: inherit; text-decoration: none; }
+  }
+
+  .capability {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    padding: 20px 24px 22px;
+    margin-top: 26px;
+  }
+  .capability h2 {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+  .capability p { font-size: 0.95rem; line-height: 1.6; margin: 0 0 12px; max-width: 72ch; }
+  .capability dl {
+    margin: 14px 0 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 16px;
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 14px;
+  }
+  .capability dt {
+    font-family: var(--sans);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: 3px;
+    white-space: nowrap;
+  }
+  .capability dd { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-soft); max-width: 66ch; }
+  .capability dd b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 620px) {
+    .capability dl { grid-template-columns: 1fr; gap: 3px; }
+    .capability dt { padding-top: 10px; }
+  }
+
+  .param { background: var(--surface-2); border: 1px solid var(--rule); border-left: 3px solid var(--open); }
+  .param td, .param th { background: transparent; }
+  .note { background: var(--surface); border-left: 3px solid var(--open); padding: 14px 18px 15px; margin: 18px 0; }
+  .note p { font-size: 0.9rem; line-height: 1.55; margin: 0; color: var(--ink-soft); max-width: 74ch; }
+  .note p b { color: var(--ink); font-weight: 600; }
+  .steps { list-style: none; padding: 0; margin: 0; counter-reset: s; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 14px;
+              padding: 10px 0; border-bottom: 1px solid var(--rule-soft);
+              font-size: 0.92rem; line-height: 1.55; color: var(--ink-soft); max-width: 76ch; }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(s); font-family: var(--sans); font-size: 0.72rem; font-weight: 700;
+                      color: var(--accent); border: 1px solid var(--rule); background: var(--surface);
+                      padding: 2px 0; text-align: center; height: fit-content; }
+  .steps li b { color: var(--ink); font-weight: 600; }
+</style>
+
+<div class="doc">
+
+  <header class="masthead">
+    <p class="issuer">AdaptCloud</p>
+    <p class="doctype">Deal Registration — Form and Tracker</p>
+    <h1>How an opportunity is registered and recorded</h1>
+
+    <dl class="control">
+      <div><dt>Version</dt><dd>1.0</dd></div>
+      <div><dt>Date of issue</dt><dd>September 6, 2026</dd></div>
+      <div><dt>Status</dt><dd>Operational</dd></div>
+      <div><dt>Governed by</dt><dd>Rules of Engagement §3</dd></div>
+      <div><dt>Submit to</dt><dd>AdaptCloud channel contact</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <div class="sec-h"><span class="n">1</span><h2>How it works</h2></div>
+    <div class="body">
+      <ol class="steps">
+        <li><b>Submit</b> the fields at section 2, before substantive joint activity on the opportunity.</li>
+        <li><b>Decision within five business days:</b> accepted, rejected with a stated ground, or duplicate. Silence is acceptance.</li>
+        <li><b>Acceptance creates a tracker record</b> and starts the 90-day protection period.</li>
+        <li><b>Keep it current.</b> One recorded activity every 30 days holds protection open.</li>
+      </ol>
+      <div class="note">
+        <p><b>Register early, not when the deal looks certain.</b> Conflicts are decided on the tracker record, so an opportunity worked but never registered has no protection to assert. Registration costs nothing and is reversible.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">2</span><h2>Registration form</h2></div>
+    <div class="body">
+      <figure>
+        <figcaption><span>Exhibit 1</span> — Fields submitted by the Partner</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Field</th><th class="num">Required</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Partner legal entity</td><td class="num">Yes</td><td>Contracting entity, not trading name</td></tr>
+              <tr><td class="id">Partner contact</td><td class="num">Yes</td><td>Name, role, email. The person accountable for pursuit</td></tr>
+              <tr><td class="id">Partner delivery lead</td><td class="num">Where services attach</td><td>Named individual, per qualification check Q4</td></tr>
+              <tr><td class="id">End client legal entity</td><td class="num">Yes</td><td>Registration attaches to this entity</td></tr>
+              <tr><td class="id">Client site or business unit</td><td class="num">Yes</td><td>Where the account is large or federated</td></tr>
+              <tr><td class="id">Registered use case</td><td class="num">Yes</td><td>Workload, business unit, or compliance scope. <b>Protection extends no further than this description</b></td></tr>
+              <tr><td class="id">Client problem statement</td><td class="num">Yes</td><td>One or two sentences. Qualification check Q1</td></tr>
+              <tr><td class="id">Estimated host or enclave scope</td><td class="num">Yes</td><td>Drives tier and pricing</td></tr>
+              <tr><td class="id">Products anticipated</td><td class="num">Yes</td><td>Catalog references</td></tr>
+              <tr><td class="id">Services attach</td><td class="num">Yes</td><td>Partner-delivered, AdaptCloud co-delivery, or none</td></tr>
+              <tr><td class="id">Estimated value and close date</td><td class="num">Yes</td><td>Best estimate; not binding</td></tr>
+              <tr><td class="id">Client contact known</td><td class="num">Yes or no</td><td>Contact details not required at registration</td></tr>
+              <tr><td class="id">Prior AdaptCloud contact</td><td class="num">Yes</td><td>Declare any known prior contact with this account</td></tr>
+              <tr><td class="id">Environment prerequisites</td><td class="num">If known</td><td>Operating systems, cloud tenancy, access model</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Fourteen fields, of which twelve are always required. The form is deliberately short: a registration that takes an hour to complete does not get completed, and an unregistered opportunity is an unprotected one.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">3</span><h2>Decision</h2></div>
+    <div class="body">
+      <p>AdaptCloud returns one of three outcomes within five business days.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Outcome</th><th>When</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><td class="id"><span class="pill ok">Accepted</span></td><td>No conflicting prior registration and no documented prior direct pursuit</td><td>Tracker record created; protection period starts</td></tr>
+            <tr><td class="id"><span class="pill open">Rejected</span></td><td>Prior accepted registration for the same account and use case, documented prior direct pursuit, or a materially incomplete submission</td><td>Ground stated in writing. Partner may resubmit if the ground is incompleteness</td></tr>
+            <tr><td class="id"><span class="pill na">Duplicate</span></td><td>Same account and use case already registered by another partner</td><td>First accepted registration prevails. A different use case at the same account may be registered separately</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">4</span><h2>Tracker record</h2></div>
+    <div class="body">
+      <p>The tracker is the system of record and the primary evidence in any channel conflict. AdaptCloud maintains it; the Partner may request its own records at any time.</p>
+      <figure>
+        <figcaption><span>Exhibit 2</span> — Fields AdaptCloud maintains</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Field</th><th>Source</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Registration ID</td><td>Generated</td><td>Format REG-YYYY-NNN. Quoted in all conflict correspondence</td></tr>
+              <tr><td class="id">Submitted, decided dates</td><td>Generated</td><td>Decision window measured from submitted</td></tr>
+              <tr><td class="id">Status</td><td>Maintained</td><td>Section 5 vocabulary</td></tr>
+              <tr><td class="id">All submitted fields</td><td>Form</td><td>Stored as submitted, not edited</td></tr>
+              <tr><td class="id">Protection expiry</td><td>Calculated</td><td>Acceptance plus 90 days, plus any extension</td></tr>
+              <tr><td class="id">Activity log</td><td>Partner-reported</td><td>Date and one line per activity. Holds protection open</td></tr>
+              <tr><td class="id">Last activity date</td><td>Calculated</td><td>Drives the 30-day inactivity notice</td></tr>
+              <tr><td class="id">Notices issued</td><td>Maintained</td><td>Inactivity notice, cure deadline, extension grants</td></tr>
+              <tr><td class="id">Pricing approved</td><td>Maintained</td><td>Agreed structure and any approved floor exception</td></tr>
+              <tr><td class="id">Outcome</td><td>Maintained</td><td>Won, lost, lapsed, withdrawn, with date</td></tr>
+              <tr><td class="id">Conflict record</td><td>Maintained</td><td>Any dispute raised, decision, and remedy</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">5</span><h2>Status vocabulary</h2></div>
+    <div class="body">
+      <p>A registration holds exactly one status. The terms are closed; no other value is recorded.</p>
+      <ul class="reg">
+        <li><span class="k">Submitted</span><span>Received, decision pending. Protection has not started.</span></li>
+        <li><span class="k">Accepted</span><span>Protection running. Activity expected every 30 days.</span></li>
+        <li><span class="k">Rejected</span><span>Not registered. Ground recorded.</span></li>
+        <li><span class="k">Notice</span><span>Inactivity notice issued, cure period running.</span></li>
+        <li><span class="k">Lapsed</span><span>Cure period expired without activity. Account returned to open status.</span></li>
+        <li><span class="k">Won</span><span>Contracted. Renewal treatment applies while the Partner remains active.</span></li>
+        <li><span class="k">Lost</span><span>Client selected another path. Closed.</span></li>
+        <li><span class="k">Withdrawn</span><span>Partner withdrew. Closed immediately, no cure period.</span></li>
+        <li><span class="k">Expired</span><span>Protection period ended without extension.</span></li>
+      </ul>
+      <div class="note">
+        <p><b>Lapsed and expired are different, and both require notice.</b> Lapsed follows inactivity and a cure period that ran out. Expired follows the clock running down while the Partner was still active but did not request an extension. Neither is applied silently.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    AdaptCloud · Deal Registration Form and Tracker · Version 1.0 · September 6, 2026.<br>
+    Operational document governed by the Rules of Engagement addendum. Parameter values are restated here for use at the desk; the addendum's Exhibit 1 governs if the two ever differ.
+  </footer>
+
+</div>

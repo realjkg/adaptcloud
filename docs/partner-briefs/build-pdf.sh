@@ -12,7 +12,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-DOCS=(co-delivery-brief channel-brief internal-annex partner-faq partner-operating-loop)
+DOCS=(co-delivery-brief channel-brief internal-annex partner-faq partner-operating-loop rules-of-engagement deal-registration)
 CHROME="${CHROME:-$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome 2>/dev/null | head -1)}"
 UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 GF="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"

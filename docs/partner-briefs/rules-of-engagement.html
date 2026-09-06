@@ -1,0 +1,572 @@
+<title>AdaptCloud Rules of Engagement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --paper:     #FBFBFA;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F3F4;
+    --ink:       #16191D;
+    --ink-soft:  #4C555E;
+    --ink-faint: #79828A;
+    --rule:      #CFD5DA;
+    --rule-soft: #E4E8EB;
+    --accent:    #123A63;
+    --accent-2:  #2E6FA8;
+    --ok:        #1F5F3F;
+    --open:      #8A5A10;
+    --na:        #6B7280;
+
+    --sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F1214;
+      --surface:   #171B1F;
+      --surface-2: #1F252A;
+      --ink:       #E3E7EA;
+      --ink-soft:  #A8B1B8;
+      --ink-faint: #7C868D;
+      --rule:      #333C43;
+      --rule-soft: #242B31;
+      --accent:    #7FAAD6;
+      --accent-2:  #9CC1E5;
+      --ok:        #5CA37C;
+      --open:      #C89340;
+      --na:        #8A939A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F1214;
+    --surface:   #171B1F;
+    --surface-2: #1F252A;
+    --ink:       #E3E7EA;
+    --ink-soft:  #A8B1B8;
+    --ink-faint: #7C868D;
+    --rule:      #333C43;
+    --rule-soft: #242B31;
+    --accent:    #7FAAD6;
+    --accent-2:  #9CC1E5;
+    --ok:        #5CA37C;
+    --open:      #C89340;
+    --na:        #8A939A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 22px 88px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .doc { max-width: 940px; margin: 0 auto; }
+
+  .masthead { padding-top: 44px; }
+  .issuer {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+  .doctype {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 22px;
+  }
+  h1 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(1.5rem, 3.4vw, 2.05rem);
+    line-height: 1.2;
+    letter-spacing: -0.014em;
+    text-wrap: balance;
+    margin: 0 0 26px;
+    max-width: 26ch;
+  }
+
+  .control {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .control div {
+    padding: 11px 16px 12px 0;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .control div:last-child { border-right: none; }
+  .control dt {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 4px;
+  }
+  .control dd {
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  section { margin-top: 44px; }
+  .sec-h {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 9px;
+    margin-bottom: 18px;
+  }
+  .sec-h .n {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .sec-h h2 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.02rem;
+    letter-spacing: 0.004em;
+    line-height: 1.3;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .body { padding-left: 42px; }
+  @media (max-width: 620px) {
+    .sec-h { grid-template-columns: 30px 1fr; }
+    .body { padding-left: 0; }
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.86rem;
+    letter-spacing: 0.02em;
+    margin: 24px 0 8px;
+    color: var(--ink);
+  }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+
+  sup.fn {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--accent);
+    vertical-align: super;
+    line-height: 0;
+    padding-left: 1px;
+  }
+
+  .exec {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 22px 26px 24px;
+  }
+  .exec ol { margin: 0; padding-left: 20px; }
+  .exec li { margin-bottom: 12px; font-size: 0.95rem; line-height: 1.55; max-width: 68ch; }
+  .exec li:last-child { margin-bottom: 0; }
+  .exec li b { font-weight: 600; }
+
+  figure { margin: 22px 0; }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  figcaption span { color: var(--accent); }
+  .srcnote {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--ink-faint);
+    margin-top: 7px;
+    max-width: 78ch;
+  }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; min-width: 600px; background: var(--surface); }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--sans);
+  }
+  th {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td { font-size: 0.84rem; line-height: 1.5; color: var(--ink-soft); }
+  td b, td strong { color: var(--ink); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.id { font-weight: 600; color: var(--ink); white-space: nowrap; letter-spacing: 0.01em; }
+
+  .pill {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+    display: inline-block;
+  }
+  .pill.ok { color: var(--ok); }
+  .pill.open { color: var(--open); }
+  .pill.na { color: var(--na); }
+
+  .reg { list-style: none; padding: 0; margin: 0; }
+  .reg li {
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 76ch;
+  }
+  .reg li:first-child { padding-top: 0; }
+  .reg li:last-child { border-bottom: none; }
+  .reg .k {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    padding-top: 2px;
+  }
+  .reg b { color: var(--ink); font-weight: 600; }
+
+  .notes {
+    margin-top: 46px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+  }
+  .notes h2 {
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+  .notes ol { margin: 0; padding-left: 20px; }
+  .notes li {
+    font-family: var(--sans);
+    font-size: 0.73rem;
+    line-height: 1.6;
+    color: var(--ink-faint);
+    margin-bottom: 7px;
+    max-width: 86ch;
+  }
+  .notes li i { font-style: italic; }
+
+  footer {
+    margin-top: 34px;
+    padding-top: 14px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.65;
+    color: var(--ink-faint);
+    max-width: 86ch;
+  }
+
+  /* ── Print ──────────────────────────────────────────── */
+  
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 15px 20px 16px;
+  }
+  .callout p { font-size: 0.9rem; line-height: 1.55; margin: 0; color: var(--ink-soft); max-width: 74ch; }
+  .callout p b { color: var(--ink); font-weight: 600; }
+
+  @page { size: letter; margin: 16mm 15mm 18mm; }
+
+  @media print {
+    :root {
+      --paper:     #FFFFFF;
+      --surface:   #FFFFFF;
+      --surface-2: #F0F2F4;
+      --ink:       #16191D;
+      --ink-soft:  #3C454D;
+      --ink-faint: #5F6870;
+      --rule:      #B4BCC2;
+      --rule-soft: #DBE0E4;
+      --accent:    #123A63;
+      --ok:        #1F5F3F;
+      --open:      #7A4E0D;
+      --na:        #5B6470;
+      --restrict:  #8A2E1F;
+    }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html { font-size: 10.5pt; }
+    html, body { background: #FFFFFF; margin: 0; padding: 0; font-size: 10.5pt; }
+    .doc { max-width: none; }
+
+    /* Wide content is scrollable on screen and must not be clipped on paper. */
+    .tablewrap { overflow: visible !important; }
+    table { min-width: 0 !important; width: 100%; }
+    th, td { padding: 5px 8px; font-size: 8.4pt; }
+    p, td, .reg li, .srcnote, .notes li, footer { max-width: none; }
+
+    /* Pagination. Chromium honors break-after: avoid in paged media (verified),
+       so a heading is pulled forward rather than stranded at a page foot. */
+    .sec-h, h3, figcaption, thead { break-after: avoid; page-break-after: avoid; }
+    p, li, td, dd, .srcnote { orphans: 3; widows: 3; }
+    figure, .exec, .decision, .classbar, .callout { break-inside: avoid; page-break-inside: avoid; }
+    tr, .reg li, .exec li { break-inside: avoid; page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    .notes { break-before: page; page-break-before: always; }
+    footer { break-inside: avoid; page-break-inside: avoid; }
+
+    .masthead { padding-top: 0; }
+    section { margin-top: 24px; }
+    a { color: inherit; text-decoration: none; }
+  }
+
+  .capability {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    padding: 20px 24px 22px;
+    margin-top: 26px;
+  }
+  .capability h2 {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+  .capability p { font-size: 0.95rem; line-height: 1.6; margin: 0 0 12px; max-width: 72ch; }
+  .capability dl {
+    margin: 14px 0 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 16px;
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 14px;
+  }
+  .capability dt {
+    font-family: var(--sans);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: 3px;
+    white-space: nowrap;
+  }
+  .capability dd { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-soft); max-width: 66ch; }
+  .capability dd b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 620px) {
+    .capability dl { grid-template-columns: 1fr; gap: 3px; }
+    .capability dt { padding-top: 10px; }
+  }
+
+  .param { background: var(--surface-2); border: 1px solid var(--rule); border-left: 3px solid var(--open); }
+  .param td, .param th { background: transparent; }
+  .note { background: var(--surface); border-left: 3px solid var(--open); padding: 14px 18px 15px; margin: 18px 0; }
+  .note p { font-size: 0.9rem; line-height: 1.55; margin: 0; color: var(--ink-soft); max-width: 74ch; }
+  .note p b { color: var(--ink); font-weight: 600; }
+  .steps { list-style: none; padding: 0; margin: 0; counter-reset: s; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 14px;
+              padding: 10px 0; border-bottom: 1px solid var(--rule-soft);
+              font-size: 0.92rem; line-height: 1.55; color: var(--ink-soft); max-width: 76ch; }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(s); font-family: var(--sans); font-size: 0.72rem; font-weight: 700;
+                      color: var(--accent); border: 1px solid var(--rule); background: var(--surface);
+                      padding: 2px 0; text-align: center; height: fit-content; }
+  .steps li b { color: var(--ink); font-weight: 600; }
+</style>
+
+<div class="doc">
+
+  <header class="masthead">
+    <p class="issuer">AdaptCloud</p>
+    <p class="doctype">Rules of Engagement — Addendum to the Partner Agreement</p>
+    <h1>Deal registration, account protection, and channel conflict</h1>
+
+    <dl class="control">
+      <div><dt>Version</dt><dd>1.0</dd></div>
+      <div><dt>Date of issue</dt><dd>September 6, 2026</dd></div>
+      <div><dt>Status</dt><dd>Template for execution</dd></div>
+      <div><dt>Applies to</dt><dd>Distribution and delivery partners</dd></div>
+      <div><dt>Precedence</dt><dd>Subordinate to the Partner Agreement</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <div class="sec-h"><span class="n">1</span><h2>Purpose and precedence</h2></div>
+    <div class="body">
+      <p>This addendum states how opportunities are registered, what protection registration confers, and how conflict is resolved. It exists so that both parties can act without asking permission in the ordinary case.</p>
+      <p>Where this addendum conflicts with the Partner Agreement, the Partner Agreement governs. Section 10 lists every commercial parameter in one place; those values are the negotiable part of this document.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">2</span><h2>Definitions</h2></div>
+    <div class="body">
+      <ul class="reg">
+        <li><span class="k">2.1</span><span><b>Partner-sourced.</b> An opportunity the Partner identified and introduced, where AdaptCloud held no active pursuit of the same account and use case at the time of submission.</span></li>
+        <li><span class="k">2.2</span><span><b>Registered opportunity.</b> A partner-sourced opportunity that AdaptCloud has accepted under section 3.</span></li>
+        <li><span class="k">2.3</span><span><b>Registered use case.</b> The specific workload, business unit, or compliance scope described at registration. Protection attaches to the account <b>and</b> the use case, not to the account alone.</span></li>
+        <li><span class="k">2.4</span><span><b>Protection period.</b> The interval during which section 4 applies, beginning at acceptance.</span></li>
+        <li><span class="k">2.5</span><span><b>Active pursuit.</b> Documented partner activity on the opportunity: a client meeting, a submitted proposal, a scoping session, or a written client response, recorded in the tracker.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">3</span><h2>Registration</h2></div>
+    <div class="body">
+      <ol class="steps">
+        <li><b>The Partner submits</b> the registration form before substantive joint activity on the opportunity.</li>
+        <li><b>AdaptCloud responds</b> within the decision window at section 10, with one of: accepted, rejected, or duplicate.</li>
+        <li><b>Acceptance starts the protection period.</b> Silence past the decision window is treated as acceptance.</li>
+      </ol>
+      <h3>3.1 Grounds for rejection</h3>
+      <p>An opportunity may be rejected only where AdaptCloud holds a prior accepted registration from another partner for the same account and use case, holds a documented direct pursuit predating the submission, or the submission is materially incomplete. Rejection states the ground.</p>
+      <h3>3.2 Duplicate submissions</h3>
+      <p>First accepted registration prevails. A second partner registering the same account for a <b>different</b> use case may be accepted, and both registrations then stand, each protected within its own scope.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">4</span><h2>Account protection</h2></div>
+    <div class="body">
+      <div class="callout">
+        <p>A partner-sourced opportunity becomes protected upon accepted deal registration. During the protection period, AdaptCloud will not pursue, quote, contract with, or solicit the registered account for the registered use case except through the originating partner, absent written consent.</p>
+      </div>
+      <p>Protection binds AdaptCloud's direct sales activity. It does not restrict the client from approaching AdaptCloud, and it does not restrict AdaptCloud from serving the same account through a different partner for a different, unregistered use case.</p>
+      <p>Where an inbound client request touches a registered scope, AdaptCloud refers the client to the originating partner and notifies the Partner within two business days.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">5</span><h2>Activity expectations and lapse</h2></div>
+    <div class="body">
+      <p>Protection is conditional on pursuit. Where no active pursuit is recorded within the inactivity window at section 10, AdaptCloud issues written notice and the Partner has the cure period to record activity or request an extension.</p>
+      <p>If neither occurs, the registration lapses and the account returns to open status. Lapse is never automatic and never silent: it requires notice and an unanswered cure period.</p>
+      <p>The Partner may request one extension of the protection period, granted where active pursuit is evidenced.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">6</span><h2>Renewal and expansion</h2></div>
+    <div class="body">
+      <p>Where the Partner remains active on the account, the Partner holds first right on renewal of the registered subscription, and renewal compensation follows the margin framework in the partner economics schedule.</p>
+      <p>Expansion into a new use case at the same account requires a new registration. It is not covered by the original.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">7</span><h2>Pricing governance</h2></div>
+    <div class="body">
+      <p>AdaptCloud will not quote below the agreed partner price floor into a registered account for the registered use case. Any exception requires written approval from both parties before the quote is issued.</p>
+      <p>Where the client solicits pricing directly, AdaptCloud provides list pricing only and refers the client to the Partner.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">8</span><h2>Conflict resolution</h2></div>
+    <div class="body">
+      <ol class="steps">
+        <li><b>Raise in writing</b> to the named channel contacts on both sides, with the tracker reference.</li>
+        <li><b>Joint review</b> within the conflict window at section 10. The tracker record is the primary evidence.</li>
+        <li><b>Decision and record.</b> The outcome is written into the tracker, including any agreed remedy.</li>
+        <li><b>Escalation</b> to named leadership on both sides if unresolved at step 3.</li>
+      </ol>
+      <p>Conflicts are decided on the tracker record. An opportunity worked but never registered has no protection to assert, which is the practical reason to register early.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">9</span><h2>Term and survival</h2></div>
+    <div class="body">
+      <p>This addendum runs with the Partner Agreement. On termination, registrations accepted and still active continue to their scheduled expiry, and the non-circumvention obligation at section 4 survives for the period stated at section 10 in respect of those accounts.</p>
+      <p>Nothing here restricts either party from serving accounts that were never registered.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">10</span><h2>Commercial parameters</h2></div>
+    <div class="body">
+      <p>The values below are the negotiable terms of this addendum. Everything above is structure.</p>
+      <figure>
+        <figcaption><span>Exhibit 1</span> — Parameters</figcaption>
+        <div class="tablewrap">
+          <table class="param">
+            <thead><tr><th>Parameter</th><th class="num">Default</th><th>Effect</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Registration decision window</td><td class="num">5 business days</td><td>Silence past this window is acceptance (§3)</td></tr>
+              <tr><td class="id">Protection period</td><td class="num">90 days</td><td>From acceptance (§4)</td></tr>
+              <tr><td class="id">Extension</td><td class="num">One, 90 days</td><td>Granted on evidenced active pursuit (§5)</td></tr>
+              <tr><td class="id">Inactivity window</td><td class="num">30 days</td><td>Triggers written notice (§5)</td></tr>
+              <tr><td class="id">Cure period</td><td class="num">15 days</td><td>From notice, before lapse (§5)</td></tr>
+              <tr><td class="id">Inbound referral notice</td><td class="num">2 business days</td><td>AdaptCloud to Partner (§4)</td></tr>
+              <tr><td class="id">Conflict review window</td><td class="num">10 business days</td><td>From written notice (§8)</td></tr>
+              <tr><td class="id">Non-circumvention survival</td><td class="num">12 months</td><td>Post-termination, registered accounts only (§9)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Defaults reflect common channel practice and are offered as a starting position rather than a fixed term. Changing a value changes only that row; the structure is unaffected.</p>
+      </figure>
+      <div class="note">
+        <p><b>This is a template, not executed contract language.</b> It should be reviewed by counsel before execution, particularly sections 4, 7, and 9, which create binding restrictions on AdaptCloud's own sales activity.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    AdaptCloud · Rules of Engagement · Version 1.0 · September 6, 2026.<br>
+    Addendum template. Subordinate to the Partner Agreement. Not legal advice.
+  </footer>
+
+</div>
