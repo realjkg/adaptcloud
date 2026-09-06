@@ -1,0 +1,724 @@
+<title>Partner Operating Loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --paper:     #FBFBFA;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F3F4;
+    --ink:       #16191D;
+    --ink-soft:  #4C555E;
+    --ink-faint: #79828A;
+    --rule:      #CFD5DA;
+    --rule-soft: #E4E8EB;
+    --accent:    #123A63;
+    --restrict:  #8A2E1F;
+    --ok:        #1F5F3F;
+    --open:      #8A5A10;
+    --na:        #6B7280;
+
+    --sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F1214;
+      --surface:   #171B1F;
+      --surface-2: #1F252A;
+      --ink:       #E3E7EA;
+      --ink-soft:  #A8B1B8;
+      --ink-faint: #7C868D;
+      --rule:      #333C43;
+      --rule-soft: #242B31;
+      --accent:    #7FAAD6;
+      --restrict:  #D97B66;
+      --ok:        #5CA37C;
+      --open:      #C89340;
+      --na:        #8A939A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F1214;
+    --surface:   #171B1F;
+    --surface-2: #1F252A;
+    --ink:       #E3E7EA;
+    --ink-soft:  #A8B1B8;
+    --ink-faint: #7C868D;
+    --rule:      #333C43;
+    --rule-soft: #242B31;
+    --accent:    #7FAAD6;
+    --restrict:  #D97B66;
+    --ok:        #5CA37C;
+    --open:      #C89340;
+    --na:        #8A939A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 22px 88px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .doc { max-width: 940px; margin: 0 auto; }
+
+  .classbar {
+    margin-top: 24px;
+    border: 1px solid var(--restrict);
+    color: var(--restrict);
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    text-align: center;
+  }
+
+  .masthead { padding-top: 26px; }
+  .issuer {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+  .doctype {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 22px;
+  }
+  h1 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(1.5rem, 3.4vw, 2.05rem);
+    line-height: 1.2;
+    letter-spacing: -0.014em;
+    text-wrap: balance;
+    margin: 0 0 26px;
+    max-width: 26ch;
+  }
+
+  .control {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .control div { padding: 11px 16px 12px 0; border-right: 1px solid var(--rule-soft); }
+  .control div:last-child { border-right: none; }
+  .control dt {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 4px;
+  }
+  .control dd { font-family: var(--sans); font-size: 0.82rem; font-weight: 500; margin: 0; color: var(--ink); }
+  .control dd.r { color: var(--restrict); font-weight: 700; }
+
+  section { margin-top: 44px; }
+  .sec-h {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 9px;
+    margin-bottom: 18px;
+  }
+  .sec-h .n {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .sec-h h2 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.02rem;
+    line-height: 1.3;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .body { padding-left: 42px; }
+  @media (max-width: 620px) {
+    .sec-h { grid-template-columns: 30px 1fr; }
+    .body { padding-left: 0; }
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.86rem;
+    letter-spacing: 0.02em;
+    margin: 24px 0 8px;
+    color: var(--ink);
+  }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+
+  figure { margin: 22px 0; }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  figcaption span { color: var(--accent); }
+  .srcnote {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--ink-faint);
+    margin-top: 7px;
+    max-width: 78ch;
+  }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; min-width: 580px; background: var(--surface); }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--sans);
+  }
+  th {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td { font-size: 0.84rem; line-height: 1.5; color: var(--ink-soft); }
+  td b, td strong { color: var(--ink); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.id { font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+  .decision {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--restrict);
+    padding: 16px 20px 18px;
+    margin-top: 18px;
+  }
+  .decision dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 108px 1fr;
+    gap: 6px 14px;
+  }
+  .decision dt {
+    font-family: var(--sans);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: 3px;
+  }
+  .decision dd {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+
+  .reg { list-style: none; padding: 0; margin: 0; }
+  .reg li {
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 76ch;
+  }
+  .reg li:first-child { padding-top: 0; }
+  .reg li:last-child { border-bottom: none; }
+  .reg .k {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    padding-top: 2px;
+  }
+  .reg b { color: var(--ink); font-weight: 600; }
+
+  footer {
+    margin-top: 40px;
+    padding-top: 14px;
+    border-top: 2px solid var(--restrict);
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.65;
+    color: var(--ink-faint);
+    max-width: 86ch;
+  }
+
+  /* ── Print ──────────────────────────────────────────── */
+  @page { size: letter; margin: 16mm 15mm 18mm; }
+
+  @media print {
+    :root {
+      --paper:     #FFFFFF;
+      --surface:   #FFFFFF;
+      --surface-2: #F0F2F4;
+      --ink:       #16191D;
+      --ink-soft:  #3C454D;
+      --ink-faint: #5F6870;
+      --rule:      #B4BCC2;
+      --rule-soft: #DBE0E4;
+      --accent:    #123A63;
+      --ok:        #1F5F3F;
+      --open:      #7A4E0D;
+      --na:        #5B6470;
+      --restrict:  #8A2E1F;
+    }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html { font-size: 10.5pt; }
+    html, body { background: #FFFFFF; margin: 0; padding: 0; font-size: 10.5pt; }
+    .doc { max-width: none; }
+
+    /* Wide content is scrollable on screen and must not be clipped on paper. */
+    .tablewrap { overflow: visible !important; }
+    table { min-width: 0 !important; width: 100%; }
+    th, td { padding: 5px 8px; font-size: 8.4pt; }
+    p, td, .reg li, .srcnote, .notes li, footer { max-width: none; }
+
+    /* Pagination. Chromium honors break-after: avoid in paged media (verified),
+       so a heading is pulled forward rather than stranded at a page foot. */
+    .sec-h, h3, figcaption, thead { break-after: avoid; page-break-after: avoid; }
+    p, li, td, dd, .srcnote { orphans: 3; widows: 3; }
+    figure, .exec, .decision, .classbar { break-inside: avoid; page-break-inside: avoid; }
+    tr, .reg li, .exec li { break-inside: avoid; page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    .notes { break-before: page; page-break-before: always; }
+    footer { break-inside: avoid; page-break-inside: avoid; }
+
+    .masthead { padding-top: 0; }
+    section { margin-top: 24px; }
+    a { color: inherit; text-decoration: none; }
+  }
+
+  .rule-box {
+    background: var(--surface-2);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px 15px;
+    margin: 16px 0;
+  }
+  .rule-box p { margin: 0; font-size: 0.92rem; line-height: 1.55; color: var(--ink); max-width: 72ch; }
+  .rule-box p + p { margin-top: 10px; }
+  .quote {
+    font-family: var(--serif);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ok);
+    padding: 16px 20px;
+    margin: 14px 0;
+  }
+  .quote p { margin: 0 0 10px; font-size: 0.95rem; line-height: 1.6; max-width: 74ch; color: var(--ink); }
+  .quote p:last-child { margin-bottom: 0; }
+  .obj { border: 1px solid var(--rule); background: var(--surface); margin: 12px 0; }
+  .obj > .q {
+    font-family: var(--sans); font-weight: 600; font-size: 0.9rem; line-height: 1.4;
+    padding: 12px 16px; margin: 0; border-bottom: 1px solid var(--rule-soft);
+    background: var(--surface-2); color: var(--ink);
+  }
+  .obj .in { padding: 14px 16px 15px; display: grid; gap: 10px; }
+  .obj .lab {
+    font-family: var(--sans); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); display: block; margin-bottom: 4px;
+  }
+  .obj .say { font-size: 0.9rem; line-height: 1.55; color: var(--ink); margin: 0; max-width: 72ch; }
+  .obj .show, .obj .act { font-family: var(--sans); font-size: 0.82rem; line-height: 1.5; color: var(--ink-soft); margin: 0; max-width: 74ch; }
+  .obj .act b { color: var(--ink); font-weight: 600; }
+  .formula {
+    font-family: var(--sans); font-size: 0.86rem; background: var(--surface-2);
+    border: 1px solid var(--rule); padding: 12px 16px; margin: 12px 0; color: var(--ink);
+  }
+  .st { font-family: var(--sans); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.07em;
+        text-transform: uppercase; padding: 2px 6px; border: 1px solid currentColor; white-space: nowrap; }
+  .st.have { color: var(--ok); }
+  .st.part { color: var(--open); }
+  .st.none { color: var(--restrict); }
+</style>
+
+<div class="doc">
+
+  <p class="classbar">Internal — operating procedure, not for distribution outside AdaptCloud</p>
+
+  <header class="masthead">
+    <p class="issuer">AdaptCloud</p>
+    <p class="doctype">Partner-Led Vendor Credibility and Objection Handling</p>
+    <h1>The partner operating loop</h1>
+
+    <dl class="control">
+      <div><dt>Version</dt><dd>1.0</dd></div>
+      <div><dt>Date of issue</dt><dd>September 6, 2026</dd></div>
+      <div><dt>Classification</dt><dd class="r">Internal</dd></div>
+      <div><dt>Applies to</dt><dd>Every partner conversation</dd></div>
+      <div><dt>Owner</dt><dd>AdaptCloud principal</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <div class="sec-h"><span class="n">1</span><h2>Objective and core rule</h2></div>
+    <div class="body">
+      <p><strong>Objective.</strong> Position AdaptCloud as a credible, low-risk, margin-positive platform partner without overstating company age, customer history, certifications, or delivery scale.</p>
+      <div class="rule-box">
+        <p><strong>Core rule.</strong> Do not attempt to sound established.</p>
+        <p>Demonstrate established-vendor behavior through repeatable commercial, delivery, support, evidence, and governance mechanisms. An experienced vendor reduces uncertainty. Every mechanism in this document exists to reduce a specific uncertainty a partner is carrying.</p>
+      </div>
+      <h3>1.1 Language that is never used</h3>
+      <ul class="reg">
+        <li><span class="k">Never</span><span>"We are just like [large vendor], but cheaper."</span></li>
+        <li><span class="k">Never</span><span>"Our AI handles compliance."</span></li>
+        <li><span class="k">Never</span><span>"We have broad enterprise experience," unless tied to named people and verifiable work.</span></li>
+        <li><span class="k">Never</span><span>"We guarantee certification or compliance."</span></li>
+        <li><span class="k">Never</span><span>"We are still figuring out our channel model."</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">2</span><h2>Partner type and non-overlapping responsibilities</h2></div>
+    <div class="body">
+      <p>Identify the partner type first. Responsibilities must not overlap, and the boundary is stated before the product is shown.</p>
+      <figure>
+        <figcaption><span>Exhibit 1</span> — Responsibility split by partner type</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Partner type</th><th>Partner owns</th><th>AdaptCloud owns</th><th>Boundary</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="id">Distribution</td>
+                <td>Transacts: catalog, vehicle access, purchase orders, renewals</td>
+                <td>Product, fulfillment, all delivery</td>
+                <td><b>No delivery obligation. Does not access client environments.</b></td>
+              </tr>
+              <tr>
+                <td class="id">Delivery</td>
+                <td>Client relationship; supplies and manages consultants; delivers under its own brand after accreditation</td>
+                <td>Product, enablement, escalation, second-line support</td>
+                <td>Accreditation required before independent production delivery</td>
+              </tr>
+              <tr>
+                <td class="id">Strategic / GSI</td>
+                <td>Account relationship and delivery model</td>
+                <td>Platform, enablement, quality framework, escalation</td>
+                <td><b>We do not pursue the partner's registered accounts directly.</b></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">3</span><h2>Commercial posture and operating model</h2></div>
+    <div class="body">
+      <p>State the posture, then present the operating model, <strong>before</strong> the product demonstration. A partner who has not yet been told who owns the client cannot evaluate a demo.</p>
+      <div class="quote">
+        <p>"AdaptCloud is a focused compliance-automation platform designed for partner-led delivery. We do not ask partners to assume open-ended product, delivery, or commercial risk. We provide a defined delivery method, accreditation, controlled escalation, account protection, and transparent economics."</p>
+      </div>
+      <h3>3.1 The operating model, stated in order</h3>
+      <ul class="reg">
+        <li><span class="k">1</span><span>The partner owns the client relationship.</span></li>
+        <li><span class="k">2</span><span>The partner chooses services attach per opportunity.</span></li>
+        <li><span class="k">3</span><span>AdaptCloud owns the platform.</span></li>
+        <li><span class="k">4</span><span>AdaptCloud provides enablement and second-line support.</span></li>
+        <li><span class="k">5</span><span>AdaptCloud does not sell directly into accepted, registered partner opportunities.</span></li>
+        <li><span class="k">6</span><span>Early engagements are bounded, paid, joint proof engagements.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">4</span><h2>Qualification gate</h2></div>
+    <div class="body">
+      <p>Seven checks. All must be answerable before a proposal is made.</p>
+      <ul class="reg">
+        <li><span class="k">Q1</span><span>Is there a defined client problem?</span></li>
+        <li><span class="k">Q2</span><span>Is the client environment suitable?</span></li>
+        <li><span class="k">Q3</span><span>Are prerequisites known?</span></li>
+        <li><span class="k">Q4</span><span>Is there a named partner delivery lead?</span></li>
+        <li><span class="k">Q5</span><span>Is the opportunity large enough to support proper delivery?</span></li>
+        <li><span class="k">Q6</span><span>Is the customer willing to agree to measurable success criteria?</span></li>
+        <li><span class="k">Q7</span><span>Can the engagement produce reusable evidence, a case study, or a reference artifact?</span></li>
+      </ul>
+      <div class="rule-box">
+        <p><strong>If qualification is incomplete:</strong> do not quote universal timelines, do not promise broad product compatibility, and do not commit unbounded support. Schedule discovery and produce a written scope with assumptions, dependencies, exclusions, and acceptance criteria.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">5</span><h2>Objection loop</h2></div>
+    <div class="body">
+      <p>For every objection raised: identify the underlying concern, respond with a bounded commercial or operating mechanism, show a relevant proof artifact, document the objection and agreed mitigation, and confirm the partner accepts the mitigation before advancing.</p>
+      <p>The customer-facing wording of these answers is published on the website FAQ. What follows is the internal version, carrying the action each answer commits us to.</p>
+
+      <div class="obj"><p class="q">"You are new. Why should we risk our client relationship?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>Do not place an unbounded bet on us. Start with a partner-led, paid proof engagement with fixed scope, explicit acceptance criteria, agreed escalation procedures, and documented outcomes.</p>
+        <p class="show"><span class="lab">Show</span>Fixed-scope pilot package · statement of work · acceptance criteria · escalation matrix · post-engagement outcome report</p>
+        <p class="act"><span class="lab">Action</span>Offer a paid proof engagement. <b>Do not offer an undefined free pilot.</b> Capture baseline and outcome metrics.</p>
+      </div></div>
+
+      <div class="obj"><p class="q">"What happens if the platform fails in the client environment?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>The partner remains client-facing. AdaptCloud provides defined second-line product support, severity-based escalation, documented rollback procedures, and support boundaries appropriate to the contracted scope.</p>
+        <p class="show"><span class="lab">Show</span>Support policy · severity definitions · escalation path · release notes · rollback and recovery procedure</p>
+        <p class="act"><span class="lab">Action</span>Define ownership in the RACI. Confirm the support tier before contract signature. <b>Avoid commitments not backed by the support model.</b></p>
+      </div></div>
+
+      <div class="obj"><p class="q">"Will you go direct after we create demand?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>No. Accepted deal registration protects the partner-sourced account for the registered use case. AdaptCloud will not quote, sell, contract with, or solicit that account outside the originating partner without written partner approval.</p>
+        <p class="show"><span class="lab">Show</span>Deal-registration policy · account-protection period · non-circumvention language · conflict-resolution process</p>
+        <p class="act"><span class="lab">Action</span>Register the deal <b>before</b> substantive joint activity. Log account, use case, partner, date, and protection period. Establish inactivity rules and renewal treatment in writing.</p>
+      </div></div>
+
+      <div class="obj"><p class="q">"Can our consultants deliver this without you?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>Yes, after accreditation. We co-deliver the earliest engagements to transfer the method. Accredited partner consultants lead subsequent deliveries, while AdaptCloud remains available for product escalation and quality support.</p>
+        <p class="show"><span class="lab">Show</span>Accreditation curriculum · lab environment · delivery runbook · QA checklist · re-certification requirements</p>
+        <p class="act"><span class="lab">Action</span>Require accreditation before independent production delivery. Co-deliver the first two to three suitable engagements. Audit delivery quality before granting expanded partner privileges.</p>
+      </div></div>
+
+      <div class="obj"><p class="q">"What margin do we make?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>The economics are visible before you allocate sales or delivery resources. Partners receive software resale margin, retain the majority of partner-delivered services revenue, and have defined incentives for renewals and qualified expansion.</p>
+        <p class="show"><span class="lab">Show</span>Partner rate card · margin schedule · sample deal economics · discount policy · renewal model</p>
+        <p class="act"><span class="lab">Action</span>Present margin bands early. Use exact terms only in the partner agreement. Tie higher discounts to accreditation, annual commitment, volume, or qualified pipeline. <b>Protect a pricing floor for registered opportunities.</b></p>
+      </div></div>
+
+      <div class="obj"><p class="q">"Why not use an established platform?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>Use the incumbent where it is already the operational standard. Use AdaptCloud where the problem is repeatable evidence creation, faster control implementation, a partner-owned delivery motion, or a defined compliance-automation use case. We compete on a focused wedge, not a claim to replace every enterprise platform.</p>
+        <p class="show"><span class="lab">Show</span>Narrow use-case comparison · demonstrable workflow · evidence-output example · time-to-value estimate for the qualified scope</p>
+        <p class="act"><span class="lab">Action</span>Do not make broad replacement claims. Focus on one specific high-value workflow. <b>Demonstrate the actual product, not roadmap concepts.</b></p>
+      </div></div>
+
+      <div class="obj"><p class="q">"Can you substantiate the compliance outputs?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>Every output must be traceable to its source, version, execution context, reviewer, and supporting artifact. Platform-generated analysis is distinct from client-attested evidence and from an assessor's determination.</p>
+        <p class="show"><span class="lab">Show</span>Evidence model · source and version traceability · audit trail · sample evidence export · human-review workflow</p>
+        <p class="act"><span class="lab">Action</span><b>Never claim the platform independently certifies a client.</b> Identify automated versus human-reviewed outputs. Preserve provenance for each material artifact. Version all control mappings and evidence references.</p>
+      </div></div>
+
+      <div class="obj"><p class="q">"Your team is too small to support us."</p><div class="in">
+        <p class="say"><span class="lab">Say</span>We control capacity rather than overcommit. The model transfers repeatable delivery work to accredited partner teams while AdaptCloud focuses on platform evolution and second-line escalation.</p>
+        <p class="show"><span class="lab">Show</span>Capacity plan · partner-tier model · onboarding gates · support boundaries</p>
+        <p class="act"><span class="lab">Action</span>Cap launch partner cohorts. Limit concurrent co-deliveries. Do not promise global support coverage unless operationally available. Escalate capacity conflicts <b>before</b> accepting work.</p>
+      </div></div>
+
+      <div class="obj"><p class="q">"What if your company does not survive?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>We address continuity directly through exportable evidence, documented configurations, transition assistance, and an appropriate continuity plan. The customer's work product must remain usable without dependence on a single vendor relationship.</p>
+        <p class="show"><span class="lab">Show</span>Data-export process · transition-assistance terms · documentation standard · continuity plan</p>
+        <p class="act"><span class="lab">Action</span>Keep customer evidence exportable. Document configurations and integrations. Offer escrow only where commercially and operationally appropriate. <b>Do not promise arrangements that are not contractually supported.</b></p>
+      </div></div>
+
+      <div class="obj"><p class="q">"AI creates unacceptable risk."</p><div class="in">
+        <p class="say"><span class="lab">Say</span>AI may assist workflow and analysis, but it does not replace accountable human judgment, client attestation, or assessor authority. Material outputs are reviewable, traceable, and governed by defined policies.</p>
+        <p class="show"><span class="lab">Show</span>AI usage policy · human-review controls · logging model · output-validation procedure</p>
+        <p class="act"><span class="lab">Action</span>Keep humans accountable for material conclusions. Document AI-assisted versus deterministic outputs. <b>Do not market AI as autonomous compliance certification.</b></p>
+      </div></div>
+
+      <div class="obj"><p class="q">"What are we actually selling?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>The offer is separable: platform subscription, partner-delivered professional services, and optional AdaptCloud enablement or specialist support. Each component has distinct pricing, scope, and accountability.</p>
+        <p class="show"><span class="lab">Show</span>Offer catalog · software order form · services statement of work · RACI · support tiers</p>
+        <p class="act"><span class="lab">Action</span>Keep software, services, and enablement commercially distinct. <b>Avoid burying implementation obligations inside subscription language.</b> Confirm who contracts with the customer for each component.</p>
+      </div></div>
+
+      <div class="obj"><p class="q">"Will you undercut us?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>Registered opportunities receive protected pricing. AdaptCloud will not quote below the agreed partner price floor into a protected account, and exceptions require joint approval.</p>
+        <p class="show"><span class="lab">Show</span>Discount-approval policy · opportunity-registration rules · price-floor protection</p>
+        <p class="act"><span class="lab">Action</span>Record the approved commercial structure. Route all pricing exceptions through named channel leadership. <b>Do not give direct client quotes on partner-registered accounts.</b></p>
+      </div></div>
+
+      <div class="obj"><p class="q">"Who are your customer references?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>We will not invent references. Early reference engagements are deliberately structured as joint, partner-led proof engagements with measurable outcomes, NDA case-study rights, and the option to create a named reference if the client approves.</p>
+        <p class="show"><span class="lab">Show</span>Reference-rights ladder · anonymized case-study template · outcome scorecard · client-approval workflow</p>
+        <p class="act"><span class="lab">Action</span>Secure permission in writing. Begin with internal evidence. Move from anonymized to named case study only with client consent. <b>Never imply an endorsement that was not granted.</b></p>
+      </div></div>
+
+      <div class="obj"><p class="q">"How long will implementation take?"</p><div class="in">
+        <p class="say"><span class="lab">Say</span>We provide a phased plan after qualification. The timeline depends on environment readiness, control scope, integrations, client participation, and partner staffing. We define milestones, responsibilities, prerequisites, and a clear definition of done.</p>
+        <p class="show"><span class="lab">Show</span>Discovery checklist · delivery plan · dependency register · milestone schedule</p>
+        <p class="act"><span class="lab">Action</span><b>Do not give an unconditional timeline before discovery.</b> Make client and partner dependencies explicit. Use fixed-scope proof packages for predictable early delivery.</p>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">6</span><h2>Commercial guardrails</h2></div>
+    <div class="body">
+      <p>For every proposed deal, separate revenue into software subscription, partner-delivered services, AdaptCloud co-delivery or specialist support, accreditation and enablement, and renewals and expansion. Then apply the bands.</p>
+      <figure>
+        <figcaption><span>Exhibit 2</span> — Indicative margin bands</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Component</th><th class="num">Band</th><th>Condition</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Distribution resale</td><td class="num">10–20%</td><td>Transacts only; no delivery obligation</td></tr>
+              <tr><td class="id">Delivery-partner software resale</td><td class="num">20–35%</td><td>When sourcing and owning the opportunity</td></tr>
+              <tr><td class="id">Partner-delivered services</td><td class="num">60–80% retained</td><td>Partner owns delivery</td></tr>
+              <tr><td class="id">AdaptCloud co-delivery</td><td class="num">20–40%</td><td>Of services value, or a defined specialist rate</td></tr>
+              <tr><td class="id">Qualified renewal influence</td><td class="num">5–20%</td><td>Depending on partner role and agreement</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </figure>
+
+      <h3>6.1 Margin protection stop condition</h3>
+      <div class="rule-box">
+        <p><strong>If a deal combines maximum software discount, maximum services margin, unlimited support, and extensive custom development — stop.</strong></p>
+        <p>Re-price the deal. Separate custom work from the standard offer. Add a support tier or specialist-services charge. Require leadership approval. A deal that produces partner enthusiasm while destroying the ability to support the program is not a win.</p>
+      </div>
+
+      <h3>6.2 Deal quality requirements</h3>
+      <ul class="reg">
+        <li><span class="k">D1</span><span>Paid proof engagement, not undefined free work</span></li>
+        <li><span class="k">D2</span><span>Fixed scope</span></li>
+        <li><span class="k">D3</span><span>Measurable success criteria</span></li>
+        <li><span class="k">D4</span><span>Partner ownership documented</span></li>
+        <li><span class="k">D5</span><span>Capacity confirmed</span></li>
+        <li><span class="k">D6</span><span>Support tier selected</span></li>
+        <li><span class="k">D7</span><span>Account registered</span></li>
+        <li><span class="k">D8</span><span>Client prerequisites validated</span></li>
+      </ul>
+
+      <h3>6.3 Approval test</h3>
+      <p>Approve only if the partner has meaningful economic upside, AdaptCloud retains sufficient margin for product, support and escalation, the client receives a clear value proposition, delivery risk is bounded, and the engagement can create reusable proof.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">7</span><h2>Proof-engagement loop</h2></div>
+    <div class="body">
+      <p>Completion is not proof. A measured before-and-after result, traceable output, and client acceptance are proof.</p>
+      <ul class="reg">
+        <li><span class="k">P1</span><span><b>Establish the baseline.</b> Controls incomplete or unverified, evidence artifacts missing or fragmented, remediation backlog, time and cost of the current manual process, delivery effort required.</span></li>
+        <li><span class="k">P2</span><span><b>Define the target outcome.</b> Evidence created or normalized, controls assessed, remediation rules produced, review cycle shortened, rework reduced, partner delivery method validated.</span></li>
+        <li><span class="k">P3</span><span><b>Define acceptance.</b> Required artifacts, reviewers, evidence standard, timeline, delivery responsibilities, client responsibilities, explicit exclusions.</span></li>
+        <li><span class="k">P4</span><span><b>Deliver.</b> Partner leads the client relationship, accredited partner personnel perform delivery, AdaptCloud provides enablement and escalation, evidence provenance is preserved, issues and decisions and changes are tracked.</span></li>
+        <li><span class="k">P5</span><span><b>Close.</b> Obtain client acceptance, produce a before-and-after scorecard, capture partner QA findings, document reusable control checks and remediation rules and reference modules, request permission for internal, anonymized, or named reference use.</span></li>
+      </ul>
+
+      <h3>7.1 Library contribution</h3>
+      <div class="formula">reusable_library_ratio = reusable_validated_artifacts &divide; total_material_artifacts_created</div>
+      <p>Use the result to improve the delivery runbook, the accreditation content, the evidence library, and future scoping. Validated metrics may be used in subsequent partner discussions. <strong>Do not publish claims beyond the measured and permissioned evidence.</strong></p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">8</span><h2>Required assets, and current status</h2></div>
+    <div class="body">
+      <p>Before scaling partner recruitment, each asset must exist and be current. Status is assessed as of the date of issue.</p>
+      <figure>
+        <figcaption><span>Exhibit 3</span> — Asset register</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Asset</th><th>Status</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Capability statement</td><td><span class="st have">In place</span></td><td>Page one of both partner briefs</td></tr>
+              <tr><td class="id">Partner rate card and economics sheet</td><td><span class="st part">Partial</span></td><td>Margin framework published in both briefs; no standalone rate card or sample deal economics</td></tr>
+              <tr><td class="id">Objection handling</td><td><span class="st have">In place</span></td><td>Website FAQ, plus section 5 of this document</td></tr>
+              <tr><td class="id">Product roadmap and current-capability disclosure</td><td><span class="st part">Partial</span></td><td>Coverage exhibit and capability statement exist; no published roadmap</td></tr>
+              <tr><td class="id">Fixed-scope proof-engagement package</td><td><span class="st part">Partial</span></td><td>Pilot structure and exit criterion defined in the co-delivery brief; not a packaged SOW</td></tr>
+              <tr><td class="id">Partner program guide</td><td><span class="st none">Missing</span></td><td>Tiers, eligibility, benefits, responsibilities, certification, support limits, rules of engagement, escalation</td></tr>
+              <tr><td class="id">Rules-of-engagement addendum</td><td><span class="st none">Missing</span></td><td>First document a partner manager asks for</td></tr>
+              <tr><td class="id">Deal-registration form and tracker</td><td><span class="st none">Missing</span></td><td>Blocks the account-protection commitment at section 9</td></tr>
+              <tr><td class="id">Partner accreditation curriculum</td><td><span class="st none">Missing</span></td><td>Gates independent production delivery</td></tr>
+              <tr><td class="id">Delivery runbook</td><td><span class="st none">Missing</span></td><td></td></tr>
+              <tr><td class="id">Quality-assurance checklist</td><td><span class="st none">Missing</span></td><td></td></tr>
+              <tr><td class="id">Evidence and provenance statement</td><td><span class="st none">Missing</span></td><td>Supports the substantiation answer in section 5</td></tr>
+              <tr><td class="id">AI-use and human-review policy</td><td><span class="st none">Missing</span></td><td>Supports the AI-risk answer in section 5</td></tr>
+              <tr><td class="id">Support policy and severity matrix</td><td><span class="st none">Missing</span></td><td>Supports the failure-in-environment answer in section 5</td></tr>
+              <tr><td class="id">Security and continuity packet</td><td><span class="st none">Missing</span></td><td></td></tr>
+              <tr><td class="id">Data-export and transition process</td><td><span class="st none">Missing</span></td><td>Supports the continuity answer in section 5</td></tr>
+              <tr><td class="id">Reference-rights template</td><td><span class="st none">Missing</span></td><td></td></tr>
+              <tr><td class="id">Case-study template</td><td><span class="st none">Missing</span></td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Five of the sixteen objection answers in section 5 currently cite a proof artifact that does not yet exist. Those answers may still be given, because each describes a commitment we are prepared to make, but the artifact must be produced before the commitment is contracted.</p>
+      </figure>
+      <div class="rule-box">
+        <p><strong>If an asset is missing:</strong> do not compensate with broad verbal promises. Create the asset before committing commercially. Use precise, limited language until the operating mechanism exists.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">9</span><h2>Command blocks</h2></div>
+    <div class="body">
+      <h3>9.1 Capability statement</h3>
+      <div class="quote">
+        <p>"AdaptCloud provides a partner-led platform and delivery method for repeatable cloud-security and compliance-automation work.</p>
+        <p>The current offering supports defined cloud, security, compliance-as-code, compliance-automation, and hardening use cases. Partner delivery is enabled through documented methods, accreditation, controlled releases, second-line product support, and formal escalation.</p>
+        <p><b>Current stage:</b> production-oriented platform and partner-launch program. Early engagements are structured as joint, evidence-producing deliveries.</p>
+        <p><b>What we seek to prove with launch partners:</b> faster and more repeatable production of reviewable control evidence and remediation outputs, under the partner's client relationship and brand.</p>
+        <p><b>What we do not claim:</b> AdaptCloud does not independently grant compliance certification and does not replace accountable client personnel, authorized assessors, or auditors."</p>
+      </div>
+
+      <h3>9.2 Account protection</h3>
+      <div class="quote">
+        <p>"A partner-sourced opportunity becomes protected upon accepted deal registration. During the protection period, AdaptCloud will not pursue, quote, contract with, or solicit the registered account for the registered use case except through the originating partner, absent written consent.</p>
+        <p>Protection is subject to agreed activity expectations, defined renewal treatment, and a documented conflict-resolution process."</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">10</span><h2>Final decision rule</h2></div>
+    <div class="body">
+      <p>Advance to a paid, partner-led proof engagement only if the proposed relationship satisfies every condition below.</p>
+      <ul class="reg">
+        <li><span class="k">1</span><span>Gives the partner protected account ownership</span></li>
+        <li><span class="k">2</span><span>Produces sufficient recurring and services economics</span></li>
+        <li><span class="k">3</span><span>Has a defined support and escalation model</span></li>
+        <li><span class="k">4</span><span>Uses accredited delivery personnel</span></li>
+        <li><span class="k">5</span><span>Creates traceable, reviewable evidence</span></li>
+        <li><span class="k">6</span><span>Has bounded initial scope</span></li>
+        <li><span class="k">7</span><span>Can generate measured, permissioned proof</span></li>
+        <li><span class="k">8</span><span>Does not require AdaptCloud to make unsupported claims</span></li>
+      </ul>
+      <div class="rule-box">
+        <p><strong>Otherwise: do not force a partnership.</strong> Resolve the commercial, operational, or evidence gap first. A partnership signed over an unresolved gap converts that gap into a shared liability.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    AdaptCloud · Partner Operating Loop · Version 1.0 · September 6, 2026.<br>
+    Internal classification. Margin bands, protection terms, and support levels stated here are indicative and are set in the partner agreement. Not legal advice.
+  </footer>
+
+</div>

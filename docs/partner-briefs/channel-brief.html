@@ -314,6 +314,16 @@
   }
 
   /* ── Print ──────────────────────────────────────────── */
+  
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 15px 20px 16px;
+  }
+  .callout p { font-size: 0.9rem; line-height: 1.55; margin: 0; color: var(--ink-soft); max-width: 74ch; }
+  .callout p b { color: var(--ink); font-weight: 600; }
+
   @page { size: letter; margin: 16mm 15mm 18mm; }
 
   @media print {
@@ -347,7 +357,7 @@
        so a heading is pulled forward rather than stranded at a page foot. */
     .sec-h, h3, figcaption, thead { break-after: avoid; page-break-after: avoid; }
     p, li, td, dd, .srcnote { orphans: 3; widows: 3; }
-    figure, .exec, .decision, .classbar { break-inside: avoid; page-break-inside: avoid; }
+    figure, .exec, .decision, .classbar, .callout { break-inside: avoid; page-break-inside: avoid; }
     tr, .reg li, .exec li { break-inside: avoid; page-break-inside: avoid; }
     thead { display: table-header-group; }
     .notes { break-before: page; page-break-before: always; }
@@ -420,14 +430,14 @@
   <section class="capability" aria-label="Capability statement">
     <h2>Capability statement</h2>
     <p>AdaptCloud is a focused compliance-automation platform built to make partner-led delivery more repeatable, auditable, and commercially viable. We do not ask partners to take unbounded product or delivery risk. We provide an accredited delivery method, controlled releases, escalation support, and contractual account protection. Early programs are deliberately structured as joint proof engagements, with evidence and commercial upside shared.</p>
-    <p>The product is built around cloud, security, compliance as code, compliance automation, and hardening use cases. Partner delivery is supported through enablement, documented methods, second-line technical support, and controlled escalation.</p>
+    <p>The current offering supports defined cloud, security, compliance-as-code, compliance-automation, and hardening use cases. Partner delivery is enabled through documented methods, accreditation, controlled releases, second-line product support, and formal escalation.</p>
     <dl>
       <dt>Current stage</dt>
-      <dd>Production-oriented platform and partner-launch program. Early reference engagements are structured as joint, evidence-producing deliveries.</dd>
+      <dd>Production-oriented platform and partner-launch program. Early engagements are structured as joint, evidence-producing deliveries.</dd>
       <dt>What we seek<br>to prove</dt>
-      <dd>Faster, more repeatable production of reviewable control evidence and remediation outputs, under the partner's client relationship and brand.</dd>
+      <dd>Faster and more repeatable production of reviewable control evidence and remediation outputs, under the partner's client relationship and brand.</dd>
       <dt>What we<br>do not claim</dt>
-      <dd>AdaptCloud does not independently grant certifications, and does not replace the judgment of an authorized assessor, auditor, or client accountable official.</dd>
+      <dd>AdaptCloud does not independently grant compliance certification, and does not replace accountable client personnel, authorized assessors, or auditors.</dd>
     </dl>
   </section>
 
@@ -560,6 +570,9 @@
         <li><span class="k">E3</span><span><b>Coverage schedule.</b> The practices we automate and those delivered by practitioners, published in full. This addresses the most frequent late-stage objection in the category by raising it first.</span></li>
         <li><span class="k">E4</span><span><b>Deal registration.</b> Standard protection terms, with services attachment executed by the partner or by us at the partner's election.</span></li>
       </ul>
+      <div class="callout" style="margin-top:20px">
+        <p><b>Account protection, stated formally.</b> A partner-sourced opportunity becomes protected upon accepted deal registration. During the protection period, AdaptCloud will not pursue, quote, contract with, or solicit the registered account for the registered use case except through the originating partner, absent written consent. Protection is subject to agreed activity expectations, defined renewal treatment, and a documented conflict-resolution process.</p>
+      </div>
     </div>
   </section>
 
