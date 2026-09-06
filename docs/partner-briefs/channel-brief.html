@@ -1,0 +1,410 @@
+<title>AdaptCloud Channel Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --paper:      #F2F4F2;
+    --surface:    #FBFCFB;
+    --surface-2:  #E8EDEA;
+    --ink:        #131B1A;
+    --ink-soft:   #4A5654;
+    --ink-faint:  #77837F;
+    --rule:       #C9D2CE;
+    --rule-soft:  #DDE4E1;
+    --accent:     #0F6B63;
+    --brass:      #8F6318;
+    --ok:         #2E6E4E;
+    --warn:       #A8590C;
+    --idle:       #7C8886;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0B1211;
+      --surface:   #121C1A;
+      --surface-2: #1A2624;
+      --ink:       #E7EDEA;
+      --ink-soft:  #A8B5B1;
+      --ink-faint: #7C8A86;
+      --rule:      #2B3937;
+      --rule-soft: #1E2A28;
+      --accent:    #4FB3A6;
+      --brass:     #C79B49;
+      --ok:        #5EA97E;
+      --warn:      #D68A38;
+      --idle:      #6E7C79;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0B1211;
+    --surface:   #121C1A;
+    --surface-2: #1A2624;
+    --ink:       #E7EDEA;
+    --ink-soft:  #A8B5B1;
+    --ink-faint: #7C8A86;
+    --rule:      #2B3937;
+    --rule-soft: #1E2A28;
+    --accent:    #4FB3A6;
+    --brass:     #C79B49;
+    --ok:        #5EA97E;
+    --warn:      #D68A38;
+    --idle:      #6E7C79;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16.5px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 20px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet { max-width: 880px; margin: 0 auto; }
+
+  .docblock {
+    padding-top: 40px;
+    border-bottom: 3px solid var(--brass);
+    padding-bottom: 18px;
+  }
+  .org {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin: 0 0 26px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(1.85rem, 4.4vw, 2.7rem);
+    line-height: 1.1;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+    margin: 0 0 20px;
+    max-width: 20ch;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 30px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+  }
+  .meta b { color: var(--ink-soft); font-weight: 500; }
+
+  section { margin-top: 52px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.32rem;
+    letter-spacing: -0.012em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+  p { margin: 0 0 16px; max-width: 68ch; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+  .lede { font-size: 1.08rem; color: var(--ink-soft); }
+  .lede strong { color: var(--ink); }
+
+  code, .m { font-family: var(--mono); font-size: 0.85em; }
+  code {
+    background: var(--surface-2);
+    padding: 0.1em 0.36em;
+    border-radius: 2px;
+    color: var(--ink);
+  }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; min-width: 600px; background: var(--surface); }
+  th, td { text-align: left; padding: 11px 15px; vertical-align: top; border-bottom: 1px solid var(--rule-soft); }
+  th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td { font-size: 0.92rem; line-height: 1.5; }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.k { font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; color: var(--ink); letter-spacing: 0.02em; }
+
+  /* ── Demand signal figures ──────────────────────────── */
+  .figs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  .fig { background: var(--surface); padding: 18px 18px 20px; }
+  .fig .v {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: -0.015em;
+    font-variant-numeric: tabular-nums;
+    display: block;
+    color: var(--accent);
+    line-height: 1.1;
+  }
+  .fig .l {
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    display: block;
+    margin-top: 8px;
+  }
+
+  /* ── Status rows for vehicles ───────────────────────── */
+  .pill {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+    display: inline-block;
+  }
+  .pill.open { color: var(--warn); }
+  .pill.ready { color: var(--ok); }
+  .pill.na { color: var(--idle); }
+
+  .bounds { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
+  .bounds li {
+    font-size: 0.93rem;
+    line-height: 1.5;
+    padding-left: 26px;
+    position: relative;
+    color: var(--ink-soft);
+    max-width: 70ch;
+  }
+  .bounds li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: var(--mono);
+    color: var(--warn);
+    font-weight: 600;
+  }
+  .bounds li b { color: var(--ink); font-weight: 600; }
+
+  .callout {
+    background: var(--surface);
+    border-left: 3px solid var(--brass);
+    padding: 16px 20px;
+    margin-top: 22px;
+  }
+  .callout p { font-size: 0.95rem; margin: 0; color: var(--ink-soft); }
+  .callout p b { color: var(--ink); }
+
+  .kit { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .kit div { background: var(--surface); padding: 16px 18px 18px; }
+  .kit .t {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--brass);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .kit p { font-size: 0.9rem; line-height: 1.5; margin: 0; color: var(--ink-soft); }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+  .steps li {
+    counter-increment: s;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    align-items: start;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    max-width: 68ch;
+  }
+  .steps li::before {
+    content: "T" counter(s);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--brass);
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 3px 0;
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 560px) {
+    body { font-size: 15.5px; padding: 0 16px 72px; }
+    .meta { gap: 4px 18px; }
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="docblock">
+    <p class="org">AdaptCloud · Channel Brief</p>
+    <h1>A compliance SKU for a market that still has the obligation</h1>
+    <div class="meta">
+      <span><b>Issue</b> 1.0</span>
+      <span><b>Date</b> 2026-09-06</span>
+      <span><b>Audience</b> Public sector distribution evaluation</span>
+      <span><b>Category</b> Cybersecurity compliance software</span>
+    </div>
+  </header>
+
+  <section>
+    <p class="lede"><strong>The deadline moved. The requirement did not.</strong> With Phase II suspended, a large share of the defense industrial base has quietly stopped buying certification-driven products — while Phase I self-assessment, DFARS 252.204-7012 and SPRS score submission against NIST SP 800-171 Rev 2 all remain mandatory.</p>
+    <p>That gap is the channel opportunity. Every vendor whose pitch was a November date has lost its close, and the buyers still carry an unmet, recurring obligation with no urgency attached. A product priced for continuous evidence rather than a one-time certification sprint has an open field and a renewing revenue line.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Addressable demand</p>
+    <div class="figs">
+      <div class="fig"><span class="v">$75k–300k</span><span class="l">Typical first-cycle Level 2 compliance cost per contractor</span></div>
+      <div class="fig"><span class="v">~$488k</span><span class="l">Published DoD three-year estimate for a small contractor</span></div>
+      <div class="fig"><span class="v">$990/yr</span><span class="l">Entry SKU — under one percent of that budget</span></div>
+    </div>
+    <p style="margin-top:18px">The price point is deliberately below the threshold that triggers a procurement review at a small or mid-size subcontractor. It closes on a card or a single purchase order, which is the transaction profile that actually moves volume through a catalog rather than through a sales cycle.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Catalog structure</p>
+    <h2>Five SKUs, scope-metered, annual term</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>SKU</th><th>Metric</th><th>List</th><th>Term</th><th>Delivery</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="k">AC-LOOKUP</td><td class="num">unlimited</td><td class="num">$0</td><td class="num">—</td><td>Hosted, ungated. Demand generation.</td></tr>
+          <tr><td class="k">AC-SCAN-10</td><td class="num">10 hosts</td><td class="num">$990</td><td class="num">12 mo</td><td>Download + hosted console</td></tr>
+          <tr><td class="k">AC-HARDEN-25</td><td class="num">25 hosts</td><td class="num">$2,990</td><td class="num">12 mo</td><td>Download + hosted console</td></tr>
+          <tr><td class="k">AC-ENCLAVE-100</td><td class="num">100 hosts</td><td class="num">$18,000–30,000</td><td class="num">12 mo</td><td>Subscription with deployment included</td></tr>
+          <tr><td class="k">AC-HOST-ADD</td><td class="num">per host / yr</td><td class="num">$120</td><td class="num">co-term</td><td>Overage above tier</td></tr>
+          <tr><td class="k">AC-READY</td><td class="num">per engagement</td><td class="num">$8,000–20,000</td><td class="num">fixed</td><td>Professional services, fixed fee</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:18px">Metering is by hosts in scope, never by user seat. Compliance buyers already reason in scope, and seat pricing penalizes exactly the small subcontractors this catalog is meant to reach. <strong>Cloud consumption is never bundled</strong> — where a customer's own Azure or Google Cloud spend is involved it is quoted separately and billed by them, so no SKU carries a pass-through that inflates the catalog price against comparable products.</p>
+    <div class="callout">
+      <p><b>Renewal profile:</b> the underlying obligation is annual and recurring, and a customer's SPRS score decays as their estate drifts. This is a renewing subscription with a natural re-engagement event every twelve months, not a perpetual license with an attach-rate problem.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Contracting readiness</p>
+    <h2>What is in place, and what is not</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Item</th><th>Status</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="k">Commercial product</td><td><span class="pill ready">Ready</span></td><td>Scanner, control library and cloud modules exist and run today.</td></tr>
+          <tr><td class="k">Price list</td><td><span class="pill ready">Ready</span></td><td>Published above. Distributor terms open for negotiation.</td></tr>
+          <tr><td class="k">Federal contract vehicle</td><td><span class="pill open">Not held</span></td><td>No schedule or GWAC held. Candidate paths to be selected with the distributor — vehicle strategy is a primary reason for this conversation.</td></tr>
+          <tr><td class="k">Product classification</td><td><span class="pill open">In review</span></td><td>Software publishing versus IT services classification affects both eligibility and how the product is carried. Being decided deliberately rather than by default.</td></tr>
+          <tr><td class="k">FedRAMP authorization</td><td><span class="pill na">Not applicable</span></td><td>Architecture keeps customer CUI on the customer's side, so the SKUs above do not require it. Any future fully hosted offering would be a separate path.</td></tr>
+          <tr><td class="k">Reseller enablement</td><td><span class="pill ready">Ready</span></td><td>Kit below.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:18px">The vehicle line is stated openly because it is the first question a public sector catalog asks and the one most likely to be fudged. There is no schedule today. Selecting the right path — and whether it is held directly or accessed through the distributor — is work we expect to do jointly.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Enablement kit</p>
+    <div class="kit">
+      <div><span class="t">Demo environment</span><p>A hosted lookup tool and a scripted scan-to-evidence walkthrough a sales engineer can run in fifteen minutes without a customer host.</p></div>
+      <div><span class="t">Qualification script</span><p>Four questions that establish whether a prospect has an active 800-171 obligation, a current SPRS score, and hosts in scope.</p></div>
+      <div><span class="t">Coverage sheet</span><p>Exactly which practices are automated and which are human-delivered, published rather than implied. Removes the most common late-stage objection.</p></div>
+      <div><span class="t">Deal registration</span><p>Standard protection terms, with services attach handled by the partner or by us at the partner's election.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Product substance</p>
+    <h2>What a buyer actually receives</h2>
+    <p>A Go binary that scans a host against a versioned control library, applies remediation, re-verifies the result, and emits machine-readable evidence — <strong>17 practices automated across 6 of the 14 domains</strong> today, with the remaining domains delivered by people. That figure is on the coverage sheet and in the sales conversation, because a compliance product caught overstating its scope loses the account and the reference at the same time.</p>
+    <p>Alongside it: Terraform for a governed cloud landing zone with policy-as-code and per-agent workload identities, which addresses AI agent governance — a control problem defense buyers are acquiring right now and have no established pattern for.</p>
+    <p>Every item in an evidence bundle is tagged as machine-observed, model-asserted or human-attested. AI drafts narrative; it never poses as an observation. That separation is what makes an AI-assisted package survive an assessor's review.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Stated limits</p>
+    <ul class="bounds">
+      <li><b>No contract vehicle is held today.</b> Stated above and repeated here so it cannot be missed in a catalog review.</li>
+      <li><b>Not a C3PAO.</b> The product produces evidence; it does not certify and does not replace an authorized assessment.</li>
+      <li><b>93 of 110 practices are not automated.</b> Many never can be by any vendor, being policy and process rather than configuration.</li>
+      <li><b>No FedRAMP authorization is held or claimed.</b> The catalog SKUs are architected not to require one.</li>
+      <li><b>No customer references are named in this document.</b> They will be provided under NDA when they exist, and not before.</li>
+    </ul>
+  </section>
+
+  <section>
+    <p class="eyebrow">Proposed first step</p>
+    <h2>Catalog listing on two SKUs, ninety days</h2>
+    <ol class="steps">
+      <li><b>List the two self-serve SKUs</b> — the ten-host and twenty-five-host tiers — as a low-friction test of catalog pull with no services dependency.</li>
+      <li><b>Run the free lookup tool as a demand capture asset</b> against the distributor's existing defense contractor base, measuring registrations rather than revenue in the first sixty days.</li>
+      <li><b>Select the vehicle path jointly</b> and begin whichever qualification it requires, in parallel with the listing rather than as a precondition.</li>
+      <li><b>Review at ninety days</b> against registrations, quote requests and conversion — and decide together whether the enclave and services SKUs join the catalog.</li>
+    </ol>
+  </section>
+
+  <footer>
+    AdaptCloud · Issue 1.0 · 2026-09-06<br>
+    Prepared for distribution partner evaluation. Contains no customer-identifying information.<br>
+    Pricing shown is list and is subject to change. Regulatory statements reflect published guidance current at the issue date and are not legal advice.
+  </footer>
+
+</div>
