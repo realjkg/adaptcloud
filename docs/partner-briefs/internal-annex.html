@@ -1,0 +1,421 @@
+<title>Partner Brief Internal Annex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --paper:     #FBFBFA;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F3F4;
+    --ink:       #16191D;
+    --ink-soft:  #4C555E;
+    --ink-faint: #79828A;
+    --rule:      #CFD5DA;
+    --rule-soft: #E4E8EB;
+    --accent:    #123A63;
+    --restrict:  #8A2E1F;
+    --ok:        #1F5F3F;
+    --open:      #8A5A10;
+    --na:        #6B7280;
+
+    --sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F1214;
+      --surface:   #171B1F;
+      --surface-2: #1F252A;
+      --ink:       #E3E7EA;
+      --ink-soft:  #A8B1B8;
+      --ink-faint: #7C868D;
+      --rule:      #333C43;
+      --rule-soft: #242B31;
+      --accent:    #7FAAD6;
+      --restrict:  #D97B66;
+      --ok:        #5CA37C;
+      --open:      #C89340;
+      --na:        #8A939A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F1214;
+    --surface:   #171B1F;
+    --surface-2: #1F252A;
+    --ink:       #E3E7EA;
+    --ink-soft:  #A8B1B8;
+    --ink-faint: #7C868D;
+    --rule:      #333C43;
+    --rule-soft: #242B31;
+    --accent:    #7FAAD6;
+    --restrict:  #D97B66;
+    --ok:        #5CA37C;
+    --open:      #C89340;
+    --na:        #8A939A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 22px 88px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .doc { max-width: 940px; margin: 0 auto; }
+
+  .classbar {
+    margin-top: 24px;
+    border: 1px solid var(--restrict);
+    color: var(--restrict);
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    text-align: center;
+  }
+
+  .masthead { padding-top: 26px; }
+  .issuer {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+  .doctype {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 22px;
+  }
+  h1 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(1.5rem, 3.4vw, 2.05rem);
+    line-height: 1.2;
+    letter-spacing: -0.014em;
+    text-wrap: balance;
+    margin: 0 0 26px;
+    max-width: 26ch;
+  }
+
+  .control {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .control div { padding: 11px 16px 12px 0; border-right: 1px solid var(--rule-soft); }
+  .control div:last-child { border-right: none; }
+  .control dt {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 4px;
+  }
+  .control dd { font-family: var(--sans); font-size: 0.82rem; font-weight: 500; margin: 0; color: var(--ink); }
+  .control dd.r { color: var(--restrict); font-weight: 700; }
+
+  section { margin-top: 44px; }
+  .sec-h {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 9px;
+    margin-bottom: 18px;
+  }
+  .sec-h .n {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .sec-h h2 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 1.02rem;
+    line-height: 1.3;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .body { padding-left: 42px; }
+  @media (max-width: 620px) {
+    .sec-h { grid-template-columns: 30px 1fr; }
+    .body { padding-left: 0; }
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.86rem;
+    letter-spacing: 0.02em;
+    margin: 24px 0 8px;
+    color: var(--ink);
+  }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+
+  figure { margin: 22px 0; }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  figcaption span { color: var(--accent); }
+  .srcnote {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--ink-faint);
+    margin-top: 7px;
+    max-width: 78ch;
+  }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; min-width: 580px; background: var(--surface); }
+  th, td {
+    text-align: left;
+    padding: 9px 14px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--sans);
+  }
+  th {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td { font-size: 0.84rem; line-height: 1.5; color: var(--ink-soft); }
+  td b, td strong { color: var(--ink); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.id { font-weight: 600; color: var(--ink); white-space: nowrap; }
+
+  .decision {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--restrict);
+    padding: 16px 20px 18px;
+    margin-top: 18px;
+  }
+  .decision dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 108px 1fr;
+    gap: 6px 14px;
+  }
+  .decision dt {
+    font-family: var(--sans);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: 3px;
+  }
+  .decision dd {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+
+  .reg { list-style: none; padding: 0; margin: 0; }
+  .reg li {
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 76ch;
+  }
+  .reg li:first-child { padding-top: 0; }
+  .reg li:last-child { border-bottom: none; }
+  .reg .k {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    padding-top: 2px;
+  }
+  .reg b { color: var(--ink); font-weight: 600; }
+
+  footer {
+    margin-top: 40px;
+    padding-top: 14px;
+    border-top: 2px solid var(--restrict);
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    line-height: 1.65;
+    color: var(--ink-faint);
+    max-width: 86ch;
+  }
+</style>
+
+<div class="doc">
+
+  <p class="classbar">Internal — not for distribution outside AdaptCloud</p>
+
+  <header class="masthead">
+    <p class="issuer">AdaptCloud</p>
+    <p class="doctype">Internal Annex to the Partner Briefs, Version 1.0</p>
+    <h1>Withheld items: licence position and enclave price band</h1>
+
+    <dl class="control">
+      <div><dt>Version</dt><dd>1.0</dd></div>
+      <div><dt>Date of issue</dt><dd>6 September 2026</dd></div>
+      <div><dt>Classification</dt><dd class="r">Internal</dd></div>
+      <div><dt>Parent documents</dt><dd>Co-Delivery Brief 1.0; Channel Brief 1.0</dd></div>
+      <div><dt>Owner</dt><dd>AdaptCloud principal</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <div class="sec-h"><span class="n">1</span><h2>Purpose and scope</h2></div>
+    <div class="body">
+      <p>This annex records two items removed from the partner briefs at version 1.0, the position on each, and the point at which each becomes disclosable. It exists so that withheld material remains tracked and owned rather than merely absent, and so that the difference between the internal and external positions is documented rather than reconstructed later.</p>
+      <p>Neither item was removed because the position is unfavourable. Both were removed because they are unresolved internal matters that a counterparty cannot act on, and their presence in a first-issue partner document invited scrutiny of a decision not yet taken. Section 4 records when each must be surfaced.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">2</span><h2>Item 1 — Engine licence position</h2></div>
+    <div class="body">
+      <p>The audit engine repository is published under the GNU General Public Licence version 3. That licence imposes source-disclosure obligations on distribution of the software but does not extend to provision of the software as a network service. A third party may therefore operate a competing hosted service derived from the engine, without disclosure and without payment, and the hosted tiers at Exhibit 4 of the co-delivery brief carry no licensing barrier to that outcome.</p>
+
+      <h3>2.1 Position on remedy</h3>
+      <p>The two conventional remedies are the GNU Affero General Public Licence, which extends the disclosure obligation to network use, and a business source licence with a delayed open-source conversion date. Either forecloses the substitution described above. The choice is a commercial one: the Affero licence retains open-source status and community distribution, whereas a business source licence permits a use restriction for a defined period but is not an open-source licence and is treated as proprietary by many procurement functions.</p>
+
+      <h3>2.2 Why this is time-sensitive</h3>
+      <p>Relicensing requires the agreement of every copyright holder in the codebase. Enumeration of the repository history as at the date of issue shows <strong>seven commits and two contributing identities</strong>, one of which is an automated coding agent whose output ownership is governed by the platform's terms of service and should be confirmed with counsel rather than assumed. The consent perimeter is therefore presently narrow and administratively trivial to clear.</p>
+      <p>That position degrades permanently on the first external contribution. Each subsequent contributor acquires copyright in their contribution and becomes a necessary party to any relicensing, and a contributor who is unreachable or unwilling cannot be worked around except by removing and rewriting their contribution. The cost of this decision is close to zero today and rises without bound.</p>
+
+      <div class="decision">
+        <dl>
+          <dt>Recommendation</dt><dd>Relicense the engine to AGPL-3.0, or adopt a business source licence with a defined conversion term, before any external contribution is accepted. Introduce a contributor licence agreement at the same time.</dd>
+          <dt>Owner</dt><dd>AdaptCloud principal, with counsel input on agent-generated contribution ownership</dd>
+          <dt>Decide by</dt><dd>Before the repository accepts its first external pull request, and before execution of any partner agreement referencing hosted delivery</dd>
+          <dt>If deferred</dt><dd>The hosted tiers remain substitutable by any competent third party, which materially weakens the product-led position the commercial construct rests on</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">3</span><h2>Item 2 — Enclave price band</h2></div>
+    <div class="body">
+      <p>The enclave tier is quoted externally as a range, described in both briefs as varying with the number of landing zones and workload environments in scope. That description is accurate. What is withheld is that <strong>the band has not been validated against observed deployment effort</strong>, because no enclave deployment has yet been delivered at commercial scope. The range is a construction from component cost and estimated effort rather than a measurement.</p>
+
+      <h3>3.1 Basis of the current figure</h3>
+      <p>Reference infrastructure cost is documented in the repository at three postures, from approximately $80 to $150 per month at demonstration settings, through module defaults, to several thousand per month at production settings, driven principally by API gateway tier, search unit count and private endpoint count. That cost is the client's and is excluded from the AdaptCloud price under assumption A3. The band therefore expresses deployment and governance effort only, and that effort is the unmeasured quantity.</p>
+
+      <h3>3.2 What would resolve it</h3>
+      <ul class="reg">
+        <li><span class="k">M1</span><span>Record practitioner hours to first governed landing zone at production posture, separated into platform establishment, policy assignment and workload onboarding.</span></li>
+        <li><span class="k">M2</span><span>Record the incremental hours for each additional workload environment, which is the variable the band is actually indexed to.</span></li>
+        <li><span class="k">M3</span><span>Restate as a fixed platform establishment fee plus a per-environment increment, which removes the range without requiring a single blended figure.</span></li>
+      </ul>
+
+      <div class="decision">
+        <dl>
+          <dt>Recommendation</dt><dd>Retain the range externally until M1 and M2 are recorded on a first delivery. Restate per M3 rather than narrowing the range by estimate.</dd>
+          <dt>Owner</dt><dd>AdaptCloud principal</dd>
+          <dt>Decide by</dt><dd>Close of the first enclave delivery, or before the tier is listed in a distribution catalogue, whichever falls first</dd>
+          <dt>If deferred</dt><dd>A quoted band that cannot be defended when tested compresses to its lower bound in negotiation, and the difference is unrecoverable margin</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">4</span><h2>Disclosure triggers</h2></div>
+    <div class="body">
+      <p>Withholding at first issue is a sequencing judgement, not a permanent position. Each item carries a point beyond which non-disclosure would be a misrepresentation rather than an editorial choice.</p>
+      <figure>
+        <figcaption><span>Exhibit A1</span> — Disclosure position by item</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Item</th><th>Withheld at</th><th>Must be disclosed at</th><th>To whom</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="id">Licence position</td>
+                <td>First-issue partner briefs</td>
+                <td>Technical or legal due diligence; any agreement granting hosting, sublicensing or redistribution rights; any investor diligence</td>
+                <td>Counterparty counsel</td>
+              </tr>
+              <tr>
+                <td class="id">Enclave band basis</td>
+                <td>First-issue partner briefs</td>
+                <td>Submission of a firm quotation against the tier; catalogue listing of the tier at a fixed price</td>
+                <td>Counterparty commercial lead</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">A withheld item that reaches its trigger and is not disclosed converts an editorial decision into a representation issue. Both triggers precede any binding commitment, by design.</p>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">5</span><h2>Change record against the external briefs</h2></div>
+    <div class="body">
+      <figure>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Document</th><th>Location</th><th>Change</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Co-Delivery Brief</td><td>§7.2 risk register</td><td>Licence risk removed; subsequent rows renumbered, R4 and R5 becoming R3 and R4.</td></tr>
+              <tr><td class="id">Co-Delivery Brief</td><td>Exhibit 4 note</td><td>Validation caveat replaced with a scope-based explanation of the range.</td></tr>
+              <tr><td class="id">Co-Delivery Brief</td><td>§8 workstream W4</td><td>Reference to validating the enclave band removed; workstream retained for cost-assumption validation.</td></tr>
+              <tr><td class="id">Channel Brief</td><td>Exhibit 2 note</td><td>Narrowing-before-listing caveat replaced with a scope-based explanation of the range.</td></tr>
+              <tr><td class="id">Channel Brief</td><td>§8 workstream W4</td><td>Band resolution replaced with agreement of distributor terms and deal registration mechanics.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">Both briefs remain at version 1.0. Should either be reissued before the items at sections 2 and 3 are resolved, this annex is reissued with it.</p>
+      </figure>
+    </div>
+  </section>
+
+  <footer>
+    AdaptCloud · Internal Annex · Version 1.0 · 6 September 2026.<br>
+    Internal classification. Not to be attached to, quoted in, or summarised within any externally issued document. Contains no legal advice; the licensing position at section 2 requires confirmation by counsel before action.
+  </footer>
+
+</div>
