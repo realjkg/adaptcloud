@@ -375,7 +375,7 @@
           <li><b>Competitors built their offers around a date that no longer exists.</b> Any proposition whose close depended on November 10, 2026 has lost it. We regard the next four to six quarters as an unusually open window for an offer priced on continuous evidence rather than on a certification sprint.</li>
           <li><b>The binding constraint on this practice area is delivery repeatability, not demand.</b> Readiness engagements are built by hand, by senior people, every time. Unit cost does not fall across engagements, so the practice scales only by hiring. AdaptCloud supplies the engine that breaks that curve: a versioned control library, a host scanner, remediation playbooks, and governed cloud landing-zone modules.</li>
           <li><b>We publish automated coverage rather than characterize it.</b> Seventeen practices across six of fourteen domains are automated today (Exhibit 3). We state that number in the first meeting. In this category, an overstated scope is discovered during the client's assessment, which costs the account and the reference at the same time.</li>
-          <li><b>We propose a bounded 60-day pilot on one mutual client,</b> judged on a single quantitative criterion defined at section 8. If that number does not move, the construct does not scale for the Partner and we would both rather know inside a quarter.</li>
+          <li><b>We propose a bounded 60-day pilot on one mutual client,</b> judged on a single quantitative criterion defined at section 9. If that number does not move, the construct does not scale for the Partner and we would both rather know inside a quarter.</li>
         </ol>
       </div>
     </div>
@@ -387,7 +387,7 @@
       <p>The Department suspended Phase II of the CMMC program on July 13, 2026, deferring the third-party assessment requirement that had been set for November 10, 2026, and stood up a reform task force.<sup class="fn">1</sup> Phase I self-assessment, the DFARS safeguarding clause, and the underlying NIST standard were untouched.<sup class="fn">2</sup></p>
       <p>Two things follow for the supplier base, and in our experience only the first is well understood. Compliance still attaches to award, and a supplier's SPRS score decays as its estate drifts from the configuration it was scored against. That makes the requirement recurring rather than one-time. Less well understood is the second: with the deadline gone, the urgency that carried most vendors' sales motions went with it. Offers positioned on fear of a date are stalling. Offers positioned on the cost of staying current are not.</p>
       <p>The pattern we see in Level 2 programs is that the assessment is rarely the hard part. The twelve to eighteen months of evidence discipline in front of it is where supplier programs fail, and it is the part no one has productized. That is the gap this construct is built for.</p>
-      <p>Published cost estimates appear at Exhibit 1. They are secondary sources, unvalidated by us, and we present them to fix the order of magnitude behind the pricing at section 6 rather than as a business case.</p>
+      <p>Published cost estimates appear at Exhibit 1. They are secondary sources, unvalidated by us, and we present them to fix the order of magnitude behind the pricing at section 7 rather than as a business case.</p>
 
       <figure>
         <figcaption><span>Exhibit 1</span> — Indicative cost of Level 2 compliance, per contractor</figcaption>
@@ -403,7 +403,7 @@
             </tbody>
           </table>
         </div>
-        <p class="srcnote">All figures are list or reported estimates in US dollars and exclude taxes. We have not verified the underlying methodologies. Validating them against observed engagement effort is a pilot workstream (section 8).</p>
+        <p class="srcnote">All figures are list or reported estimates in US dollars and exclude taxes. We have not verified the underlying methodologies. Validating them against observed engagement effort is a pilot workstream (section 9).</p>
       </figure>
     </div>
   </section>
@@ -481,12 +481,53 @@
   </section>
 
   <section>
-    <div class="sec-h"><span class="n">6</span><h2>Commercial construct</h2></div>
+    <div class="sec-h"><span class="n">6</span><h2>Strategic position and long-term gain</h2></div>
+    <div class="body">
+      <p>The immediate case is margin on 800-171 work. The durable case is that the Partner's defense clients are about to be governed by two regimes at once, and almost nobody is positioned for both.</p>
+
+      <h3>6.1 The convergence the Partner should be positioned for</h3>
+      <p>Defense suppliers are deploying AI agents into the same environments that hold controlled unclassified information. That puts two obligations on one estate. NIST SP 800-171 and DFARS 252.204-7012 govern the data. A second and newer class of requirement governs the agent itself: what it is permitted to do, under whose identity, and whether its actions can be attributed after the fact.</p>
+      <p>AIUC-1 is the clearest expression of that second class. Published by the Artificial Intelligence Underwriting Company, it sets 51 requirements and roughly 130 controls across six pillars covering security, safety, reliability, accountability, data and privacy, and society. Certification is audited by an accredited third party, valid for twelve months, and sustained by quarterly technical testing. Its distinguishing feature is that conformance is backed by insurance, so an agent's compliance carries a priced financial guarantee rather than only a certificate.<sup class="fn">7</sup> The first enterprise automation platform certified to it did so in March 2026.<sup class="fn">8</sup></p>
+
+      <h3>6.2 Where we sit relative to that standard</h3>
+      <p>We are not a competitor to AIUC-1 and we do not certify anyone against it. The relationship is upstream. AIUC-1 sets the bar and an accredited auditor measures against it. Our landing-zone modules build the control substrate an agent has to be running inside before that measurement can pass, and our evidence pipeline produces the attribution record an auditor asks for.</p>
+      <p>Put plainly: a standard tells a client what must be true. Somebody still has to make it true, and prove it. That work is the engagement.</p>
+
+      <figure>
+        <figcaption><span>Exhibit 4</span> — Analytical mapping of AdaptCloud capability to agent-assurance control themes</figcaption>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Control theme</th><th>What the assurance regime asks</th><th>AdaptCloud contribution</th></tr></thead>
+            <tbody>
+              <tr><td class="id">Accountability</td><td>Agent actions are attributable to a bounded identity, after the fact.</td><td>A discrete workload identity per agent in the landing zone, rather than agents sharing a service principal. Attribution becomes a property of the platform instead of a logging convention.</td></tr>
+              <tr><td class="id">Security</td><td>Agent authority is constrained by enforced policy, not by configuration convention.</td><td>Policy-as-code enforcement at the management-group scope, so a non-conforming workload cannot be deployed rather than being detected afterward.</td></tr>
+              <tr><td class="id">Reliability</td><td>Claims about agent behavior are evidenced and repeatable.</td><td>Versioned control library. Every evidence bundle records the library revision that produced it, so a finding is reproducible months later.</td></tr>
+              <tr><td class="id">Data and privacy</td><td>Regulated data does not leave its authorized boundary through the agent.</td><td>Architectural constraint at section 5: findings and scores cross the boundary, artifacts and CUI do not.</td></tr>
+              <tr><td class="id">Accountability, AI-generated content</td><td>Machine output is distinguishable from human assertion in the record.</td><td>Provenance classification at section 4.1, enforced in the data model rather than by review discipline.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="srcnote">This is our own analytical reading of published descriptions of agent-assurance control themes, prepared to show where our capability lands. It is not an accredited crosswalk, we hold no AIUC-1 certification, and nothing here should be represented to a client as conformance with that or any other standard. A formal mapping would require the published control text and an accredited assessor.</p>
+      </figure>
+
+      <h3>6.3 What the Partner gains, across three horizons</h3>
+      <ul class="reg">
+        <li><span class="k">0–12 mo</span><span><b>Margin and repeatability on work already being sold.</b> Readiness engagements stop being hand-built. The library ratio at section 9 measures it directly, and it is the difference between a practice that scales by hiring and one that does not.</span></li>
+        <li><span class="k">12–24 mo</span><span><b>A practice line nobody currently owns: taking a defense client through both regimes at once.</b> Firms that can evidence CUI compliance are common. Firms that can also stand up governed agent identity, and produce evidence an agent auditor will accept, are not. That combination is defensible for as long as it takes competitors to build the substrate, which is measured in quarters rather than weeks.</span></li>
+        <li><span class="k">24 mo +</span><span><b>Vertical portability without rebuilding.</b> The pattern is a governed landing zone, enforced policy, per-agent identity, and provenance-classified evidence. Defense is the first vertical because its obligation is the sharpest, not because the pattern is specific to it. Healthcare, financial services and critical infrastructure present the same structure against a different control catalog, and the engine is built so the catalog is the variable.</span></li>
+      </ul>
+
+      <p>One further consequence is worth naming because it is unusual in advisory work. Where agent assurance is insurance-backed, an underwriter eventually prices the risk of a client's agent estate. A partner that can demonstrably reduce that risk posture has a value story with a number attached to it, which is rare in this profession and difficult for a competitor to argue against.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="n">7</span><h2>Commercial construct</h2></div>
     <div class="body">
       <p>We price on assessment scope, expressed as hosts and enclaves, and never on user seats. Scope is the unit a compliance buyer already reasons in. Seat pricing penalizes the small subcontractors the primes most need brought to standard, which is the segment where volume lives.</p>
 
       <figure>
-        <figcaption><span>Exhibit 4</span> — Indicative list positions</figcaption>
+        <figcaption><span>Exhibit 5</span> — Indicative list positions</figcaption>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Tier</th><th class="num">Scope</th><th class="num">List, annual</th><th>Included</th></tr></thead>
@@ -509,7 +550,7 @@
   </section>
 
   <section>
-    <div class="sec-h"><span class="n">7</span><h2>Assumptions, dependencies and risks</h2></div>
+    <div class="sec-h"><span class="n">8</span><h2>Assumptions, dependencies and risks</h2></div>
     <div class="body">
       <h3>7.1 Assumptions</h3>
       <ul class="reg">
@@ -529,7 +570,7 @@
               <tr><td class="id">R1</td><td>Program reform alters or removes the underlying obligation.</td><td class="num">Medium / High</td><td>Annual contracting with no multi-year commitment. The offer rests on 800-171 and DFARS obligations, which stand independently of the CMMC assessment mechanism.</td><td>Joint</td></tr>
               <tr><td class="id">R2</td><td>Automated coverage at 17 practices is raised as an objection late in a sales cycle.</td><td class="num">High / Medium</td><td>Coverage published in enablement materials and disclosed at qualification (Exhibit 3), which converts a late objection into an early credibility point.</td><td>AdaptCloud</td></tr>
               <tr><td class="id">R3</td><td>Scope extension puts client CUI inside the engine, triggering authorization obligations.</td><td class="num">Low / High</td><td>Architectural boundary at section 5, reinforced by contractual restriction in the co-delivery agreement.</td><td>Joint</td></tr>
-              <tr><td class="id">R4</td><td>AdaptCloud delivery capacity constrains Partner-led scale.</td><td class="num">Medium / Medium</td><td>Enablement transfer during the pilot. The library ratio at section 8 is the leading indicator and will show this before capacity binds.</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">R4</td><td>AdaptCloud delivery capacity constrains Partner-led scale.</td><td class="num">Medium / Medium</td><td>Enablement transfer during the pilot. The library ratio at section 9 is the leading indicator and will show this before capacity binds.</td><td>AdaptCloud</td></tr>
             </tbody>
           </table>
         </div>
@@ -539,7 +580,7 @@
   </section>
 
   <section>
-    <div class="sec-h"><span class="n">8</span><h2>Recommended next step</h2></div>
+    <div class="sec-h"><span class="n">9</span><h2>Recommended next step</h2></div>
     <div class="body">
       <p>One mutual client, 60 days, four workstreams, one number that decides it.</p>
       <ul class="reg">
@@ -563,6 +604,8 @@
       <li>Reported departmental three-year cost estimate for a small defense contractor. <i>Godlan</i>, accessed September 6, 2026.</li>
       <li>Prevailing pricing for purpose-built small-supplier CMMC tooling. <i>CMMC Map; Totem Technologies published pricing</i>, accessed September 6, 2026.</li>
       <li>Published entry and scale pricing for a mid-market compliance automation platform. <i>Sprinto; vendor-published pricing</i>, accessed September 6, 2026.</li>
+      <li>Description of the AIUC-1 standard: publisher, requirement and control counts, six risk pillars, third-party audit, twelve-month validity with quarterly testing, and insurance backing. <i>Mindgard; Tevora; Workstreet; usefini</i>, accessed September 6, 2026. AdaptCloud has not reviewed the published control text.</li>
+      <li>First enterprise automation platform certified to AIUC-1, March 2026. <i>UiPath newsroom</i>, accessed September 6, 2026.</li>
     </ol>
   </section>
 
