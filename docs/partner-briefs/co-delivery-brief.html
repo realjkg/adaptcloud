@@ -452,7 +452,7 @@
   <header class="masthead">
     <p class="issuer">AdaptCloud</p>
     <p class="doctype">Partner Brief — Co-Delivery Construct</p>
-    <h1>Managed NIST SP 800-171 compliance: co-delivery construct and commercial terms</h1>
+    <h1>Managed NIST SP 800-171 compliance</h1>
 
     <dl class="control">
       <div><dt>Version</dt><dd>1.0</dd></div>
@@ -534,7 +534,7 @@
             <thead><tr><th>Component</th><th>Function</th><th>Execution location</th><th>Ownership</th></tr></thead>
             <tbody>
               <tr><td class="id">Host audit binary</td><td>Assesses a host against the control library, applies remediation on an explicit flag, re-verifies, and emits both human-readable and machine-readable output. Returns a non-zero exit status while findings remain open, so it drops into a pipeline without a wrapper.</td><td>Client host</td><td>AdaptCloud</td></tr>
-              <tr><td class="id">Control library</td><td>Versioned practice definitions with NIST SP 800-171 Rev 2 references, severity, and remediation actions. Every evidence bundle records the library revision that produced it, which is what makes a finding reproducible six months later.</td><td>Engine</td><td>AdaptCloud</td></tr>
+              <tr><td class="id">Control library</td><td>Versioned practice definitions with NIST SP 800-171 Rev 2 references, severity, and remediation actions. Every evidence bundle records the library revision that produced it, so a finding is reproducible six months later.</td><td>Engine</td><td>AdaptCloud</td></tr>
               <tr><td class="id">Cloud landing zone</td><td>Infrastructure as code for a governed application platform, policy-as-code enforcement, and a discrete workload identity per AI agent, aligned to published cloud adoption framework guidance.</td><td>Client tenant</td><td>AdaptCloud</td></tr>
               <tr><td class="id">Container baseline</td><td>Hardened managed-Kubernetes infrastructure as code with federated single sign-on enforced at the boundary.</td><td>Client project</td><td>AdaptCloud</td></tr>
               <tr><td class="id">Evidence pipeline</td><td>Assembles system security plan narrative and plan-of-action entries from assessment output, with a provenance classification on every item (section 4.1).</td><td>Partner-operated</td><td>Joint</td></tr>
@@ -573,7 +573,7 @@
         <p class="srcnote">Internal validation result, not an independently verified production metric. Derived by enumerating the control identifiers implemented in the AdaptCloud scanner at commit 150aaec, July 6, 2026, and reproducible against that revision. A partner may verify it directly against the source at that commit. The eight remaining domains are largely policy, training, and process controls, a substantial share of which no vendor can verify automatically. Coverage is the product roadmap and will increase; we make no commitment on timing in this document.</p>
       </figure>
 
-      <p>Read that table the way an assessor will. The automated set is the configuration evidence that is expensive to gather by hand and worthless if it is stale, which is exactly the part worth mechanizing. The human-delivered set is policy and process work that consultants should be doing anyway, and it moves faster once the technical half is already evidenced. That division is the offer, and it is more defensible than a claim of full coverage.</p>
+      <p>The automated set is configuration evidence: expensive by hand, worthless when stale, and the part worth mechanizing. The rest is policy and process work consultants do anyway, and it moves faster once the technical half is evidenced. That division is the offer.</p>
 
       <h3>4.1 Provenance classification</h3>
       <p>The evidence pipeline uses generative AI for narrative drafting. In a finished package a generated sentence and an observed system fact look identical, and conflating them is the fastest route to an indefensible submission. We separate them in the data model so they cannot be merged in output.</p>
@@ -587,7 +587,7 @@
   </section>
 
   <section>
-    <div class="sec-h"><span class="n">5</span><h2>Data boundary and regulatory scope</h2></div>
+    <div class="sec-h"><span class="n">5</span><h2>Data boundary</h2></div>
     <div class="body">
       <p>The scanner runs on the client host and returns control status, findings, and scores. Configuration artifacts, system files, and controlled unclassified information stay inside the client environment. This is an architectural constraint we adopted before the first contract, not a limitation waiting to be fixed.</p>
       <p>The reason is specific. A cloud service that stores or processes CUI falls under DFARS 252.204-7012 and needs FedRAMP Moderate authorization or documented equivalency, which is a six-figure, multi-quarter undertaking that would land on both parties. Designing the boundary in is cheap. Remediating it after the first client uploads a system security plan is not. Where a client wants a fully hosted posture, that is a separate offering with its own authorization path and its own commercial treatment, and it is out of scope here.</p>
@@ -595,26 +595,26 @@
   </section>
 
   <section>
-    <div class="sec-h"><span class="n">6</span><h2>Strategic position and long-term gain</h2></div>
+    <div class="sec-h"><span class="n">6</span><h2>Strategic position</h2></div>
     <div class="body">
       <p>The immediate case is margin on 800-171 work. The durable case needs stating carefully, because the obvious version of it is wrong and we would rather say so here than have the Partner discover it in eighteen months.</p>
 
-      <h3>6.1 Two regimes are landing on one estate</h3>
+      <h3>6.1 Two regimes, one estate</h3>
       <p>Defense suppliers are deploying AI agents into the same environments that hold controlled unclassified information. That puts two obligations on one estate. NIST SP 800-171 and DFARS 252.204-7012 govern the data. A newer class of requirement governs the agent itself: what it may do, under whose identity, and whether its actions can be attributed after the fact.</p>
       <p>AIUC-1 is the clearest expression of the second class. Published by the Artificial Intelligence Underwriting Company, it sets 51 requirements and roughly 130 controls across six pillars covering security, safety, reliability, accountability, data and privacy, and society. Certification is audited by an accredited third party, valid for twelve months, and sustained by quarterly technical testing. Its distinguishing feature is that conformance is backed by insurance, so an agent's compliance carries a priced financial guarantee rather than only a certificate.<sup class="fn">7</sup> The first enterprise automation platform certified to it did so in March 2026.<sup class="fn">8</sup></p>
 
-      <h3>6.2 Generic agent governance will be commoditized, and we do not build a case on it</h3>
+      <h3>6.2 Agent governance commoditizes</h3>
       <p>An assurance regime with insurer backing, accredited auditors, and platform vendors already certifying will not leave a gap under it for long. We expect the major automation and cloud platforms to ship baseline agent identity, policy binding, and action logging as native features on a twelve to twenty-four month horizon, because certification pressure gives them a direct commercial reason to.</p>
       <p>Any proposition whose long-term case rests on being the party that governs AI agents is therefore building on ground that is scheduled to disappear. We are not making that argument, and a partner should discount anyone who does.</p>
 
-      <h3>6.3 The position that holds is agent governance inside the CUI boundary</h3>
+      <h3>6.3 The regulated boundary</h3>
       <p>What the platforms will not follow us into is the regulated boundary. Serving CUI workloads means accepting DFARS flow-down, and a hosted service that touches CUI needs FedRAMP Moderate authorization or documented equivalency. That is an unattractive proposition at platform scale and a deliberate one at ours. The result is a narrow, durable position with three components that do not commoditize on the same schedule:</p>
       <ul class="reg">
         <li><span class="k">1</span><span><b>The boundary itself.</b> Findings and scores cross it, artifacts and CUI do not (section 5). A generic platform feature is not architected around that constraint, and retrofitting it is a re-platforming exercise rather than a release.</span></li>
         <li><span class="k">2</span><span><b>A control library written against a specific regulated catalog.</b> Native platform governance answers to an assurance standard. It does not produce a NIST SP 800-171 Rev 2 finding with a practice identifier, a severity, and a remediation an assessor will accept.</span></li>
         <li><span class="k">3</span><span><b>Provenance tied to a submission that carries legal weight.</b> Distinguishing machine-observed from model-asserted matters everywhere. It matters differently when the output is a system security plan supporting a score submitted to a federal system of record.</span></li>
       </ul>
-      <p>Stated as one sentence: we are not the firm that governs AI agents. We are the firm that governs AI agents where the data is regulated and the evidence has to survive an assessor. That claim is smaller, and it will still be true when the first one is not.</p>
+      <p>We are not the firm that governs AI agents. We govern them where the data is regulated and the evidence has to survive an assessor. Smaller claim, longer life.</p>
 
       <figure>
         <figcaption><span>Exhibit 4</span> — Where our substrate contributes to agent-assurance control themes</figcaption>
@@ -633,14 +633,14 @@
         <p class="srcnote">Our own analytical reading of published descriptions of agent-assurance control themes, prepared to show where our capability lands and where we expect to be displaced. It is not an accredited crosswalk, we hold no AIUC-1 certification, and nothing here should be represented to a client as conformance with that or any other standard. A formal mapping requires the published control text and an accredited assessor.</p>
       </figure>
 
-      <h3>6.4 What the Partner gains across three horizons</h3>
+      <h3>6.4 Partner gains, by horizon</h3>
       <ul class="reg">
         <li><span class="k">0–12 mo</span><span><b>Margin and repeatability on work already being sold.</b> Readiness engagements stop being hand-built. The library ratio at section 9 measures it directly, and it is the difference between a practice that scales by hiring and one that does not. This horizon does not depend on any view of agent assurance.</span></li>
         <li><span class="k">12–24 mo</span><span><b>The regulated-boundary position, entered before the category is contested.</b> Not agent governance broadly, which the platforms will take. The narrower line is a defense client running agents against CUI who needs one party accountable for both regimes. Entering while the platforms are still building general features is what buys the reference accounts.</span></li>
         <li><span class="k">24 mo +</span><span><b>Optionality on other regulated verticals, not a second moat.</b> The pattern is a governed landing zone, enforced policy, per-agent identity, and provenance-classified evidence against a named control catalog. Healthcare, financial services and critical infrastructure have the same structure and a different catalog, and the engine treats the catalog as the variable. We present this as optionality the Partner may exercise rather than as defensibility, because each vertical has incumbents and none of them is us.</span></li>
       </ul>
 
-      <p>One consequence is worth naming because it is unusual in advisory work. Where agent assurance is insurance-backed, an underwriter eventually prices the risk of a client's agent estate. A partner that can demonstrably reduce that posture inside a regulated boundary has a value story with a number attached, which is rare in this profession and hard for a competitor to argue against.</p>
+      <p>Where agent assurance is insurance-backed, an underwriter eventually prices the risk of a client's agent estate. A partner that can reduce that posture inside a regulated boundary has a value story with a number attached.</p>
     </div>
   </section>
 
@@ -687,14 +687,14 @@
         </div>
         <p class="srcnote">Bands, not fixed percentages: deal quality, services intensity, and volume move the number, and exact terms are set in the agreement. The highest software discounts are tied to annual commitment, qualified pipeline, accreditation, or minimum deal size. Solution architecture, custom integration, regulated-environment support, and on-site work are charged separately. A partner price floor applies on registered deals, so a partner knows we will not destabilize its proposal.</p>
       </figure>
-      <p>The intent is that a delivery partner preserves the economics it already expects: software margin for carrying the platform, services margin for owning delivery, recurring revenue for account stewardship, upside for creating pipeline, and no direct-sales conflict.</p>
+      <p>A delivery partner keeps the economics it already expects: software margin for carrying the platform, services margin for owning delivery, recurring revenue for stewardship, upside for new pipeline, and no direct-sales conflict.</p>
 
-      <p>One structural point we would press in the agreement: contract this as an annual subscription with delivery included, not as time and materials. The work is identical and the margin is similar, but T&amp;M re-anchors the client on an hourly rate, makes the revenue lumpy, and values the practice at a services multiple rather than a product one.</p>
+      <p>Contract this as an annual subscription with delivery included, not time and materials. Same work, similar margin, but T&amp;M re-anchors the client on an hourly rate, makes revenue lumpy, and values the practice at a services multiple.</p>
     </div>
   </section>
 
   <section>
-    <div class="sec-h"><span class="n">8</span><h2>Assumptions, dependencies, and risks</h2></div>
+    <div class="sec-h"><span class="n">8</span><h2>Assumptions and risks</h2></div>
     <div class="body">
       <h3>8.1 Assumptions</h3>
       <ul class="reg">
@@ -724,7 +724,7 @@
   </section>
 
   <section>
-    <div class="sec-h"><span class="n">9</span><h2>Recommended next step</h2></div>
+    <div class="sec-h"><span class="n">9</span><h2>Next step</h2></div>
     <div class="body">
       <p>One mutual client, 60 days, four workstreams, one number that decides it.</p>
       <ul class="reg">
