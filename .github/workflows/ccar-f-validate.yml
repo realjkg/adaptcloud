@@ -19,6 +19,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check ccar-f/app.js
+          node --check ccar-f/exam.js
           node --check ccar-f/loader.js
           for f in ccar-f/payload*.js; do node --check "$f"; done
 
@@ -51,10 +52,18 @@ jobs:
           console.log(`Validated ${data.cards.length} cards and ${data.questions.length} questions.`);
           NODE
 
-      - name: Verify static entry points
+      - name: Verify static entry points and exam navigation
         run: |
           test -f ccar-f/index.html
           test -f ccar-f/styles.css
+          test -f ccar-f/exam.css
+          test -f ccar-f/exam.js
           grep -q 'payload5.js' ccar-f/index.html
           grep -q 'loader.js' ccar-f/index.html
-          grep -q '120\*60000' ccar-f/app.js
+          grep -q 'exam.css' ccar-f/index.html
+          grep -q 'exam.js' ccar-f/loader.js
+          grep -q 'Flag for Review' ccar-f/exam.js
+          grep -q 'Review Incomplete' ccar-f/exam.js
+          grep -q 'Review Flagged' ccar-f/exam.js
+          grep -q 'End Review & Submit Exam' ccar-f/exam.js
+          grep -q 'MOCK_MINUTES = 120' ccar-f/exam.js
