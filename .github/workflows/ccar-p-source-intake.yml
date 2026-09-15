@@ -1,0 +1,42 @@
+name: Validate CCAR-P practitioner source intake
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/sources/ccar-p/manifests/**"
+      - "ccar-f/sources/ccar-p/attribution/**"
+      - "ccar-f/sources/ccar-p/source-registry.json"
+      - ".github/workflows/ccar-p-source-intake.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-source-intake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Juan source evidence pin
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const registry=JSON.parse(fs.readFileSync('ccar-f/sources/ccar-p/source-registry.json','utf8'));
+          const manifest=JSON.parse(fs.readFileSync('ccar-f/sources/ccar-p/manifests/juanmartincoma.json','utf8'));
+          const attribution=fs.readFileSync('ccar-f/sources/ccar-p/attribution/THIRD_PARTY_CONTENT.md','utf8');
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
+          const source=registry.sources.find(s=>s.id===manifest.sourceId);
+          assert(source,'Manifest source is missing from registry');
+          assert(source.status==='approved-import'&&source.allowedForRuntimeImport===true,'Source is not runtime-approved');
+          assert(manifest.source.commitSha===source.pinnedCommit,'Pinned commit does not match registry');
+          assert(/^[0-9a-f]{40}$/.test(manifest.source.commitSha),'Pinned commit must be immutable SHA');
+          assert(manifest.source.files.length===3,'Expected question, answer, and license evidence');
+          for(const f of manifest.source.files)assert(/^[0-9a-f]{40}$/.test(f.blobSha),`Invalid blob SHA for ${f.path}`);
+          assert(manifest.rights.licenseId==='CC-BY-4.0','CC BY 4.0 license is required for this source');
+          assert(manifest.rights.adaptationAllowed===true,'Adaptation rights must be explicit');
+          assert(manifest.provenance.authorOriginal===true,'Source must declare original authorship');
+          assert(manifest.provenance.liveExamMaterial===false&&manifest.provenance.recalledExamMaterial===false,'Live/recalled material is prohibited');
+          assert(manifest.review.runtimeQuestionsImported===false,'Source-intake PR must not import runtime questions');
+          assert(attribution.includes('Juan Martín Cordero')&&attribution.includes('CC BY 4.0'),'Attribution record is incomplete');
+          console.log('Juan CCAR-P source intake evidence validated.');
+          NODE
