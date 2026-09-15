@@ -42,8 +42,12 @@ jobs:
           node --check ccar-f/certifications.js
           node --check ccar-f/multi-app.js
           node --check ccar-f/exam-profile.js
+          node --check ccar-f/ccar-p.bank-architecture.js
+          node --check ccar-f/ccar-p.bank-enterprise.js
           grep -q 'certTrack' ccar-f/index.html
           grep -q 'exam-profile.js' ccar-f/index.html
+          grep -q 'ccar-p.bank-architecture.js' ccar-f/index.html
+          grep -q 'ccar-p.bank-enterprise.js' ccar-f/index.html
           grep -q 'if(profile.bankStatus!=="planned")await loadScript("./exam.js")' ccar-f/loader.js
           node <<'NODE'
           global.window = {};
@@ -52,7 +56,8 @@ jobs:
           const expected = {
             'ccao-f': [60,120],
             'ccdv-f': [53,120],
-            'ccar-f': [60,120]
+            'ccar-f': [60,120],
+            'ccar-p': [63,120]
           };
           for (const [id,[questions,minutes]] of Object.entries(expected)) {
             if (!p[id]) throw new Error(`Missing ${id}`);
@@ -61,6 +66,7 @@ jobs:
             if (p[id].bankStatus !== 'complete') throw new Error(`${id} unexpectedly not complete`);
           }
           if (p['ccar-f'].progressKey !== 'ccar-f-study-sim-v2') throw new Error('CCAR-F progress-key regression');
-          if (p['ccar-p'].bankStatus !== 'planned') throw new Error('CCAR-P should remain planned until blueprint lock');
-          console.log('Cumulative PR8 -> PR9 -> multi-cert contract preserved.');
+          if (p['ccar-p'].bankDepth < 2) throw new Error('CCAR-P bank-depth regression');
+          if (Object.keys(p['ccar-p'].domains).length !== 7) throw new Error('CCAR-P domain regression');
+          console.log('Cumulative PR8 -> PR9 -> Foundations -> CCAR-P contract preserved.');
           NODE
