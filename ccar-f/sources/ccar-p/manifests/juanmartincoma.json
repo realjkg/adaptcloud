@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "sourceId": "juanmartincoma-ccarp",
+  "certification": "CCAR-P",
+  "language": "es",
+  "importMode": "translated-adaptation",
+  "reviewedAt": "2026-09-15",
+  "source": {
+    "repository": "juanmartincoma-collab/claude-certified-architect-es",
+    "commitSha": "02e8b166d55b2588c2212fa0e68c23d1f28064fb",
+    "files": [
+      {
+        "path": "profesional/examen.md",
+        "blobSha": "3d09f7139401f41a0c45fd100ee65f5491e7828d",
+        "role": "professional-practice-question-source"
+      },
+      {
+        "path": "profesional/respuestas.md",
+        "blobSha": "0d4c4e6f8003fc522c764bf3a9999ede4eab19c7",
+        "role": "answer-and-reasoning-source"
+      },
+      {
+        "path": "LICENSE",
+        "blobSha": "da6ab6cc8f333d7e89a99812866df8f24374d47c",
+        "role": "content-license"
+      }
+    ]
+  },
+  "credential": {
+    "type": "proctored-certification",
+    "name": "Claude Certified Architect - Professional",
+    "verificationProvider": "Credly",
+    "identityMatch": "verified",
+    "eligibleAsCertifiedPractitioner": true
+  },
+  "provenance": {
+    "authorOriginal": true,
+    "liveExamMaterial": false,
+    "recalledExamMaterial": false,
+    "authorDeclaration": "Questions are original, written against published exam objectives and weights, and do not reproduce, transcribe, paraphrase, or derive from real exam items.",
+    "runtimeRule": "Adapt concepts into independently worded English scenarios; do not copy source wording verbatim."
+  },
+  "rights": {
+    "licenseId": "CC-BY-4.0",
+    "licenseScope": "guides/questions/answers/glossary",
+    "adaptationAllowed": true,
+    "commercialUseAllowed": true,
+    "attributionRequired": true,
+    "changeNoticeRequired": true
+  },
+  "review": {
+    "credential": "approved",
+    "provenance": "approved",
+    "rights": "approved",
+    "contentIntake": "approved-for-domain-review",
+    "runtimeQuestionsImported": false
+  }
+}
