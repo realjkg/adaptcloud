@@ -35,12 +35,12 @@ jobs:
           grep -q 'ccar-f.audit-bank.js' ccar-f/index.html
           grep -q 'ccar-f-selection.js' ccar-f/index.html
           grep -q 'ccar-f-runtime-patch.js' ccar-f/loader.js
-          test "$(grep -n 'ccar-f.bank.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'ccar-f.bank-topup.js' ccar-f/index.html | cut -d: -f1)"
-          test "$(grep -n 'ccar-f.bank-topup.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'ccar-f.audit-bank.js' ccar-f/index.html | cut -d: -f1)"
-          test "$(grep -n 'ccar-f.audit-bank.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'loader.js' ccar-f/index.html | cut -d: -f1)"
-          test "$(grep -n 'ccar-f-selection.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'loader.js' ccar-f/index.html | cut -d: -f1)"
-          test "$(grep -n 'await loadScript("./app.js")' ccar-f/loader.js | cut -d: -f1)" -lt "$(grep -n 'await loadScript("./ccar-f-runtime-patch.js")' ccar-f/loader.js | cut -d: -f1)"
-          test "$(grep -n 'await loadScript("./ccar-f-runtime-patch.js")' ccar-f/loader.js | cut -d: -f1)" -lt "$(grep -n 'await loadScript("./exam.js")' ccar-f/loader.js | cut -d: -f1)"
+          test "$(grep -n 'ccar-f.bank.js' ccar-f/index.html | head -1 | cut -d: -f1)" -lt "$(grep -n 'ccar-f.bank-topup.js' ccar-f/index.html | head -1 | cut -d: -f1)"
+          test "$(grep -n 'ccar-f.bank-topup.js' ccar-f/index.html | head -1 | cut -d: -f1)" -lt "$(grep -n 'ccar-f.audit-bank.js' ccar-f/index.html | head -1 | cut -d: -f1)"
+          test "$(grep -n 'ccar-f.audit-bank.js' ccar-f/index.html | head -1 | cut -d: -f1)" -lt "$(grep -n 'loader.js' ccar-f/index.html | head -1 | cut -d: -f1)"
+          test "$(grep -n 'ccar-f-selection.js' ccar-f/index.html | head -1 | cut -d: -f1)" -lt "$(grep -n 'loader.js' ccar-f/index.html | head -1 | cut -d: -f1)"
+          test "$(grep -n 'await loadScript("./app.js")' ccar-f/loader.js | head -1 | cut -d: -f1)" -lt "$(grep -n 'await loadScript("./ccar-f-runtime-patch.js")' ccar-f/loader.js | head -1 | cut -d: -f1)"
+          test "$(grep -n 'await loadScript("./ccar-f-runtime-patch.js")' ccar-f/loader.js | head -1 | cut -d: -f1)" -lt "$(grep -n 'await loadScript("./exam.js")' ccar-f/loader.js | head -1 | cut -d: -f1)"
 
       - name: Validate 30-objective traceability, bank preservation, and mock coverage
         run: |
