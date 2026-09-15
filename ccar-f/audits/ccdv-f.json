@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "1.0",
+  "track": "ccdv-f",
+  "code": "CCDV-F",
+  "sourceId": "anthropic-ccdv-f-guide-v1",
+  "guideVersion": "1.0",
+  "guideEffective": "2026-07",
+  "verifiedAt": "2026-09-15",
+  "questionCount": 53,
+  "minutes": 120,
+  "scaledPassingScore": 720,
+  "expectedBank": {
+    "cards": 68,
+    "questions": 146,
+    "families": 61,
+    "remediationCards": 17,
+    "remediationQuestions": 34
+  },
+  "methodology": {
+    "objectiveIds": "Internal AdaptCloud traceability identifiers. They paraphrase the published skill blueprint and are not official exam task IDs.",
+    "familyIds": "Internal concept-family identifiers used to prevent scenario variants from being treated as independent knowledge.",
+    "remediation": "Original scenarios were added only where the pre-audit bank did not adequately represent the published skill breadth. No live, recalled, screenshot-derived, or copied exam questions are used.",
+    "mockAllocation": "Domain mock counts are the repository's frozen 53-item practice geometry, not a claim that Anthropic publishes exact per-domain item counts."
+  },
+  "domains": {
+    "D1": {
+      "name": "Applications and Integration",
+      "weight": 33.1,
+      "mock": 18,
+      "families": 15,
+      "objectives": [
+        {"id":"DEV-APP-REQ","label":"Translate requirements into implementable acceptance criteria","weight":3.4,"minimumFamilies":1},
+        {"id":"DEV-APP-SLC","label":"Manage system lifecycle, releases, observability, and rollback","weight":2.8,"minimumFamilies":1},
+        {"id":"DEV-APP-API","label":"Implement Claude API mechanics and completion handling","weight":6.8,"minimumFamilies":3},
+        {"id":"DEV-APP-SWE","label":"Apply software-engineering foundations around Claude integrations","weight":7.4,"minimumFamilies":3},
+        {"id":"DEV-APP-DESIGN","label":"Design Claude application boundaries and state correctly","weight":8.6,"minimumFamilies":2},
+        {"id":"DEV-APP-CONFIG","label":"Manage Claude application configuration and dependencies reproducibly","weight":4.1,"minimumFamilies":1}
+      ]
+    },
+    "D2": {
+      "name": "Model Selection and Optimization",
+      "weight": 16.8,
+      "mock": 9,
+      "families": 11,
+      "objectives": [
+        {"id":"DEV-MOD-LLM","label":"Apply LLM fundamentals such as tokens, context, variability, and reasoning settings","weight":5.2,"minimumFamilies":1},
+        {"id":"DEV-MOD-TECH","label":"Understand SDK, REST, JSON, and transport fundamentals","weight":6.1,"minimumFamilies":1},
+        {"id":"DEV-MOD-SELECT","label":"Choose and version models using measured tradeoffs","weight":2.7,"minimumFamilies":3},
+        {"id":"DEV-MOD-COST","label":"Manage tokens, caching, batching, and route economics","weight":2.8,"minimumFamilies":4}
+      ]
+    },
+    "D3": {
+      "name": "Agents and Workflows",
+      "weight": 14.7,
+      "mock": 8,
+      "families": 9,
+      "objectives": [
+        {"id":"DEV-AG-ARCH","label":"Choose agent versus workflow architecture and decomposition","weight":4.5,"minimumFamilies":2},
+        {"id":"DEV-AG-BUILD","label":"Construct bounded agents with appropriate runtime controls","weight":5.3,"minimumFamilies":3},
+        {"id":"DEV-AG-PATTERN","label":"Use agent patterns, subagents, memory, and frameworks deliberately","weight":4.9,"minimumFamilies":3}
+      ]
+    },
+    "D4": {
+      "name": "Prompt and Context Engineering",
+      "weight": 11.0,
+      "mock": 6,
+      "families": 6,
+      "objectives": [
+        {"id":"DEV-PC-CONTEXT","label":"Manage context windows, compaction, retrieval, and isolation","weight":3.8,"minimumFamilies":3},
+        {"id":"DEV-PC-PROMPT","label":"Engineer clear layered prompts, examples, and iterative refinements","weight":4.6,"minimumFamilies":2},
+        {"id":"DEV-PC-OUTPUT","label":"Validate and defensively handle structured model output","weight":2.6,"minimumFamilies":1}
+      ]
+    },
+    "D5": {
+      "name": "Tools and MCPs",
+      "weight": 10.6,
+      "mock": 5,
+      "families": 6,
+      "objectives": [
+        {"id":"DEV-TOOL-IMPL","label":"Implement narrow tools and reliable tool-use loops","weight":4.4,"minimumFamilies":3},
+        {"id":"DEV-TOOL-MCP","label":"Author and deploy bounded MCP server capabilities","weight":2.1,"minimumFamilies":2},
+        {"id":"DEV-TOOL-CUSTOM","label":"Choose among built-in tools, custom tools, Skills, and MCP","weight":4.1,"minimumFamilies":1}
+      ]
+    },
+    "D6": {
+      "name": "Security and Safety",
+      "weight": 8.1,
+      "mock": 4,
+      "families": 5,
+      "objectives": [
+        {"id":"DEV-SEC-APP","label":"Mitigate prompt injection, data leakage, and unsafe untrusted input","weight":3.2,"minimumFamilies":2},
+        {"id":"DEV-SEC-GUARD","label":"Layer guardrails, least privilege, identity, and authorization","weight":2.3,"minimumFamilies":1},
+        {"id":"DEV-SEC-HOOK","label":"Use deterministic Claude hooks or equivalent lifecycle guardrails","weight":1.0,"minimumFamilies":1},
+        {"id":"DEV-SEC-SECRET","label":"Manage identity, secrets, and API keys outside model-visible content","weight":1.6,"minimumFamilies":1}
+      ]
+    },
+    "D7": {
+      "name": "Claude Code",
+      "weight": 3.1,
+      "mock": 2,
+      "families": 6,
+      "objectives": [
+        {"id":"DEV-CODE","label":"Operate Claude Code components, settings, sessions, commands, Skills, agents, and automation modes","weight":3.1,"minimumFamilies":6}
+      ]
+    },
+    "D8": {
+      "name": "Eval, Testing, and Debugging",
+      "weight": 2.6,
+      "mock": 1,
+      "families": 3,
+      "objectives": [
+        {"id":"DEV-EVAL","label":"Identify errors, choose recovery strategies, trace failures, and retain regression coverage","weight":2.6,"minimumFamilies":3}
+      ]
+    }
+  }
+}

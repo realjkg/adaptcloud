@@ -167,15 +167,35 @@
           const qp=progressFor(qProgress,q.id);
           return {q,attempts:qp.attempts||0,lastSeen:qp.lastSeen||0,tie:rng()};
         }).sort((a,b)=>a.attempts-b.attempts||a.lastSeen-b.lastSeen||a.tie-b.tie).map(x=>x.q);
-        return {key,variants:ordered,lastSeen:p.lastSeen||0,attempts:p.attempts||0,tie:rng()};
+        const objectiveId=ordered.find(q=>q.objectiveId)?.objectiveId||"";
+        return {key,variants:ordered,objectiveId,lastSeen:p.lastSeen||0,attempts:p.attempts||0,tie:rng()};
       }).sort((a,b)=>a.attempts-b.attempts||a.lastSeen-b.lastSeen||a.tie-b.tie);
 
       const selected=[];
-      for(const g of ranked){
-        if(selected.length>=need)break;
-        if(g.variants.length)selected.push(g.variants[0]);
+      const selectedKeys=new Set();
+      const objectiveIds=[...new Set(ranked.map(g=>g.objectiveId).filter(Boolean))];
+
+      // If the bank carries objective metadata and the blueprint quota can fit it,
+      // reserve one concept family per objective before filling additional breadth.
+      if(objectiveIds.length&&objectiveIds.length<=need){
+        for(const objectiveId of objectiveIds){
+          const g=ranked.find(x=>x.objectiveId===objectiveId&&!selectedKeys.has(x.key));
+          if(g&&g.variants.length){
+            selected.push(g.variants[0]);
+            selectedKeys.add(g.key);
+          }
+        }
       }
 
+      // Fill the rest of the quota with unseen families before repeating a family.
+      for(const g of ranked){
+        if(selected.length>=need)break;
+        if(selectedKeys.has(g.key)||!g.variants.length)continue;
+        selected.push(g.variants[0]);
+        selectedKeys.add(g.key);
+      }
+
+      // Only after family breadth is exhausted, round-robin through extra variants.
       let round=1;
       while(selected.length<need){
         let added=false;

@@ -1,0 +1,150 @@
+name: Validate CCDV-F objective coverage
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/certifications.js"
+      - "ccar-f/ccdv-f.seed.js"
+      - "ccar-f/ccdv-f.bank-core.js"
+      - "ccar-f/ccdv-f.bank-tools.js"
+      - "ccar-f/ccdv-f.remediation.js"
+      - "ccar-f/ccdv-f.family-map.js"
+      - "ccar-f/adaptive-core.js"
+      - "ccar-f/audits/ccdv-f.json"
+      - "ccar-f/sources/foundations/**"
+      - "ccar-f/index.html"
+      - ".github/workflows/ccdv-f-objective-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-developer-foundations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check syntax and runtime wiring
+        run: |
+          node --check ccar-f/ccdv-f.remediation.js
+          node --check ccar-f/ccdv-f.family-map.js
+          node --check ccar-f/adaptive-core.js
+          grep -q 'ccdv-f.remediation.js' ccar-f/index.html
+          grep -q 'ccdv-f.family-map.js' ccar-f/index.html
+          test "$(grep -n 'ccdv-f.bank-core.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'ccdv-f.bank-tools.js' ccar-f/index.html | cut -d: -f1)"
+          test "$(grep -n 'ccdv-f.bank-tools.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'ccdv-f.remediation.js' ccar-f/index.html | cut -d: -f1)"
+          test "$(grep -n 'ccdv-f.remediation.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'ccdv-f.family-map.js' ccar-f/index.html | cut -d: -f1)"
+          test "$(grep -n 'ccdv-f.family-map.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'loader.js' ccar-f/index.html | cut -d: -f1)"
+      - name: Validate 25-skill traceability, remediation quality, and mock coverage
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          global.window={};
+          require('./ccar-f/certifications.js');
+          require('./ccar-f/ccdv-f.seed.js');
+          require('./ccar-f/ccdv-f.bank-core.js');
+          require('./ccar-f/ccdv-f.bank-tools.js');
+          require('./ccar-f/ccdv-f.remediation.js');
+          require('./ccar-f/ccdv-f.family-map.js');
+          const core=require('./ccar-f/adaptive-core.js');
+          const audit=JSON.parse(fs.readFileSync('./ccar-f/audits/ccdv-f.json','utf8'));
+          const baselines=JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/profile-baselines.json','utf8'));
+          const registry=JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/source-registry.json','utf8'));
+          const baseline=baselines.tracks['ccdv-f'];
+          const profile=window.CLAUDE_CERTIFICATIONS['ccdv-f'];
+          const seed=window.CLAUDE_CERT_SEED_DATA['ccdv-f'];
+          const expansion=window.CLAUDE_CERT_BANK_EXPANSIONS['ccdv-f'];
+          const bank={cards:[...seed.cards,...expansion.cards],questions:[...seed.questions,...expansion.questions]};
+          const familyMap=window.CCDVF_FAMILY_MAP;
+          const fail=m=>{throw new Error(m)};
+          const nearly=(a,b)=>Math.abs(a-b)<1e-9;
+
+          if(!baseline||baseline.sourceId!==audit.sourceId) fail('CCDV-F audit source does not match pinned baseline');
+          if(audit.guideVersion!==baseline.guideVersion||audit.guideEffective!==baseline.guideEffective) fail('CCDV-F audit guide pin mismatch');
+          const authority=registry.sources.find(s=>s.id===audit.sourceId);
+          if(!authority||authority.status!=='authoritative'||authority.allowedForRuntimeImport!==false||authority.provenance?.officialProgramSource!==true) fail('CCDV-F authoritative scope source missing or misclassified');
+          if(profile.questionCount!==audit.questionCount||profile.minutes!==audit.minutes||profile.scaledPassingScore!==audit.scaledPassingScore) fail('CCDV-F exam geometry mismatch');
+          if(bank.cards.length!==audit.expectedBank.cards||bank.questions.length!==audit.expectedBank.questions) fail(`CCDV-F bank size drift: ${bank.cards.length} cards / ${bank.questions.length} questions`);
+          if(new Set(bank.cards.map(c=>c.id)).size!==bank.cards.length) fail('Duplicate CCDV-F card IDs');
+          if(new Set(bank.questions.map(q=>q.id)).size!==bank.questions.length) fail('Duplicate CCDV-F question IDs');
+          if(new Set(bank.questions.map(q=>String(q.q).trim().toLowerCase())).size!==bank.questions.length) fail('Duplicate CCDV-F question text');
+
+          const objectiveIds=[];
+          let objectiveWeight=0, mockTotal=0, familyTotal=0;
+          for(const [domain,meta] of Object.entries(audit.domains)){
+            const p=profile.domains[domain];
+            const b=baseline.domains[domain];
+            if(!p||!b||p.name!==b.name||p.weight!==meta.weight||p.mock!==meta.mock||b.weight!==meta.weight||b.mock!==meta.mock) fail(`${domain}: profile/baseline geometry mismatch`);
+            mockTotal+=meta.mock;
+            familyTotal+=meta.families;
+            const allowedObjectives=new Set(meta.objectives.map(o=>o.id));
+            for(const objective of meta.objectives){
+              objectiveIds.push(objective.id);
+              objectiveWeight+=objective.weight;
+              if(!familyMap.objectives[objective.id]) fail(`${objective.id}: missing objective registry entry`);
+            }
+            const qs=bank.questions.filter(q=>q.domain===domain);
+            const cards=bank.cards.filter(c=>c.domain===domain);
+            if(qs.length<meta.mock*2) fail(`${domain}: less than 2x mock depth (${qs.length})`);
+            for(const item of [...qs,...cards]){
+              if(!item.familyId||!item.objectiveId) fail(`${item.id}: missing familyId/objectiveId`);
+              if(!allowedObjectives.has(item.objectiveId)) fail(`${item.id}: objective ${item.objectiveId} is not valid for ${domain}`);
+              if(familyMap.familyObjectives[item.familyId]!==item.objectiveId) fail(`${item.id}: family/objective map mismatch`);
+            }
+            for(const q of qs){
+              if(!Array.isArray(q.choices)||q.choices.length!==4||!Number.isInteger(q.answer)||q.answer<0||q.answer>3||!String(q.why||'').trim()) fail(`${q.id}: malformed question`);
+            }
+            const families=new Set(qs.map(q=>q.familyId));
+            if(families.size!==meta.families) fail(`${domain}: expected ${meta.families} families, found ${families.size}`);
+            for(const objective of meta.objectives){
+              const familyCount=new Set(qs.filter(q=>q.objectiveId===objective.id).map(q=>q.familyId)).size;
+              if(familyCount<objective.minimumFamilies) fail(`${objective.id}: ${familyCount} families, expected at least ${objective.minimumFamilies}`);
+              if(!cards.some(c=>c.objectiveId===objective.id)) fail(`${objective.id}: no flashcard coverage`);
+            }
+          }
+          if(mockTotal!==profile.questionCount) fail(`CCDV-F mock allocation sums to ${mockTotal}`);
+          if(objectiveIds.length!==25||new Set(objectiveIds).size!==25) fail(`CCDV-F objective count is ${objectiveIds.length}, expected 25 unique skills`);
+          if(!nearly(objectiveWeight,100)) fail(`CCDV-F objective weights sum to ${objectiveWeight}`);
+          if(familyTotal!==audit.expectedBank.families) fail(`CCDV-F audit family count sums to ${familyTotal}`);
+          const runtimeFamilies=new Set(bank.questions.map(q=>q.familyId));
+          if(runtimeFamilies.size!==audit.expectedBank.families) fail(`CCDV-F runtime family count is ${runtimeFamilies.size}`);
+
+          const remediationQs=bank.questions.filter(q=>String(q.id).startsWith('DVR-'));
+          const remediationCards=bank.cards.filter(c=>String(c.id).startsWith('DVR-C-'));
+          if(remediationQs.length!==audit.expectedBank.remediationQuestions||remediationCards.length!==audit.expectedBank.remediationCards) fail('CCDV-F remediation bank count drift');
+          for(const q of remediationQs){
+            if(q.sourceId!=='adaptcloud-foundations-original'||q.provenance!=='project-original') fail(`${q.id}: invalid remediation provenance`);
+            if(!Array.isArray(q.rationales)||q.rationales.length!==4||q.rationales.some(x=>!String(x||'').trim())) fail(`${q.id}: missing per-choice rationales`);
+            if(String(q.why||'').trim().length<40) fail(`${q.id}: explanation too thin`);
+          }
+          for(const c of remediationCards){
+            if(c.sourceId!=='adaptcloud-foundations-original'||c.provenance!=='project-original') fail(`${c.id}: invalid remediation provenance`);
+            if(!String(c.example||'').trim()) fail(`${c.id}: remediation card missing example`);
+          }
+
+          const rng=()=>0.314159;
+          const mockIds=core.mockSet({questions:bank.questions,profileCode:profile.code,qProgress:{},domains:profile.domains,rng});
+          if(mockIds.length!==profile.questionCount||new Set(mockIds).size!==mockIds.length) fail(`CCDV-F mock returned ${mockIds.length} items or duplicates`);
+          const mockQuestions=mockIds.map(id=>bank.questions.find(q=>q.id===id));
+          for(const [domain,meta] of Object.entries(profile.domains)){
+            const n=mockQuestions.filter(q=>q&&q.domain===domain).length;
+            if(n!==meta.mock) fail(`${domain}: mock generated ${n}, expected ${meta.mock}`);
+          }
+          const mockObjectives=new Set(mockQuestions.map(q=>q&&q.objectiveId).filter(Boolean));
+          for(const objectiveId of objectiveIds) if(!mockObjectives.has(objectiveId)) fail(`Full mock omitted objective ${objectiveId}`);
+
+          const practiceIds=core.practiceSet({questions:bank.questions,profileCode:profile.code,qProgress:{},recentConcepts:[],n:30,rng});
+          const practiceFamilies=practiceIds.map(id=>core.conceptKey(bank.questions.find(q=>q.id===id),profile.code));
+          if(new Set(practiceFamilies).size!==practiceFamilies.length) fail('CCDV-F practice set repeats a family before breadth is exhausted');
+
+          const used=[];
+          for(let i=0;i<30;i++){
+            const q=core.nextAdaptiveQuestion({questions:bank.questions,profileCode:profile.code,qProgress:{},domainStats:{},domains:profile.domains,recentConcepts:[],usedIds:used,targetAccuracy:profile.adaptive.targetAccuracy,now:Date.now(),rng});
+            if(!q) fail(`Adaptive selector stopped after ${i} questions`);
+            used.push(q.id);
+          }
+          const adaptiveFamilies=used.map(id=>core.conceptKey(bank.questions.find(q=>q.id===id),profile.code));
+          if(new Set(adaptiveFamilies).size!==adaptiveFamilies.length) fail('CCDV-F adaptive session repeated a family in-session');
+
+          console.log(`CCDV-F validated: 25 skills, ${runtimeFamilies.size} families, ${bank.cards.length} cards, ${bank.questions.length} questions, ${mockIds.length}-question objective-aware mock.`);
+          NODE
