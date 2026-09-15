@@ -1,0 +1,66 @@
+name: Validate Foundations source governance
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/foundations-governance.js"
+      - "ccar-f/sources/foundations/**"
+      - "ccar-f/certifications.js"
+      - "ccar-f/imported/ccao-f*.js"
+      - "ccar-f/imported/ccdv-f*.js"
+      - "ccar-f/imported/ccar-f*.js"
+      - ".github/workflows/foundations-source-governance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-foundations-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check governance JavaScript syntax
+        run: node --check ccar-f/foundations-governance.js
+      - name: Validate source registry and exam geometry
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const gov=require('./ccar-f/foundations-governance.js');
+          const registry=JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/source-registry.json','utf8'));
+          const excluded=JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/excluded-sources.json','utf8'));
+          const baselines=JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/profile-baselines.json','utf8'));
+          global.window={};
+          require('./ccar-f/certifications.js');
+          const profiles=window.CLAUDE_CERTIFICATIONS;
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
+          const result=gov.validateRegistry(registry);
+
+          assert(Array.isArray(excluded.blockedPatterns)&&excluded.blockedPatterns.length>=10,'Blocked-pattern policy is too thin');
+          for(const id of excluded.blockedSourceIds){
+            const source=registry.sources.find(s=>s.id===id);
+            assert(source,`Blocked source ${id} is not registered`);
+            assert(source.status==='blocked'&&!source.allowedForRuntimeImport,`${id} must remain hard blocked`);
+          }
+
+          for(const [track,audit] of Object.entries(baselines.tracks)){
+            const profile=profiles[track];
+            assert(profile,`${track}: certification profile is missing`);
+            gov.validateTrackProfile({...audit,track},profile);
+            const source=registry.sources.find(s=>s.id===audit.sourceId);
+            assert(source&&source.status==='authoritative',`${track}: authoritative source is missing`);
+            assert(source.document.version===audit.guideVersion,`${track}: guide version mismatch`);
+            assert(source.document.effective===audit.guideEffective,`${track}: guide effective date mismatch`);
+            const weight=Object.values(audit.domains).reduce((n,d)=>n+Number(d.weight),0);
+            const mock=Object.values(audit.domains).reduce((n,d)=>n+Number(d.mock),0);
+            assert(Math.abs(weight-100)<0.001,`${track}: domain weights sum to ${weight}`);
+            assert(mock===audit.questionCount,`${track}: mock allocation ${mock} != ${audit.questionCount}`);
+          }
+
+          const original=registry.sources.find(s=>s.id==='adaptcloud-foundations-original');
+          assert(original&&original.allowedForRuntimeImport&&original.status==='internal-original','AdaptCloud original-content contract is missing');
+          const reference=registry.sources.find(s=>s.id==='amey-thakur-foundations-reference');
+          assert(reference&&!reference.allowedForRuntimeImport,'Public reference source must not become a runtime question source');
+
+          console.log(`Validated ${result.sources} Foundations sources; ${result.runtimeApproved} runtime-approved source(s); all three exam geometries match current profiles.`);
+          NODE

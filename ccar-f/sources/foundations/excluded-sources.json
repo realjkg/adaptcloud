@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "blockedPatterns": [
+    "brain dump",
+    "braindump",
+    "actual exam questions",
+    "real exam questions",
+    "recalled exam questions",
+    "memorized exam questions",
+    "certification screenshots",
+    "pearson screenshot",
+    "onvue screenshot",
+    "transcribed exam questions",
+    "vce",
+    "exam dump"
+  ],
+  "blockedSourceIds": ["foundation-exam-dumps"],
+  "policy": "Foundations runtime banks may use official exam guides only as scope authorities. Live, recalled, screenshot-derived, dump-derived, or rights-unclear third-party exam items are not eligible for import or adaptation."
+}

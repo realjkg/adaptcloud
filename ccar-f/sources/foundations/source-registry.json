@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "1.0",
+  "reviewedAt": "2026-09-15",
+  "policy": {
+    "authoritativeScope": "Only the current Anthropic certification exam guide defines exam scope and weighting.",
+    "runtimeQuestionSources": "Runtime questions must be AdaptCloud-original or independently adapted from a source with verified authorship, rights, and non-live-exam provenance.",
+    "blockedProvenance": [
+      "live certification questions",
+      "recalled or memorized certification questions",
+      "exam screenshots or transcriptions",
+      "brain dumps",
+      "unlicensed third-party quiz extraction"
+    ]
+  },
+  "sources": [
+    {
+      "id": "anthropic-ccao-f-guide-v1",
+      "displayName": "Claude Certified Associate – Foundations Exam Guide",
+      "kind": "exam-guide",
+      "tracks": ["ccao-f"],
+      "status": "authoritative",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "document": {
+        "version": "1.0",
+        "effective": "2026-07",
+        "canonicalUrl": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542847%2FClaude+Certified+Associate+%E2%80%93+Foundations+Exam+Guide.pdf"
+      },
+      "provenance": {
+        "officialProgramSource": true,
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "adaptationAllowed": false,
+        "notes": "Scope authority only; do not import official question text."
+      }
+    },
+    {
+      "id": "anthropic-ccdv-f-guide-v1",
+      "displayName": "Claude Certified Developer – Foundations Exam Guide",
+      "kind": "exam-guide",
+      "tracks": ["ccdv-f"],
+      "status": "authoritative",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "document": {
+        "version": "1.0",
+        "effective": "2026-07",
+        "canonicalUrl": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542875%2FClaude+Certified+Developer+%E2%80%93+Foundations+Exam+Guide.pdf"
+      },
+      "provenance": {
+        "officialProgramSource": true,
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "adaptationAllowed": false,
+        "notes": "Scope authority only; do not import official question text."
+      }
+    },
+    {
+      "id": "anthropic-ccar-f-guide-v1",
+      "displayName": "Claude Certified Architect – Foundations Exam Guide",
+      "kind": "exam-guide",
+      "tracks": ["ccar-f"],
+      "status": "authoritative",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "document": {
+        "version": "1.0",
+        "effective": "2026-07",
+        "canonicalUrl": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542750%2FClaude+Certified+Architect+%E2%80%93+Foundations+Exam+Guide.pdf"
+      },
+      "provenance": {
+        "officialProgramSource": true,
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "adaptationAllowed": false,
+        "notes": "Scope authority only; do not import official question text."
+      }
+    },
+    {
+      "id": "adaptcloud-foundations-original",
+      "displayName": "AdaptCloud original Foundations study bank",
+      "kind": "original-study-content",
+      "tracks": ["ccao-f", "ccdv-f", "ccar-f"],
+      "status": "internal-original",
+      "allowedForRuntimeImport": true,
+      "reviewedAt": "2026-09-15",
+      "provenance": {
+        "officialProgramSource": false,
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "Public exam objectives, official Claude documentation, and independently authored scenarios."
+      },
+      "rights": {
+        "licenseId": "project-original-content",
+        "permissionRef": null,
+        "adaptationAllowed": true
+      }
+    },
+    {
+      "id": "amey-thakur-foundations-reference",
+      "displayName": "Amey Thakur — CLAUDE-CERTIFICATIONS Foundations reference",
+      "kind": "public-study-reference",
+      "tracks": ["ccao-f", "ccdv-f", "ccar-f"],
+      "status": "reference",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "repository": "Amey-Thakur/CLAUDE-CERTIFICATIONS",
+      "provenance": {
+        "officialProgramSource": false,
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "Public exam guides, official documentation, and original study material."
+      },
+      "rights": {
+        "licenseId": "MIT",
+        "permissionRef": null,
+        "adaptationAllowed": false,
+        "notes": "Use for public-scope cross-checking only; do not import practice-question text under this registry entry."
+      }
+    },
+    {
+      "id": "foundation-exam-dumps",
+      "displayName": "Live/recalled Foundations exam material",
+      "kind": "prohibited-provenance",
+      "tracks": ["ccao-f", "ccdv-f", "ccar-f"],
+      "status": "blocked",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "provenance": {
+        "officialProgramSource": false,
+        "authorOriginal": false,
+        "liveExamMaterial": true,
+        "recalledExamMaterial": true
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "adaptationAllowed": false
+      },
+      "notes": "Hard blocked regardless of practitioner status, repository license, or claimed educational purpose."
+    }
+  ]
+}
