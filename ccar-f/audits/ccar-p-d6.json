@@ -1,0 +1,35 @@
+{
+  "exam": "CCAR-P",
+  "officialDomain": "D6",
+  "internalDomain": "P5",
+  "name": "Stakeholder Communication & Lifecycle Management",
+  "weight": 14,
+  "mockQuestions": 9,
+  "objectiveCount": 5,
+  "verificationStatus": "verified-against-exam-guide-v1.0",
+  "sources": {
+    "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
+    "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
+    "course": "Stakeholder Engagement, Lifecycle & GTM",
+    "publicObjectiveCrossCheck": "https://github.com/ravnhq/claude-certified-architect/blob/main/ccap/guide_en.md"
+  },
+  "objectives": [
+    {"id":"D6.1","text":"Conduct structured discovery and requirement gathering"},
+    {"id":"D6.2","text":"Communicate architectural decisions and trade-offs"},
+    {"id":"D6.3","text":"Manage stakeholder feedback loops and expectation alignment (including SLAs)"},
+    {"id":"D6.4","text":"Document architectures and provide implementation guidance"},
+    {"id":"D6.5","text":"Support lifecycle phases (discovery, design, handoff, monitoring, iteration)"}
+  ],
+  "conceptToObjective": {
+    "P5-01":"D6.1",
+    "P5-02":"D6.2",
+    "P5-03":"D6.5",
+    "P5-04":"D6.5",
+    "P5-05":"D6.3",
+    "P5-06":"D6.3",
+    "P5-07":"D6.4",
+    "P5-08":"D6.5",
+    "P5-09":"D6.3"
+  },
+  "gapAssessment": "No objective-level coverage gap found in the current D6 bank."
+}
