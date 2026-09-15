@@ -1,0 +1,35 @@
+{
+  "exam": "CCAR-P",
+  "officialDomain": "D2",
+  "internalDomain": "P6",
+  "name": "Claude Models, Prompting & Context Engineering",
+  "weight": 13,
+  "mockQuestions": 8,
+  "objectiveCount": 5,
+  "verificationStatus": "gap-found",
+  "sources": {
+    "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
+    "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
+    "course": "Claude Platform & Solution Design",
+    "publicObjectiveCrossCheck": "https://github.com/ravnhq/claude-certified-architect/blob/main/ccap/guide_en.md"
+  },
+  "objectives": [
+    {"id":"D2.1","text":"Select appropriate Claude models based on trade-offs"},
+    {"id":"D2.2","text":"Design system prompts, templates, and guardrails"},
+    {"id":"D2.3","text":"Apply prompt engineering techniques (zero-shot, few-shot, chain-of-thought)"},
+    {"id":"D2.4","text":"Optimize context windows and manage token usage"},
+    {"id":"D2.5","text":"Implement prompt reuse strategies (caching, modular prompts, Skills)"}
+  ],
+  "conceptToObjective": {
+    "P6-01":"D2.1",
+    "P6-02":"D2.2",
+    "P6-03":"D2.4",
+    "P6-04":"D2.5",
+    "P6-05":"D2.2",
+    "P6-06":"D2.2",
+    "P6-07":"D2.4",
+    "P6-08":"D2.2"
+  },
+  "gapAssessment": "D2.3 is not directly represented by a dedicated concept. Add an original prompt-technique-selection concept and scenario set before this audit is considered complete.",
+  "requiredRemediation": ["D2.3"]
+}
