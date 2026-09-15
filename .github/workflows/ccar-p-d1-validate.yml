@@ -1,0 +1,44 @@
+name: Validate CCAR-P D1 Solution Design audit
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/certifications.js"
+      - "ccar-f/ccar-p.bank-architecture.js"
+      - "ccar-f/audits/ccar-p-d1.json"
+      - ".github/workflows/ccar-p-d1-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-domain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate D1 traceability and bank depth
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          global.window={};
+          require('./ccar-f/certifications.js');
+          require('./ccar-f/ccar-p.bank-architecture.js');
+          require('./ccar-f/ccar-p.bank-enterprise.js');
+          const m=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d1.json','utf8'));
+          const p=window.CLAUDE_CERTIFICATIONS['ccar-p'];
+          const b=window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-p'];
+          const d=p.domains[m.internalDomain];
+          if(!d||d.weight!==m.weight||d.mock!==m.mockQuestions) throw new Error('D1 profile geometry mismatch');
+          if(m.verificationStatus!=='verified-against-exam-guide-v1.0'||(m.requiredRemediation||[]).length) throw new Error('D1 audit is not closed');
+          const objectiveIds=new Set(m.objectives.map(x=>x.id));
+          if(objectiveIds.size!==m.objectiveCount) throw new Error('D1 objective count mismatch');
+          const cards=b.cards.filter(x=>x.domain===m.internalDomain), qs=b.questions.filter(x=>x.domain===m.internalDomain);
+          if(cards.length<m.mockQuestions||qs.length<m.mockQuestions*2) throw new Error(`D1 insufficient bank depth: ${cards.length} cards / ${qs.length} questions`);
+          const used=new Set();
+          for(const c of cards){const x=c.id.match(/^P-(P\d+-\d+)-C$/)?.[1];if(!x||!m.conceptToObjective[x])throw new Error(`Unmapped D1 card ${c.id}`);used.add(m.conceptToObjective[x]);}
+          for(const q of qs){const x=q.id.match(/^P-(P\d+-\d+)-[AB]$/)?.[1];if(!x||!m.conceptToObjective[x])throw new Error(`Unmapped D1 question ${q.id}`);if(!Array.isArray(q.choices)||q.choices.length!==4||!q.why)throw new Error(`Malformed D1 question ${q.id}`);}
+          for(const id of objectiveIds) if(!used.has(id)) throw new Error(`D1 objective not covered: ${id}`);
+          if(new Set(qs.map(q=>q.id)).size!==qs.length) throw new Error('Duplicate D1 question IDs');
+          console.log(`D1 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions.`);
+          NODE

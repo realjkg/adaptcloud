@@ -1,0 +1,38 @@
+{
+  "exam": "CCAR-P",
+  "officialDomain": "D1",
+  "internalDomain": "P2",
+  "name": "Solution Design & Architecture",
+  "weight": 17,
+  "mockQuestions": 11,
+  "objectiveCount": 6,
+  "verificationStatus": "verified-against-exam-guide-v1.0",
+  "sources": {
+    "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
+    "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
+    "course": "Claude Platform & Solution Design",
+    "publicObjectiveCrossCheck": "https://github.com/ravnhq/claude-certified-architect/blob/main/ccap/guide_en.md"
+  },
+  "objectives": [
+    {"id":"D1.1","text":"Translate business problems into Claude-based AI solutions"},
+    {"id":"D1.2","text":"Design end-to-end architectures (input → processing → output → feedback loops)"},
+    {"id":"D1.3","text":"Select appropriate architectural patterns (workflow, agentic, augmented LLM)"},
+    {"id":"D1.4","text":"Design multi-agent systems and orchestration strategies"},
+    {"id":"D1.5","text":"Apply decomposition techniques for complex problem solving"},
+    {"id":"D1.6","text":"Align solutions to business value pillars (efficiency, transformation, productivity, cost, performance SLAs)"}
+  ],
+  "conceptToObjective": {
+    "P2-01":"D1.3",
+    "P2-02":"D1.1",
+    "P2-03":"D1.5",
+    "P2-04":"D1.4",
+    "P2-05":"D1.2",
+    "P2-06":"D1.2",
+    "P2-07":"D1.2",
+    "P2-08":"D1.6",
+    "P2-09":"D1.6",
+    "P2-10":"D1.2",
+    "P2-11":"D1.1"
+  },
+  "gapAssessment": "No objective-level coverage gap found in the current D1 bank."
+}
