@@ -1,0 +1,42 @@
+{
+  "exam": "CCAR-P",
+  "officialDomain": "D3",
+  "internalDomain": "P1",
+  "name": "Integration",
+  "weight": 19,
+  "mockQuestions": 12,
+  "objectiveCount": 8,
+  "verificationStatus": "gap-found",
+  "sources": {
+    "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
+    "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
+    "course": "Enterprise Integration & Production",
+    "publicObjectiveCrossCheck": "https://github.com/ravnhq/claude-certified-architect/blob/main/ccap/guide_en.md"
+  },
+  "objectives": [
+    {"id":"D3.1","text":"Evaluate tool/agent configuration for capability bloat"},
+    {"id":"D3.2","text":"Analyze authentication and authorization requirements to identify security gaps"},
+    {"id":"D3.3","text":"Evaluate accuracy-latency trade-offs and justify configuration decisions"},
+    {"id":"D3.4","text":"Analyze observability challenges and select monitoring strategies at scale"},
+    {"id":"D3.5","text":"Design a RAG pipeline with appropriate chunking and indexing strategies"},
+    {"id":"D3.6","text":"Apply retrieval strategies matched to data shape and query pattern"},
+    {"id":"D3.7","text":"Evaluate connection protocols and select the appropriate integration mechanism (MCP, API/CLI, agent-to-agent)"},
+    {"id":"D3.8","text":"Evaluate progressive discovery vs. monolithic context strategy"}
+  ],
+  "conceptToObjective": {
+    "P1-01":"D3.7",
+    "P1-02":"D3.8",
+    "P1-03":"D3.2",
+    "P1-04":"D3.7",
+    "P1-05":"D3.5",
+    "P1-06":"D3.3",
+    "P1-07":"D3.3",
+    "P1-08":"D3.4",
+    "P1-09":"D3.7",
+    "P1-10":"D3.3",
+    "P1-11":"D3.2",
+    "P1-12":"D3.2"
+  },
+  "gapAssessment": "Dedicated coverage is missing for capability-bloat review and retrieval-strategy selection; accuracy/latency trade-offs are only indirect and require a dedicated scenario.",
+  "requiredRemediation": ["D3.1","D3.3","D3.6"]
+}
