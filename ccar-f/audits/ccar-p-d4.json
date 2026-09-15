@@ -1,0 +1,38 @@
+{
+  "exam": "CCAR-P",
+  "officialDomain": "D4",
+  "internalDomain": "P3",
+  "name": "Evaluation, Testing & Optimization",
+  "weight": 16,
+  "mockQuestions": 10,
+  "objectiveCount": 6,
+  "verificationStatus": "verified-against-exam-guide-v1.0",
+  "sources": {
+    "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
+    "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
+    "course": null,
+    "courseNote": "The published prep path has no dedicated D4 course; validate against the exam guide plus current evaluation/testing product documentation.",
+    "publicObjectiveCrossCheck": "https://github.com/ravnhq/claude-certified-architect/blob/main/ccap/guide_en.md"
+  },
+  "objectives": [
+    {"id":"D4.1","text":"Define evaluation metrics (accuracy, latency, cost, safety, security)"},
+    {"id":"D4.2","text":"Design evaluation datasets and test frameworks using mixed methodologies"},
+    {"id":"D4.3","text":"Conduct A/B testing and iterative improvements"},
+    {"id":"D4.4","text":"Diagnose system issues (prompt failure, hallucinations, model mismatch)"},
+    {"id":"D4.5","text":"Optimize token usage, latency, and cost-performance trade-offs"},
+    {"id":"D4.6","text":"Monitor system performance using logging and observability tools"}
+  ],
+  "conceptToObjective": {
+    "P3-01":"D4.2",
+    "P3-02":"D4.2",
+    "P3-03":"D4.2",
+    "P3-04":"D4.3",
+    "P3-05":"D4.2",
+    "P3-06":"D4.4",
+    "P3-07":"D4.5",
+    "P3-08":"D4.1",
+    "P3-09":"D4.6",
+    "P3-10":"D4.1"
+  },
+  "gapAssessment": "No objective-level coverage gap found in the current D4 bank."
+}
