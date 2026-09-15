@@ -6,7 +6,7 @@
   "weight": 19,
   "mockQuestions": 12,
   "objectiveCount": 8,
-  "verificationStatus": "gap-found",
+  "verificationStatus": "verified-against-exam-guide-v1.0",
   "sources": {
     "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
     "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
@@ -35,8 +35,11 @@
     "P1-09":"D3.7",
     "P1-10":"D3.3",
     "P1-11":"D3.2",
-    "P1-12":"D3.2"
+    "P1-12":"D3.2",
+    "P1-13":"D3.1",
+    "P1-14":"D3.3",
+    "P1-15":"D3.6"
   },
-  "gapAssessment": "Dedicated coverage is missing for capability-bloat review and retrieval-strategy selection; accuracy/latency trade-offs are only indirect and require a dedicated scenario.",
-  "requiredRemediation": ["D3.1","D3.3","D3.6"]
+  "gapAssessment": "Closed: D3.1, D3.3, and D3.6 now have dedicated original card/scenario coverage in the D3 remediation bank.",
+  "requiredRemediation": []
 }
