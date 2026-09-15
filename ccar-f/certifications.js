@@ -90,20 +90,30 @@ window.CLAUDE_CERTIFICATIONS = {
     role: "Architect",
     level: "Professional",
     title: "Claude Certified Architect – Professional",
-    audience: "Senior architects designing, integrating, evaluating, and governing Claude systems at enterprise scale.",
-    questionCount: null,
+    audience: "Senior architects designing, integrating, evaluating, governing, and operationalizing Claude systems at enterprise scale.",
+    questionCount: 63,
     minutes: 120,
     scaledPassingScore: 720,
     progressKey: "claude-cert-ccar-p-v1",
     readinessProfile: "professional-architect",
-    bankStatus: "planned",
-    bankDepth: 0,
-    domains: {},
+    bankStatus: "complete",
+    bankDepth: 2,
+    blueprintStatus: "current-public-guide-corroborated",
+    blueprintNote: "63-question, seven-domain geometry is corroborated by current public exam-guide mirrors; verify the official Anthropic Partner Academy guide before an exam sitting.",
+    domains: {
+      P1: { name: "Integration", weight: 19, mock: 12 },
+      P2: { name: "Solution Design & Architecture", weight: 17, mock: 11 },
+      P3: { name: "Evaluation, Testing & Optimization", weight: 16, mock: 10 },
+      P4: { name: "Governance, Safety & Risk Management", weight: 14, mock: 9 },
+      P5: { name: "Stakeholder Communication & Lifecycle Management", weight: 14, mock: 9 },
+      P6: { name: "Claude Models, Prompting & Context Engineering", weight: 13, mock: 8 },
+      P7: { name: "Developer Productivity & Operational Enablement", weight: 7, mock: 4 }
+    },
     adaptive: {
-      focus: "enterprise integration architecture, governance, evaluation, lifecycle, scale, and defensible tradeoffs",
+      focus: "enterprise integration, defensible solution architecture, evaluation strategy, governance, lifecycle ownership, stakeholder communication, and operational enablement",
       minDomainAttempts: 12,
       targetAccuracy: 0.92,
-      fullMockReadyWhenBankComplete: false
+      fullMockReadyWhenBankComplete: true
     }
   }
 };

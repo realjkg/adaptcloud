@@ -29,10 +29,13 @@ jobs:
           node --check ccar-f/ccdv-f.bank-tools.js
           node --check ccar-f/ccar-f.bank.js
           node --check ccar-f/ccar-f.bank-topup.js
+          node --check ccar-f/ccar-p.bank-architecture.js
+          node --check ccar-f/ccar-p.bank-enterprise.js
           node --check ccar-f/multi-app.js
+          node --check ccar-f/exam-profile.js
           for f in ccar-f/payload*.js; do node --check "$f"; done
 
-      - name: Validate all Foundations banks
+      - name: Validate all certification banks
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -46,14 +49,14 @@ jobs:
           require('./ccar-f/ccdv-f.bank-tools.js');
           require('./ccar-f/ccar-f.bank.js');
           require('./ccar-f/ccar-f.bank-topup.js');
+          require('./ccar-f/ccar-p.bank-architecture.js');
+          require('./ccar-f/ccar-p.bank-enterprise.js');
 
           const certs = window.CLAUDE_CERTIFICATIONS;
           const seed = window.CLAUDE_CERT_SEED_DATA || {};
           const expansion = window.CLAUDE_CERT_BANK_EXPANSIONS || {};
-
-          for (const code of ['ccao-f','ccdv-f','ccar-f','ccar-p']) {
-            if (!certs[code]) throw new Error(`Missing certification profile ${code}`);
-          }
+          const codes = ['ccao-f','ccdv-f','ccar-f','ccar-p'];
+          for (const code of codes) if (!certs[code]) throw new Error(`Missing certification profile ${code}`);
 
           const files = [1,2,3,4,5].map(n => `ccar-f/payload${n}.js`);
           let b64 = '';
@@ -64,20 +67,17 @@ jobs:
             b64 += m[1];
           }
           const architectBase = JSON.parse(zlib.gunzipSync(Buffer.from(b64, 'base64')));
-
-          const merge = (a,b) => ({
-            cards:[...(a?.cards||[]),...(b?.cards||[])],
-            questions:[...(a?.questions||[]),...(b?.questions||[])]
-          });
+          const merge = (a,b) => ({cards:[...(a?.cards||[]),...(b?.cards||[])],questions:[...(a?.questions||[]),...(b?.questions||[])]});
           const banks = {
             'ccao-f': merge(seed['ccao-f'], expansion['ccao-f']),
             'ccdv-f': merge(seed['ccdv-f'], expansion['ccdv-f']),
-            'ccar-f': merge(architectBase, expansion['ccar-f'])
+            'ccar-f': merge(architectBase, expansion['ccar-f']),
+            'ccar-p': merge(seed['ccar-p'], expansion['ccar-p'])
           };
 
-          for (const code of ['ccao-f','ccdv-f','ccar-f']) {
+          for (const code of codes) {
             const p = certs[code], d = banks[code];
-            if (p.bankStatus !== 'complete') throw new Error(`${code} bank must be marked complete after expansion`);
+            if (p.bankStatus !== 'complete') throw new Error(`${code} bank must be complete`);
             if ((p.bankDepth||0) < 2) throw new Error(`${code} must declare bankDepth >= 2`);
             const totalMock = Object.values(p.domains).reduce((n,x)=>n+x.mock,0);
             if (totalMock !== p.questionCount) throw new Error(`${code} mock allocation totals ${totalMock}, expected ${p.questionCount}`);
@@ -98,9 +98,9 @@ jobs:
             console.log(`${code}: ${d.cards.length} cards, ${d.questions.length} questions, two-form depth validated.`);
           }
 
-          const keys=['ccao-f','ccdv-f','ccar-f'].map(c=>certs[c].progressKey);
+          const keys=codes.map(c=>certs[c].progressKey);
           if (new Set(keys).size !== keys.length) throw new Error('Certification progress keys must be isolated');
-          console.log('All Foundations banks validated with isolated progress and two complete domain-weighted forms.');
+          console.log('All certification banks validated with isolated progress and two complete domain-weighted forms.');
           NODE
 
       - name: Verify static entry points and exam navigation
@@ -110,6 +110,7 @@ jobs:
           test -f ccar-f/exam.css
           test -f ccar-f/exam.js
           test -f ccar-f/multi-app.js
+          test -f ccar-f/exam-profile.js
           grep -q 'certifications.js' ccar-f/index.html
           grep -q 'ccao-f.seed.js' ccar-f/index.html
           grep -q 'ccao-f.bank.js' ccar-f/index.html
@@ -118,6 +119,8 @@ jobs:
           grep -q 'ccdv-f.bank-tools.js' ccar-f/index.html
           grep -q 'ccar-f.bank.js' ccar-f/index.html
           grep -q 'ccar-f.bank-topup.js' ccar-f/index.html
+          grep -q 'ccar-p.bank-architecture.js' ccar-f/index.html
+          grep -q 'ccar-p.bank-enterprise.js' ccar-f/index.html
           grep -q 'payload5.js' ccar-f/index.html
           grep -q 'loader.js' ccar-f/index.html
           grep -q 'multi-app.js' ccar-f/loader.js
