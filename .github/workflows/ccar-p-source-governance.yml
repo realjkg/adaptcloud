@@ -1,0 +1,46 @@
+name: Validate CCAR-P source governance
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/source-governance.js"
+      - "ccar-f/sources/ccar-p/**"
+      - "ccar-f/imported/**"
+      - ".github/workflows/ccar-p-source-governance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-source-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check governance JavaScript syntax
+        run: node --check ccar-f/source-governance.js
+      - name: Validate source registry and blocked-source policy
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const gov=require('./ccar-f/source-governance.js');
+          const registry=JSON.parse(fs.readFileSync('./ccar-f/sources/ccar-p/source-registry.json','utf8'));
+          const excluded=JSON.parse(fs.readFileSync('./ccar-f/sources/ccar-p/excluded-sources.json','utf8'));
+          const result=gov.validateRegistry(registry);
+          const ids=new Set(registry.sources.map(s=>s.id));
+          for(const id of excluded.blockedSourceIds){
+            if(!ids.has(id))throw new Error(`Blocked source ${id} is missing from registry`);
+            const s=registry.sources.find(x=>x.id===id);
+            if(s.status!=='blocked')throw new Error(`${id} must remain blocked`);
+            if(s.allowedForRuntimeImport)throw new Error(`${id} cannot be runtime-importable`);
+          }
+          const juan=registry.sources.find(s=>s.id==='juanmartincoma-ccarp');
+          if(!juan||!juan.allowedForRuntimeImport||juan.rights.licenseId!=='CC-BY-4.0')throw new Error('Juan source approval contract is missing');
+          const amey=registry.sources.find(s=>s.id==='amey-thakur-claude-certifications');
+          if(!amey||amey.allowedForRuntimeImport||amey.credential.eligibleAsCertifiedPractitioner)throw new Error('Amey must remain credential-gated');
+          const canary={provenance:{sourceId:'mrkindly-professional-screenshots',liveExamMaterial:false,verbatimReuse:false,permissionStatus:'none'}};
+          let rejected=false;
+          try{gov.validateQuestionProvenance(canary,registry)}catch(e){rejected=true}
+          if(!rejected)throw new Error('Blocked-source canary was not rejected');
+          console.log(`Validated ${result.sources} sources; ${result.runtimeApproved} runtime-approved source(s).`);
+          NODE
