@@ -52,6 +52,20 @@
       why:"Explicit evidence labeling makes generated analysis easier to review and reduces the risk of presenting inference as fact."
     },
     {
+      id:"ARX-D4-013",domain:"D4",
+      q:"A service route sends model output to a strict JSON parser and occasionally fails in production due to formatting drift. Which pre-release control is strongest?",
+      choices:["Run schema-based contract tests across representative and edge-case prompts","Ask reviewers to manually inspect a few happy-path samples","Trim whitespace from responses before parsing","Increase temperature so responses are more diverse before launch"],
+      answer:0,
+      why:"Schema-validated contract tests catch structural output regressions before deployment and provide repeatable confidence across scenarios."
+    },
+    {
+      id:"ARX-D4-014",domain:"D4",
+      q:"A team wants retrieved snippets to inform answers but never override system policy. Which prompt pattern best enforces this?",
+      choices:["Place retrieved content in a clearly delimited data section with explicit instruction-priority rules","Blend retrieved snippets into the system policy block to keep prompts short","Let retrieval content appear first so it gets more model attention","Allow user-provided text to redefine safety and policy constraints when confidence is high"],
+      answer:0,
+      why:"Clear boundaries and instruction hierarchy keep external content grounded as evidence rather than policy, reducing instruction-conflict risk."
+    },
+    {
       id:"ARX-D5-007",domain:"D5",
       q:"A long-running agent accumulates large amounts of history that no longer affect the current task. What is the best context strategy?",
       choices:["Compact durable state and retain or retrieve only task-relevant evidence","Keep the full transcript indefinitely","Repeat old history to increase salience","Discard the current objective instead of old context"],
