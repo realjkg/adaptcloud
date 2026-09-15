@@ -6,7 +6,7 @@
   "weight": 13,
   "mockQuestions": 8,
   "objectiveCount": 5,
-  "verificationStatus": "gap-found",
+  "verificationStatus": "verified-against-exam-guide-v1.0",
   "sources": {
     "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
     "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
@@ -28,8 +28,9 @@
     "P6-05":"D2.2",
     "P6-06":"D2.2",
     "P6-07":"D2.4",
-    "P6-08":"D2.2"
+    "P6-08":"D2.2",
+    "P6-09":"D2.3"
   },
-  "gapAssessment": "D2.3 is not directly represented by a dedicated concept. Add an original prompt-technique-selection concept and scenario set before this audit is considered complete.",
-  "requiredRemediation": ["D2.3"]
+  "gapAssessment": "Closed: D2.3 now has a dedicated prompt-technique-selection card and two original scenario questions.",
+  "requiredRemediation": []
 }
