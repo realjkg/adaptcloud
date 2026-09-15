@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "1.0",
+  "track": "ccar-f",
+  "code": "CCAR-F",
+  "sourceId": "anthropic-ccar-f-guide-v1",
+  "guideVersion": "1.0",
+  "guideEffective": "2026-07",
+  "verifiedAt": "2026-09-15",
+  "questionCount": 60,
+  "minutes": 120,
+  "scaledPassingScore": 720,
+  "expectedBank": {
+    "legacyCards": 162,
+    "legacyQuestions": 152,
+    "auditCards": 30,
+    "auditQuestions": 60,
+    "auditFamilies": 30,
+    "finalCards": 192,
+    "finalQuestions": 212
+  },
+  "methodology": {
+    "objectiveIds": "Internal AdaptCloud traceability identifiers that paraphrase the current Architect Foundations task areas. They are not official exam task IDs.",
+    "legacyTreatment": "The pre-existing compressed Architect bank remains intact. It is not retroactively assigned task-level provenance by inference. The dedicated audit layer guarantees explicit current-blueprint coverage.",
+    "auditLayer": "Each current objective receives one original flashcard and two original scenario variants with per-choice rationales. No recalled, leaked, screenshot-derived, dump-derived, or copied live exam items are used.",
+    "mockAllocation": "Per-domain mock counts are the repository's frozen 60-item practice geometry. The audit does not claim Anthropic publishes exact per-domain item counts beyond the domain weights."
+  },
+  "domains": {
+    "D1": {
+      "name": "Agentic Architecture & Orchestration",
+      "weight": 27,
+      "mock": 16,
+      "objectives": [
+        {"id":"ARCH-AG-LOOPS","label":"Bound agentic loops with explicit completion and stop conditions"},
+        {"id":"ARCH-AG-MULTI","label":"Choose multi-agent orchestration only when specialization or isolation warrants it"},
+        {"id":"ARCH-AG-SUBAGENT","label":"Delegate to subagents with scoped context, permissions, and return contracts"},
+        {"id":"ARCH-AG-HANDOFF","label":"Enforce workflow handoffs with explicit state and ownership"},
+        {"id":"ARCH-AG-HOOKS","label":"Use deterministic Agent SDK lifecycle hooks for cross-cutting controls"},
+        {"id":"ARCH-AG-DECOMP","label":"Decompose complex tasks along meaningful architectural boundaries"},
+        {"id":"ARCH-AG-SESSION","label":"Persist durable session state and resume safely after interruption"}
+      ]
+    },
+    "D2": {
+      "name": "Tool Design & MCP Integration",
+      "weight": 18,
+      "mock": 11,
+      "objectives": [
+        {"id":"ARCH-TOOL-INTERFACE","label":"Design narrow typed least-privilege tool interfaces"},
+        {"id":"ARCH-TOOL-ERRORS","label":"Return structured actionable tool errors for orchestration"},
+        {"id":"ARCH-TOOL-CHOICE","label":"Control tool distribution and selection according to task and policy"},
+        {"id":"ARCH-TOOL-MCP","label":"Integrate MCP while retaining explicit identity, authorization, validation, and audit"},
+        {"id":"ARCH-TOOL-BUILTIN","label":"Govern built-in tools according to their real side effects and permissions"}
+      ]
+    },
+    "D3": {
+      "name": "Claude Code Configuration & Workflows",
+      "weight": 20,
+      "mock": 12,
+      "objectives": [
+        {"id":"ARCH-CODE-GUIDANCE","label":"Organize CLAUDE.md and durable repository guidance by scope"},
+        {"id":"ARCH-CODE-COMMANDS","label":"Package repeated procedures as reusable commands or Skills"},
+        {"id":"ARCH-CODE-RULES","label":"Use path-specific rules for conditional conventions"},
+        {"id":"ARCH-CODE-PLAN","label":"Choose planning versus direct execution based on scope and risk"},
+        {"id":"ARCH-CODE-REFINE","label":"Iterate from concrete tests, diffs, and review evidence"},
+        {"id":"ARCH-CODE-CICD","label":"Integrate Claude Code into CI/CD with reproducible non-interactive controls"}
+      ]
+    },
+    "D4": {
+      "name": "Prompt Engineering & Structured Output",
+      "weight": 20,
+      "mock": 12,
+      "objectives": [
+        {"id":"ARCH-PROMPT-CRITERIA","label":"Write stable system prompts with explicit criteria and trusted boundaries"},
+        {"id":"ARCH-PROMPT-FEWSHOT","label":"Use representative few-shot examples for difficult boundaries"},
+        {"id":"ARCH-PROMPT-STRUCTURED","label":"Use validated structured output or tool schemas for machine interfaces"},
+        {"id":"ARCH-PROMPT-RETRY","label":"Build bounded validation, feedback, retry, and escalation loops"},
+        {"id":"ARCH-PROMPT-BATCH","label":"Batch compatible workloads without violating isolation or context constraints"},
+        {"id":"ARCH-PROMPT-REVIEW","label":"Use independent multi-pass review with explicit reconciliation rules"}
+      ]
+    },
+    "D5": {
+      "name": "Context Management & Reliability",
+      "weight": 15,
+      "mock": 9,
+      "objectives": [
+        {"id":"ARCH-CTX-WINDOW","label":"Manage the context window as a finite working set"},
+        {"id":"ARCH-CTX-ESCALATION","label":"Escalate consequential ambiguity or missing evidence instead of guessing"},
+        {"id":"ARCH-CTX-ERRORPROP","label":"Propagate typed error and confidence state through multi-agent systems"},
+        {"id":"ARCH-CTX-EXPLORE","label":"Explore large codebases incrementally without context degradation"},
+        {"id":"ARCH-CTX-HUMAN","label":"Retain human review at high-impact or low-confidence boundaries"},
+        {"id":"ARCH-CTX-PROVENANCE","label":"Preserve claim-level provenance across multi-source synthesis"}
+      ]
+    }
+  }
+}
