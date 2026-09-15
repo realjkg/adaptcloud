@@ -1,4 +1,4 @@
-name: Validate CCAR-F simulator
+name: Validate Claude certification simulator
 
 on:
   pull_request:
@@ -21,9 +21,13 @@ jobs:
           node --check ccar-f/app.js
           node --check ccar-f/exam.js
           node --check ccar-f/loader.js
+          node --check ccar-f/certifications.js
+          node --check ccar-f/ccao-f.seed.js
+          node --check ccar-f/ccdv-f.seed.js
+          node --check ccar-f/multi-app.js
           for f in ccar-f/payload*.js; do node --check "$f"; done
 
-      - name: Validate bundled study data
+      - name: Validate bundled Architect data
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -37,19 +41,52 @@ jobs:
             b64 += m[1];
           }
           const data = JSON.parse(zlib.gunzipSync(Buffer.from(b64, 'base64')));
-          if (data.cards.length !== 162) throw new Error(`Expected 162 cards, got ${data.cards.length}`);
-          if (data.questions.length !== 107) throw new Error(`Expected 107 questions, got ${data.questions.length}`);
-          if (data.cards.some(c => !c.example || !String(c.example).trim())) throw new Error('A flashcard is missing its example');
+          if (data.cards.length !== 162) throw new Error(`Expected 162 CCAR-F cards, got ${data.cards.length}`);
+          if (data.questions.length !== 107) throw new Error(`Expected 107 CCAR-F questions, got ${data.questions.length}`);
+          if (data.cards.some(c => !c.example || !String(c.example).trim())) throw new Error('A CCAR-F flashcard is missing its example');
           const cardIds = data.cards.map(c => c.id);
           const qIds = data.questions.map(q => q.id);
-          if (new Set(cardIds).size !== cardIds.length) throw new Error('Duplicate flashcard IDs found');
-          if (new Set(qIds).size !== qIds.length) throw new Error('Duplicate question IDs found');
+          if (new Set(cardIds).size !== cardIds.length) throw new Error('Duplicate CCAR-F flashcard IDs found');
+          if (new Set(qIds).size !== qIds.length) throw new Error('Duplicate CCAR-F question IDs found');
           const needed = {D1:16,D2:11,D3:12,D4:12,D5:9};
           for (const [domain,count] of Object.entries(needed)) {
             const available = data.questions.filter(q => q.domain === domain).length;
             if (available < count) throw new Error(`${domain} needs ${count} questions but has ${available}`);
           }
-          console.log(`Validated ${data.cards.length} cards and ${data.questions.length} questions.`);
+          console.log(`Validated ${data.cards.length} CCAR-F cards and ${data.questions.length} questions.`);
+          NODE
+
+      - name: Validate certification registry and adaptive seed banks
+        run: |
+          node <<'NODE'
+          global.window = {};
+          require('./ccar-f/certifications.js');
+          require('./ccar-f/ccao-f.seed.js');
+          require('./ccar-f/ccdv-f.seed.js');
+          const certs = window.CLAUDE_CERTIFICATIONS;
+          const seed = window.CLAUDE_CERT_SEED_DATA;
+          for (const code of ['ccao-f','ccdv-f','ccar-f','ccar-p']) {
+            if (!certs[code]) throw new Error(`Missing certification profile ${code}`);
+          }
+          const expected = {
+            'ccao-f': {domains:7,cards:21,questions:21,totalMock:60},
+            'ccdv-f': {domains:8,cards:24,questions:24,totalMock:53}
+          };
+          for (const [code,e] of Object.entries(expected)) {
+            const p = certs[code], d = seed[code];
+            if (Object.keys(p.domains).length !== e.domains) throw new Error(`${code} domain count mismatch`);
+            if (!d || d.cards.length !== e.cards || d.questions.length !== e.questions) throw new Error(`${code} seed bank count mismatch`);
+            if (d.cards.some(c => !c.example || !String(c.example).trim())) throw new Error(`${code} flashcard missing example`);
+            if (d.cards.some(c => !p.domains[c.domain])) throw new Error(`${code} flashcard has invalid domain`);
+            if (d.questions.some(q => !p.domains[q.domain])) throw new Error(`${code} question has invalid domain`);
+            if (new Set(d.cards.map(c=>c.id)).size !== d.cards.length) throw new Error(`${code} duplicate card IDs`);
+            if (new Set(d.questions.map(q=>q.id)).size !== d.questions.length) throw new Error(`${code} duplicate question IDs`);
+            const totalMock = Object.values(p.domains).reduce((n,x)=>n+x.mock,0);
+            if (totalMock !== e.totalMock) throw new Error(`${code} mock allocation totals ${totalMock}, expected ${e.totalMock}`);
+          }
+          const keys=['ccao-f','ccdv-f','ccar-f'].map(c=>certs[c].progressKey);
+          if (new Set(keys).size !== keys.length) throw new Error('Certification progress keys must be isolated');
+          console.log('Validated multi-certification registry, isolated progress keys, and adaptive seed banks.');
           NODE
 
       - name: Verify static entry points and exam navigation
@@ -58,12 +95,15 @@ jobs:
           test -f ccar-f/styles.css
           test -f ccar-f/exam.css
           test -f ccar-f/exam.js
+          test -f ccar-f/multi-app.js
           grep -q 'payload5.js' ccar-f/index.html
+          grep -q 'certifications.js' ccar-f/index.html
+          grep -q 'ccao-f.seed.js' ccar-f/index.html
+          grep -q 'ccdv-f.seed.js' ccar-f/index.html
           grep -q 'loader.js' ccar-f/index.html
-          grep -q 'exam.css' ccar-f/index.html
+          grep -q 'multi-app.js' ccar-f/loader.js
           grep -q 'exam.js' ccar-f/loader.js
           grep -q 'Flag for Review' ccar-f/exam.js
           grep -q 'Review Incomplete' ccar-f/exam.js
           grep -q 'Review Flagged' ccar-f/exam.js
           grep -q 'End Review & Submit Exam' ccar-f/exam.js
-          grep -q 'MOCK_MINUTES = 120' ccar-f/exam.js
