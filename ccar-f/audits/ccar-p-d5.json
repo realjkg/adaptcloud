@@ -6,7 +6,7 @@
   "weight": 14,
   "mockQuestions": 9,
   "objectiveCount": 5,
-  "verificationStatus": "gap-found",
+  "verificationStatus": "verified-against-exam-guide-v1.0",
   "sources": {
     "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
     "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
@@ -29,8 +29,9 @@
     "P4-06":"D5.3",
     "P4-07":"D5.2",
     "P4-08":"D5.4",
-    "P4-09":"D5.2"
+    "P4-09":"D5.2",
+    "P4-10":"D5.5"
   },
-  "gapAssessment": "D5.5 is not directly represented by a dedicated bias/fairness/transparency concept. Add an original ethical-AI scenario set before this audit is complete.",
-  "requiredRemediation": ["D5.5"]
+  "gapAssessment": "Closed: D5.5 now has a dedicated ethical-AI card and two original bias/fairness/transparency scenarios.",
+  "requiredRemediation": []
 }
