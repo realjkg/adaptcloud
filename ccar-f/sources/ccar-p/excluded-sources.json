@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "blockedPatterns": [
+    "brain dump",
+    "braindump",
+    "actual exam questions",
+    "real exam questions",
+    "recalled exam questions",
+    "memorized exam questions",
+    "pearson screenshot",
+    "onvue screenshot",
+    "transcribed from exam screenshots",
+    "vce"
+  ],
+  "blockedSourceIds": [
+    "mrkindly-professional-screenshots",
+    "ravnhq-certsafari-chain"
+  ],
+  "policy": "Sources that expose, reconstruct, recall, transcribe, scrape, or redistribute live certification items are not eligible for runtime import regardless of practitioner status or repository license."
+}
