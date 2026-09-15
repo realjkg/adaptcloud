@@ -1,0 +1,28 @@
+{
+  "exam": "CCAR-P",
+  "officialDomain": "D7",
+  "internalDomain": "P7",
+  "name": "Developer Productivity & Operational Enablement",
+  "weight": 7,
+  "mockQuestions": 4,
+  "objectiveCount": 3,
+  "verificationStatus": "verified-against-exam-guide-v1.0",
+  "sources": {
+    "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
+    "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
+    "course": "Team Enablement & Operational Productivity",
+    "publicObjectiveCrossCheck": "https://github.com/ravnhq/claude-certified-architect/blob/main/ccap/guide_en.md"
+  },
+  "objectives": [
+    {"id":"D7.1","text":"Configure Claude tools and environments for teams (e.g., Claude Code)"},
+    {"id":"D7.2","text":"Improve developer workflows using AI-assisted tooling"},
+    {"id":"D7.3","text":"Support debugging and operational issue resolution"}
+  ],
+  "conceptToObjective": {
+    "P7-01":"D7.1",
+    "P7-02":"D7.2",
+    "P7-03":"D7.3",
+    "P7-04":"D7.1"
+  },
+  "gapAssessment": "No objective-level coverage gap found in the current D7 bank."
+}
