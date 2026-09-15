@@ -1,0 +1,171 @@
+name: Validate CCAR-F objective coverage
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/certifications.js"
+      - "ccar-f/ccar-f.bank.js"
+      - "ccar-f/ccar-f.bank-topup.js"
+      - "ccar-f/ccar-f.audit-bank.js"
+      - "ccar-f/ccar-f-selection.js"
+      - "ccar-f/ccar-f-runtime-patch.js"
+      - "ccar-f/audits/ccar-f.json"
+      - "ccar-f/sources/foundations/**"
+      - "ccar-f/index.html"
+      - "ccar-f/loader.js"
+      - "ccar-f/payload*.js"
+      - ".github/workflows/ccar-f-objective-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-architect-foundations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check syntax and runtime wiring
+        run: |
+          node --check ccar-f/ccar-f.audit-bank.js
+          node --check ccar-f/ccar-f-selection.js
+          node --check ccar-f/ccar-f-runtime-patch.js
+          node --check ccar-f/loader.js
+          grep -q 'ccar-f.audit-bank.js' ccar-f/index.html
+          grep -q 'ccar-f-selection.js' ccar-f/index.html
+          grep -q 'ccar-f-runtime-patch.js' ccar-f/loader.js
+          test "$(grep -n 'ccar-f.bank.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'ccar-f.bank-topup.js' ccar-f/index.html | cut -d: -f1)"
+          test "$(grep -n 'ccar-f.bank-topup.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'ccar-f.audit-bank.js' ccar-f/index.html | cut -d: -f1)"
+          test "$(grep -n 'ccar-f.audit-bank.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'loader.js' ccar-f/index.html | cut -d: -f1)"
+          test "$(grep -n 'ccar-f-selection.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'loader.js' ccar-f/index.html | cut -d: -f1)"
+          test "$(grep -n 'await loadScript("./app.js")' ccar-f/loader.js | cut -d: -f1)" -lt "$(grep -n 'await loadScript("./ccar-f-runtime-patch.js")' ccar-f/loader.js | cut -d: -f1)"
+          test "$(grep -n 'await loadScript("./ccar-f-runtime-patch.js")' ccar-f/loader.js | cut -d: -f1)" -lt "$(grep -n 'await loadScript("./exam.js")' ccar-f/loader.js | cut -d: -f1)"
+
+      - name: Validate 30-objective traceability, bank preservation, and mock coverage
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          global.window = {};
+
+          require('./ccar-f/certifications.js');
+          require('./ccar-f/ccar-f.bank.js');
+          require('./ccar-f/ccar-f.bank-topup.js');
+
+          const profile = window.CLAUDE_CERTIFICATIONS['ccar-f'];
+          const expansionBeforeAudit = window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-f'];
+          const legacyExpansion = {
+            cards: [...(expansionBeforeAudit.cards || [])],
+            questions: [...(expansionBeforeAudit.questions || [])]
+          };
+
+          const payloadFiles = [1,2,3,4,5].map(n => `ccar-f/payload${n}.js`);
+          let b64 = '';
+          for (const file of payloadFiles) {
+            const text = fs.readFileSync(file, 'utf8');
+            const m = text.match(/push\("([A-Za-z0-9+/=]+)"\);/);
+            if (!m) throw new Error(`Unable to read payload from ${file}`);
+            b64 += m[1];
+          }
+          const base = JSON.parse(zlib.gunzipSync(Buffer.from(b64, 'base64')));
+          const merge = (a,b) => ({
+            cards: [...(a?.cards || []), ...(b?.cards || [])],
+            questions: [...(a?.questions || []), ...(b?.questions || [])]
+          });
+          const legacy = merge(base, legacyExpansion);
+
+          require('./ccar-f/ccar-f.audit-bank.js');
+          const finalExpansion = window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-f'];
+          const finalBank = merge(base, finalExpansion);
+          const selection = require('./ccar-f/ccar-f-selection.js');
+          const audit = JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-f.json','utf8'));
+          const baselines = JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/profile-baselines.json','utf8'));
+          const registry = JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/source-registry.json','utf8'));
+          const baseline = baselines.tracks['ccar-f'];
+          const fail = m => { throw new Error(m); };
+
+          if (!baseline || baseline.sourceId !== audit.sourceId) fail('CCAR-F audit source does not match pinned baseline');
+          if (audit.guideVersion !== baseline.guideVersion || audit.guideEffective !== baseline.guideEffective) fail('CCAR-F audit guide pin mismatch');
+          const authority = registry.sources.find(s => s.id === audit.sourceId);
+          if (!authority || authority.status !== 'authoritative' || authority.allowedForRuntimeImport !== false || authority.provenance?.officialProgramSource !== true) fail('CCAR-F authoritative scope source missing or misclassified');
+          const originalSource = registry.sources.find(s => s.id === 'adaptcloud-foundations-original');
+          if (!originalSource || originalSource.status !== 'internal-original' || originalSource.allowedForRuntimeImport !== true || originalSource.provenance?.liveExamMaterial !== false || originalSource.provenance?.recalledExamMaterial !== false) fail('Project-original source policy is invalid');
+
+          if (profile.questionCount !== audit.questionCount || profile.minutes !== audit.minutes || profile.scaledPassingScore !== audit.scaledPassingScore) fail('CCAR-F exam geometry mismatch');
+          if (legacy.cards.length !== audit.expectedBank.legacyCards || legacy.questions.length !== audit.expectedBank.legacyQuestions) fail(`Legacy CCAR-F bank drift: ${legacy.cards.length} cards / ${legacy.questions.length} questions`);
+          if (finalBank.cards.length !== audit.expectedBank.finalCards || finalBank.questions.length !== audit.expectedBank.finalQuestions) fail(`Final CCAR-F bank drift: ${finalBank.cards.length} cards / ${finalBank.questions.length} questions`);
+          if (new Set(finalBank.cards.map(c => c.id)).size !== finalBank.cards.length) fail('Duplicate CCAR-F card IDs');
+          if (new Set(finalBank.questions.map(q => q.id)).size !== finalBank.questions.length) fail('Duplicate CCAR-F question IDs');
+          if (new Set(finalBank.questions.map(q => String(q.q).trim().toLowerCase())).size !== finalBank.questions.length) fail('Duplicate CCAR-F question text');
+
+          const objectiveIds = [];
+          let mockTotal = 0;
+          let domainWeightTotal = 0;
+          for (const [domain, meta] of Object.entries(audit.domains)) {
+            const p = profile.domains[domain];
+            const b = baseline.domains[domain];
+            if (!p || !b || p.name !== meta.name || b.name !== meta.name || p.weight !== meta.weight || b.weight !== meta.weight || p.mock !== meta.mock || b.mock !== meta.mock) fail(`${domain}: profile/baseline/audit geometry mismatch`);
+            mockTotal += meta.mock;
+            domainWeightTotal += meta.weight;
+            for (const objective of meta.objectives) objectiveIds.push(objective.id);
+          }
+          if (mockTotal !== profile.questionCount) fail(`CCAR-F mock allocation sums to ${mockTotal}`);
+          if (domainWeightTotal !== 100) fail(`CCAR-F domain weights sum to ${domainWeightTotal}`);
+          if (objectiveIds.length !== 30 || new Set(objectiveIds).size !== 30) fail(`CCAR-F objective count is ${objectiveIds.length}, expected 30 unique objectives`);
+
+          const auditCards = finalBank.cards.filter(c => String(c.id).startsWith('ARF-C-'));
+          const auditQuestions = finalBank.questions.filter(q => String(q.id).startsWith('ARF-'));
+          if (auditCards.length !== audit.expectedBank.auditCards || auditQuestions.length !== audit.expectedBank.auditQuestions) fail(`CCAR-F audit layer count drift: ${auditCards.length} cards / ${auditQuestions.length} questions`);
+          const auditFamilies = new Set(auditQuestions.map(q => q.familyId));
+          if (auditFamilies.size !== audit.expectedBank.auditFamilies) fail(`CCAR-F audit family count is ${auditFamilies.size}`);
+
+          const validByDomain = Object.fromEntries(Object.entries(audit.domains).map(([d,m]) => [d, new Set(m.objectives.map(o => o.id))]));
+          for (const c of auditCards) {
+            if (!profile.domains[c.domain] || !c.familyId || !c.objectiveId || !validByDomain[c.domain]?.has(c.objectiveId)) fail(`${c.id}: invalid domain/family/objective metadata`);
+            if (c.sourceId !== 'adaptcloud-foundations-original' || c.provenance !== 'project-original') fail(`${c.id}: invalid provenance`);
+            if (!String(c.term || '').trim() || !String(c.definition || '').trim() || !String(c.example || '').trim()) fail(`${c.id}: incomplete flashcard`);
+          }
+          for (const q of auditQuestions) {
+            if (!profile.domains[q.domain] || !q.familyId || !q.objectiveId || !validByDomain[q.domain]?.has(q.objectiveId)) fail(`${q.id}: invalid domain/family/objective metadata`);
+            if (q.sourceId !== 'adaptcloud-foundations-original' || q.provenance !== 'project-original') fail(`${q.id}: invalid provenance`);
+            if (!Array.isArray(q.choices) || q.choices.length !== 4 || !Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3) fail(`${q.id}: malformed choices`);
+            if (!Array.isArray(q.rationales) || q.rationales.length !== 4 || q.rationales.some(x => !String(x || '').trim())) fail(`${q.id}: missing per-choice rationales`);
+            if (String(q.why || '').trim().length < 40) fail(`${q.id}: explanation too thin`);
+          }
+
+          for (const objectiveId of objectiveIds) {
+            const cards = auditCards.filter(c => c.objectiveId === objectiveId);
+            const qs = auditQuestions.filter(q => q.objectiveId === objectiveId);
+            const families = new Set(qs.map(q => q.familyId));
+            if (cards.length !== 1) fail(`${objectiveId}: expected exactly one audit flashcard, found ${cards.length}`);
+            if (qs.length !== 2) fail(`${objectiveId}: expected exactly two audit question variants, found ${qs.length}`);
+            if (families.size !== 1 || cards[0].familyId !== qs[0].familyId || qs[0].familyId !== qs[1].familyId) fail(`${objectiveId}: family mapping is inconsistent`);
+            if (new Set(qs.map(q => q.variantId)).size !== 2) fail(`${objectiveId}: expected two distinct variants`);
+          }
+
+          for (const [domain, meta] of Object.entries(profile.domains)) {
+            const available = finalBank.questions.filter(q => q.domain === domain).length;
+            if (available < meta.mock * 2) fail(`${domain}: only ${available} questions for ${meta.mock}-item mock allocation`);
+          }
+
+          const deterministic = (() => { let x = 0; return () => ((x = (x + 0.271828) % 1)); })();
+          const mockIds = selection.weightedMock(finalBank.questions, profile.domains, deterministic);
+          if (mockIds.length !== profile.questionCount || new Set(mockIds).size !== mockIds.length) fail(`CCAR-F mock returned ${mockIds.length} items or duplicates`);
+          const mockQuestions = mockIds.map(id => finalBank.questions.find(q => q.id === id));
+          for (const [domain, meta] of Object.entries(profile.domains)) {
+            const n = mockQuestions.filter(q => q && q.domain === domain).length;
+            if (n !== meta.mock) fail(`${domain}: mock generated ${n}, expected ${meta.mock}`);
+          }
+          const mockObjectives = new Set(mockQuestions.map(q => q && q.objectiveId).filter(Boolean));
+          for (const objectiveId of objectiveIds) if (!mockObjectives.has(objectiveId)) fail(`Full mock omitted objective ${objectiveId}`);
+          const mockFamilies = mockQuestions.map(q => selection.familyKey(q));
+          if (new Set(mockFamilies).size !== mockFamilies.length) fail('CCAR-F full mock repeated a concept family before breadth was exhausted');
+
+          const practiceIds = selection.practiceSet(finalBank.questions, 30, deterministic);
+          if (practiceIds.length !== 30) fail(`CCAR-F practice set returned ${practiceIds.length} items`);
+          const practiceFamilies = practiceIds.map(id => selection.familyKey(finalBank.questions.find(q => q.id === id)));
+          if (new Set(practiceFamilies).size !== practiceFamilies.length) fail('CCAR-F practice set repeats a family before breadth is exhausted');
+
+          console.log(`CCAR-F validated: preserved ${legacy.cards.length}/${legacy.questions.length} legacy bank, added ${auditCards.length}/${auditQuestions.length} audited items, ${objectiveIds.length} objectives, ${finalBank.cards.length} cards, ${finalBank.questions.length} questions, ${mockIds.length}-question objective-complete mock.`);
+          NODE
