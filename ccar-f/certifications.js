@@ -10,7 +10,8 @@ window.CLAUDE_CERTIFICATIONS = {
     scaledPassingScore: 720,
     progressKey: "claude-cert-ccao-f-v1",
     readinessProfile: "associate",
-    bankStatus: "seed",
+    bankStatus: "complete",
+    bankDepth: 2,
     domains: {
       A1: { name: "Output Evaluation and Validation", weight: 21, mock: 13 },
       A2: { name: "Workflow Integration and Solution Design", weight: 16, mock: 10 },
@@ -38,7 +39,8 @@ window.CLAUDE_CERTIFICATIONS = {
     scaledPassingScore: 720,
     progressKey: "claude-cert-ccdv-f-v1",
     readinessProfile: "developer",
-    bankStatus: "seed",
+    bankStatus: "complete",
+    bankDepth: 2,
     domains: {
       D1: { name: "Applications and Integration", weight: 33.1, mock: 18 },
       D2: { name: "Model Selection and Optimization", weight: 16.8, mock: 9 },
@@ -68,6 +70,7 @@ window.CLAUDE_CERTIFICATIONS = {
     progressKey: "ccar-f-study-sim-v2",
     readinessProfile: "architect",
     bankStatus: "complete",
+    bankDepth: 2,
     domains: {
       D1: { name: "Agentic Architecture & Orchestration", weight: 27, mock: 16 },
       D2: { name: "Tool Design & MCP Integration", weight: 18, mock: 11 },
@@ -94,6 +97,7 @@ window.CLAUDE_CERTIFICATIONS = {
     progressKey: "claude-cert-ccar-p-v1",
     readinessProfile: "professional-architect",
     bankStatus: "planned",
+    bankDepth: 0,
     domains: {},
     adaptive: {
       focus: "enterprise integration architecture, governance, evaluation, lifecycle, scale, and defensible tradeoffs",
