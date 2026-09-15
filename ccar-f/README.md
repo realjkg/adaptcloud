@@ -21,7 +21,7 @@ Anthropic currently lists the exam as **60 questions in 120 minutes**.
 ## What is included
 
 - 162 adaptive flashcards, each with one brief concrete example
-- 107-question original multiple-choice practice pool
+- 150-question multiple-choice practice pool
 - untimed multiple-choice practice mode
 - adaptive weak-area multiple-choice mode
 - 60-question blueprint-weighted mock exams
