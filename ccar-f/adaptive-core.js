@@ -8,6 +8,7 @@
 
   function conceptKey(q, profileCode){
     if(!q)return "";
+    if(q.familyId)return q.familyId;
     if(q.concept)return q.concept;
     if(profileCode==="CCAR-P"){
       const m=String(q.id||"").match(/^(P-P\d+-\d+)-[AB]$/);
