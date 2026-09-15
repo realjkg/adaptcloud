@@ -1,0 +1,36 @@
+{
+  "exam": "CCAR-P",
+  "officialDomain": "D5",
+  "internalDomain": "P4",
+  "name": "Governance, Safety & Risk Management",
+  "weight": 14,
+  "mockQuestions": 9,
+  "objectiveCount": 5,
+  "verificationStatus": "gap-found",
+  "sources": {
+    "officialExamGuide": "https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf",
+    "partnerAcademyPrep": "https://anthropic-partners.skilljar.com/path/claude-certified-architect-professional",
+    "course": "Responsible AI, Safety & Risk for Architects",
+    "publicObjectiveCrossCheck": "https://github.com/ravnhq/claude-certified-architect/blob/main/ccap/guide_en.md"
+  },
+  "objectives": [
+    {"id":"D5.1","text":"Implement guardrails and safety controls"},
+    {"id":"D5.2","text":"Identify risks, limitations, and failure modes of LLM systems"},
+    {"id":"D5.3","text":"Apply human-in-the-loop validation strategies"},
+    {"id":"D5.4","text":"Ensure compliance with regulations (e.g., GDPR, HIPAA, FedRAMP)"},
+    {"id":"D5.5","text":"Address ethical AI considerations (bias, fairness, transparency)"}
+  ],
+  "conceptToObjective": {
+    "P4-01":"D5.1",
+    "P4-02":"D5.2",
+    "P4-03":"D5.1",
+    "P4-04":"D5.1",
+    "P4-05":"D5.4",
+    "P4-06":"D5.3",
+    "P4-07":"D5.2",
+    "P4-08":"D5.4",
+    "P4-09":"D5.2"
+  },
+  "gapAssessment": "D5.5 is not directly represented by a dedicated bias/fairness/transparency concept. Add an original ethical-AI scenario set before this audit is complete.",
+  "requiredRemediation": ["D5.5"]
+}
