@@ -53,6 +53,8 @@
     await loadScript("./exam.js");
   }else{
     await loadScript("./multi-app.js");
+    await loadScript("./adaptive-core.js");
+    await loadScript("./adaptive-patch.js");
     if(profile.bankStatus!=="planned")await loadScript("./exam.js");
   }
 }catch(e){document.body.innerHTML=`<main style="font-family:system-ui;max-width:760px;margin:40px auto;padding:20px"><h1>Claude Certification Study Engine</h1><p>Unable to load this certification track in this browser.</p><pre>${String(e)}</pre></main>`}})();

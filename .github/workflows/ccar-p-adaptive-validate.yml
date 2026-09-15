@@ -1,0 +1,69 @@
+name: Validate CCAR-P adaptive engine
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/adaptive-core.js"
+      - "ccar-f/adaptive-patch.js"
+      - "ccar-f/loader.js"
+      - "ccar-f/ccar-p*.js"
+      - ".github/workflows/ccar-p-adaptive-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-adaptive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check adaptive JavaScript syntax
+        run: |
+          node --check ccar-f/adaptive-core.js
+          node --check ccar-f/adaptive-patch.js
+          node --check ccar-f/loader.js
+      - name: Validate concept-aware selection against CCAR-P bank
+        run: |
+          node <<'NODE'
+          const core=require('./ccar-f/adaptive-core.js');
+          global.window={};
+          require('./ccar-f/certifications.js');
+          require('./ccar-f/ccar-p.bank-architecture.js');
+          require('./ccar-f/ccar-p.d3-topup.js');
+          require('./ccar-f/ccar-p.bank-enterprise.js');
+          require('./ccar-f/ccar-p.d2-topup.js');
+          require('./ccar-f/ccar-p.d5-topup.js');
+          const profile=window.CLAUDE_CERTIFICATIONS['ccar-p'];
+          const questions=window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-p'].questions;
+          const key=id=>core.conceptKey(questions.find(q=>q.id===id),'CCAR-P');
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
+          const rng=()=>0.37;
+          for(const [d,meta] of Object.entries(profile.domains)){
+            assert(core.uniqueConceptCount(questions,d,'CCAR-P')>=meta.mock,`Insufficient unique concepts in ${d}`);
+          }
+          const practice=core.practiceSet({questions,profileCode:'CCAR-P',qProgress:{},recentConcepts:[],n:20,rng});
+          assert(new Set(practice.map(key)).size===practice.length,'Practice selected paired concept variants');
+          const recent=practice.map(key);
+          const practice2=core.practiceSet({questions,profileCode:'CCAR-P',qProgress:{},recentConcepts:recent,n:20,rng});
+          assert(practice2.every(id=>!new Set(recent).has(key(id))),'Practice repeated a recent concept while fresh concepts remained');
+          const mock=core.mockSet({questions,profileCode:'CCAR-P',qProgress:{},domains:profile.domains,rng});
+          assert(mock.length===profile.questionCount,`Mock length ${mock.length} != ${profile.questionCount}`);
+          assert(new Set(mock.map(key)).size===mock.length,'Mock selected both variants of a concept');
+          for(const [d,meta] of Object.entries(profile.domains))assert(mock.filter(id=>questions.find(q=>q.id===id).domain===d).length===meta.mock,`Mock allocation mismatch ${d}`);
+          const domainStats={};Object.keys(profile.domains).forEach(d=>domainStats[d]={attempts:0,correct:0});
+          const used=[];const qProgress={};
+          for(let i=0;i<25;i++){
+            const q=core.nextAdaptiveQuestion({questions,profileCode:'CCAR-P',qProgress,domainStats,domains:profile.domains,recentConcepts:[],usedIds:used,targetAccuracy:.92,now:Date.now(),rng});
+            assert(q,`Adaptive stopped at ${i}`);used.push(q.id);
+          }
+          assert(new Set(used.map(key)).size===used.length,'Adaptive session repeated a concept');
+          const groups=[...core.grouped(questions,'CCAR-P').values()];
+          const pair=groups.find(v=>v.length>1);assert(pair,'No variant pair found');
+          const qp={[pair[0].id]:{attempts:1,correct:1,lastSeen:Date.now(),lastWrong:0}};
+          assert(core.chooseVariant(pair,qp,rng).id!==pair[0].id,'Variant rotation did not prefer unseen pair');
+          const loader=require('fs').readFileSync('ccar-f/loader.js','utf8');
+          const a=loader.indexOf('./multi-app.js'),b=loader.indexOf('./adaptive-core.js'),c=loader.indexOf('./adaptive-patch.js'),d=loader.indexOf('./exam.js',a);
+          assert(a>=0&&b>a&&c>b&&d>c,'Adaptive scripts are not loaded between multi-app and exam');
+          console.log(`CCAR-P adaptive engine validated: ${core.grouped(questions,'CCAR-P').size} concepts / ${questions.length} question variants.`);
+          NODE
