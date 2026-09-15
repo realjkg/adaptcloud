@@ -1,0 +1,60 @@
+name: Validate CCAR-F simulator
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/**"
+      - ".github/workflows/ccar-f-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check ccar-f/app.js
+          node --check ccar-f/loader.js
+          for f in ccar-f/payload*.js; do node --check "$f"; done
+
+      - name: Validate bundled study data
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const files = [1,2,3,4,5].map(n => `ccar-f/payload${n}.js`);
+          let b64 = '';
+          for (const file of files) {
+            const text = fs.readFileSync(file, 'utf8');
+            const m = text.match(/push\("([A-Za-z0-9+/=]+)"\);/);
+            if (!m) throw new Error(`Unable to read payload from ${file}`);
+            b64 += m[1];
+          }
+          const data = JSON.parse(zlib.gunzipSync(Buffer.from(b64, 'base64')));
+          if (data.cards.length !== 162) throw new Error(`Expected 162 cards, got ${data.cards.length}`);
+          if (data.questions.length !== 107) throw new Error(`Expected 107 questions, got ${data.questions.length}`);
+          if (data.cards.some(c => !c.example || !String(c.example).trim())) throw new Error('A flashcard is missing its example');
+          const cardIds = data.cards.map(c => c.id);
+          const qIds = data.questions.map(q => q.id);
+          if (new Set(cardIds).size !== cardIds.length) throw new Error('Duplicate flashcard IDs found');
+          if (new Set(qIds).size !== qIds.length) throw new Error('Duplicate question IDs found');
+          const needed = {D1:16,D2:11,D3:12,D4:12,D5:9};
+          for (const [domain,count] of Object.entries(needed)) {
+            const available = data.questions.filter(q => q.domain === domain).length;
+            if (available < count) throw new Error(`${domain} needs ${count} questions but has ${available}`);
+          }
+          console.log(`Validated ${data.cards.length} cards and ${data.questions.length} questions.`);
+          NODE
+
+      - name: Verify static entry points
+        run: |
+          test -f ccar-f/index.html
+          test -f ccar-f/styles.css
+          grep -q 'payload5.js' ccar-f/index.html
+          grep -q 'loader.js' ccar-f/index.html
+          grep -q '120\*60000' ccar-f/app.js
