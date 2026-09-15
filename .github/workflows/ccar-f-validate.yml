@@ -28,6 +28,7 @@ jobs:
           node --check ccar-f/ccdv-f.bank-core.js
           node --check ccar-f/ccdv-f.bank-tools.js
           node --check ccar-f/ccar-f.bank.js
+          node --check ccar-f/ccar-f.bank-topup.js
           node --check ccar-f/multi-app.js
           for f in ccar-f/payload*.js; do node --check "$f"; done
 
@@ -44,6 +45,7 @@ jobs:
           require('./ccar-f/ccdv-f.bank-core.js');
           require('./ccar-f/ccdv-f.bank-tools.js');
           require('./ccar-f/ccar-f.bank.js');
+          require('./ccar-f/ccar-f.bank-topup.js');
 
           const certs = window.CLAUDE_CERTIFICATIONS;
           const seed = window.CLAUDE_CERT_SEED_DATA || {};
@@ -115,6 +117,7 @@ jobs:
           grep -q 'ccdv-f.bank-core.js' ccar-f/index.html
           grep -q 'ccdv-f.bank-tools.js' ccar-f/index.html
           grep -q 'ccar-f.bank.js' ccar-f/index.html
+          grep -q 'ccar-f.bank-topup.js' ccar-f/index.html
           grep -q 'payload5.js' ccar-f/index.html
           grep -q 'loader.js' ccar-f/index.html
           grep -q 'multi-app.js' ccar-f/loader.js
