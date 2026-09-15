@@ -53,7 +53,7 @@ jobs:
           if(!baseline||baseline.sourceId!==audit.sourceId) fail('CCAO-F audit source does not match pinned baseline');
           if(audit.guideVersion!==baseline.guideVersion||audit.guideEffective!==baseline.guideEffective) fail('CCAO-F audit guide pin mismatch');
           const authority=registry.sources.find(s=>s.id===audit.sourceId);
-          if(!authority||authority.authority!=='authoritative-scope') fail('CCAO-F authoritative scope source missing');
+          if(!authority||authority.status!=='authoritative'||authority.allowedForRuntimeImport!==false||authority.provenance?.officialProgramSource!==true) fail('CCAO-F authoritative scope source missing or misclassified');
           if(profile.questionCount!==audit.questionCount||profile.minutes!==audit.minutes||profile.scaledPassingScore!==audit.scaledPassingScore) fail('CCAO-F exam geometry mismatch');
           if(bank.cards.length!==audit.expectedBank.cards||bank.questions.length!==audit.expectedBank.questions) fail(`CCAO-F bank size drift: ${bank.cards.length} cards / ${bank.questions.length} questions`);
           if(new Set(bank.questions.map(q=>q.id)).size!==bank.questions.length) fail('Duplicate CCAO-F question IDs');
