@@ -21,7 +21,7 @@ Anthropic currently lists the exam as **60 questions in 120 minutes**.
 ## What is included
 
 - 162 adaptive flashcards, each with one brief concrete example
-- 107-question original multiple-choice practice pool
+- 152-question original multiple-choice practice pool
 - untimed multiple-choice practice mode
 - adaptive weak-area multiple-choice mode
 - 60-question blueprint-weighted mock exams
@@ -33,6 +33,8 @@ Anthropic currently lists the exam as **60 questions in 120 minutes**.
 - persistent start / stop / resume using browser localStorage
 - migration from the first simulator version
 - progress export/import for cross-device backup
+
+The same engine also hosts separate Associate and Developer Foundations tracks with isolated progress, mastery, adaptive selection, and exam banks. CCAR-F keeps its existing progress key and Architect-specific content.
 
 ## Important
 

@@ -1,0 +1,66 @@
+name: Validate cumulative certification simulator layers
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/**"
+      - ".github/workflows/ccar-f-pages.yml"
+      - ".github/workflows/ccar-f-validate.yml"
+      - ".github/workflows/ccar-f-cumulative.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cumulative-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preserve PR8 deployment and core simulator
+        run: |
+          test -f .github/workflows/ccar-f-pages.yml
+          grep -Fq 'cp -R ccar-f/. _site/ccar-f/' .github/workflows/ccar-f-pages.yml
+          for f in app.js styles.css loader.js payload1.js payload2.js payload3.js payload4.js payload5.js; do test -f "ccar-f/$f"; done
+          grep -q 'ccar-f-study-sim-v2' ccar-f/certifications.js
+
+      - name: Preserve PR9 proctored navigation
+        run: |
+          test -f ccar-f/exam.js
+          test -f ccar-f/exam.css
+          grep -q 'Question navigator' ccar-f/exam.js
+          grep -q 'Flag for Review' ccar-f/exam.js
+          grep -q 'Review Incomplete' ccar-f/exam.js
+          grep -q 'Review Flagged' ccar-f/exam.js
+          grep -q 'End Review & Submit Exam' ccar-f/exam.js
+          grep -q 'await loadScript("./app.js")' ccar-f/loader.js
+          grep -q 'await loadScript("./exam.js")' ccar-f/loader.js
+
+      - name: Preserve multi-cert specialization layers
+        run: |
+          node --check ccar-f/certifications.js
+          node --check ccar-f/multi-app.js
+          node --check ccar-f/exam-profile.js
+          grep -q 'certTrack' ccar-f/index.html
+          grep -q 'exam-profile.js' ccar-f/index.html
+          grep -q 'if(profile.bankStatus!=="planned")await loadScript("./exam.js")' ccar-f/loader.js
+          node <<'NODE'
+          global.window = {};
+          require('./ccar-f/certifications.js');
+          const p = window.CLAUDE_CERTIFICATIONS;
+          const expected = {
+            'ccao-f': [60,120],
+            'ccdv-f': [53,120],
+            'ccar-f': [60,120]
+          };
+          for (const [id,[questions,minutes]] of Object.entries(expected)) {
+            if (!p[id]) throw new Error(`Missing ${id}`);
+            if (p[id].questionCount !== questions) throw new Error(`${id} question-count regression`);
+            if (p[id].minutes !== minutes) throw new Error(`${id} duration regression`);
+            if (p[id].bankStatus !== 'complete') throw new Error(`${id} unexpectedly not complete`);
+          }
+          if (p['ccar-f'].progressKey !== 'ccar-f-study-sim-v2') throw new Error('CCAR-F progress-key regression');
+          if (p['ccar-p'].bankStatus !== 'planned') throw new Error('CCAR-P should remain planned until blueprint lock');
+          console.log('Cumulative PR8 -> PR9 -> multi-cert contract preserved.');
+          NODE
