@@ -50,6 +50,7 @@
   const loadScript=src=>new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error(`Unable to load ${src}`));document.body.appendChild(s)});
   if(track==="ccar-f"){
     await loadScript("./app.js");
+    await loadScript("./ccar-f-runtime-patch.js");
     await loadScript("./exam.js");
   }else{
     await loadScript("./multi-app.js");
