@@ -1,0 +1,63 @@
+name: Validate CCAR-P D3 practitioner bank
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/imported/ccar-p.d3.practitioner.js"
+      - "ccar-f/source-governance.js"
+      - "ccar-f/sources/ccar-p/**"
+      - "ccar-f/audits/ccar-p-d3.json"
+      - "ccar-f/index.html"
+      - ".github/workflows/ccar-p-practitioner-d3-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-d3-practitioner-bank:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check ccar-f/imported/ccar-p.d3.practitioner.js
+      - name: Validate provenance, objectives, variants, and distractor rationales
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const gov=require('./ccar-f/source-governance.js');
+          const registry=JSON.parse(fs.readFileSync('./ccar-f/sources/ccar-p/source-registry.json','utf8'));
+          const audit=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d3.json','utf8'));
+          global.window={};
+          require('./ccar-f/imported/ccar-p.d3.practitioner.js');
+          const bank=window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-p'];
+          const qs=bank.questions.filter(q=>q.id.startsWith('EXT-D3-'));
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
+          const objectiveIds=new Set(audit.objectives.map(o=>o.id));
+          const seenIds=new Set(), seenVariants=new Set();
+          assert(qs.length===12,`Expected 12 D3 practitioner variants, found ${qs.length}`);
+          for(const q of qs){
+            assert(!seenIds.has(q.id),`Duplicate question id ${q.id}`);seenIds.add(q.id);
+            assert(q.domain==='P1',`${q.id}: wrong internal domain`);
+            assert(Array.isArray(q.objectiveIds)&&q.objectiveIds.length,`${q.id}: objectiveIds required`);
+            q.objectiveIds.forEach(id=>assert(objectiveIds.has(id),`${q.id}: unknown objective ${id}`));
+            assert(q.familyId&&q.variantId&&q.concept,`${q.id}: family/variant/concept metadata required`);
+            const vk=`${q.familyId}::${q.variantId}`;assert(!seenVariants.has(vk),`${q.id}: duplicate family variant ${vk}`);seenVariants.add(vk);
+            assert(Array.isArray(q.choices)&&q.choices.length===4,`${q.id}: exactly four choices required`);
+            assert(Number.isInteger(q.answer)&&q.answer>=0&&q.answer<4,`${q.id}: invalid answer index`);
+            assert(typeof q.why==='string'&&q.why.length>=80,`${q.id}: explanation too thin`);
+            assert(Array.isArray(q.choiceWhy)&&q.choiceWhy.length===4,`${q.id}: every distractor requires a rationale`);
+            q.choiceWhy.forEach((r,i)=>assert(typeof r==='string'&&r.length>=35,`${q.id}: choice ${i} rationale too thin`));
+            assert(q.validation&&q.validation.examGuide==='v1.0-2026-07',`${q.id}: exam guide pin required`);
+            assert(Array.isArray(q.validation.officialDocs)&&q.validation.officialDocs.length,`${q.id}: official doc validation required`);
+            assert(Array.isArray(q.validation.practitionerCrosscheck)&&q.validation.practitionerCrosscheck.length>=2,`${q.id}: practitioner cross-check required`);
+            gov.validateQuestionProvenance(q,registry);
+          }
+          const covered=new Set(qs.flatMap(q=>q.objectiveIds));
+          for(const id of objectiveIds)assert(covered.has(id),`D3 practitioner bank does not cover ${id}`);
+          const html=fs.readFileSync('./ccar-f/index.html','utf8');
+          assert(html.includes('./imported/ccar-p.d3.practitioner.js'),'Runtime does not load D3 practitioner bank');
+          const source=registry.sources.find(s=>s.id==='juanmartincoma-ccarp');
+          assert(source&&source.allowedForRuntimeImport===true,'Approved practitioner source no longer runtime-eligible');
+          console.log(`Validated ${qs.length} CCAR-P D3 practitioner-derived variants across ${covered.size} objectives.`);
+          NODE
