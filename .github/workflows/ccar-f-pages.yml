@@ -1,0 +1,49 @@
+name: Deploy CCAR-F simulator to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ccar-f/**"
+      - ".github/workflows/ccar-f-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "ccar-f-pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Stage CCAR-F site
+        run: |
+          mkdir -p _site/ccar-f
+          cp ccar-f/index.html _site/ccar-f/index.html
+          touch _site/.nojekyll
+          cat > _site/index.html <<'EOF'
+          <!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=./ccar-f/"><title>AdaptCloud CCAR-F Study Simulator</title><a href="./ccar-f/">Open the CCAR-F Study Simulator</a>
+          EOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./_site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
