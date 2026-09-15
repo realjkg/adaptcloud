@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Independent CCAR-F Architect Foundations study simulator aligned to Exam Guide v1.0 and verified against public Anthropic materials in September 2026.">
+<title>CCAR-F Architect Foundations Study Simulator</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="app">
+<header>
+ <div class="brand">
+  <h1>CCAR-F Study Simulator</h1>
+  <p>Claude Certified Architect – Foundations • independent, original practice engine</p>
+ </div>
+ <div class="badges">
+  <span class="badge">Exam Guide v1.0</span><span class="badge">September 2026 verified</span><span class="badge">60 Q / 120 min mock</span>
+ </div>
+</header>
+<section id="home"><div class="grid">
+ <div class="panel s12"><div class="row"><div><h2>Resume anytime</h2><div class="small">Progress, weak domains, flashcard scheduling, and in-progress sessions are saved in this browser. Existing v1 progress is migrated automatically.</div></div><div class="grow"></div><button class="btn" id="resumeBtn">Resume</button></div></div>
+ <div class="panel s7"><h2>Readiness</h2><div class="stats"><div class="stat"><div class="n" id="cardMastered">0</div><div class="l">Flashcards mastered</div></div><div class="stat"><div class="n" id="mcqAccuracy">—</div><div class="l">MCQ accuracy</div></div><div class="stat"><div class="n" id="mockCount">0</div><div class="l">Full mocks</div></div><div class="stat"><div class="n" id="readiness">BUILD</div><div class="l">Readiness signal</div></div></div><div style="margin-top:14px" id="domainStats"></div></div>
+ <div class="panel s5"><h2>Blueprint</h2><div class="domainGrid" id="blueprint"></div><div class="notice" style="margin-top:12px">Mock exams use a 60-question approximation of the published weights: 16 Agentic, 11 Tool/MCP, 12 Claude Code, 12 Prompting, 9 Context/Reliability. Anthropic uses scaled scoring, so the simulator does not claim a raw-score equivalent to 720.</div></div>
+ <div class="panel s12"><h2>Choose a mode</h2><div class="modeCards"><div class="mode"><strong>Flashcards</strong><span class="small">162 cards with a brief concrete example on every answer, spaced review, and domain filters.</span><button class="btn2" id="flashBtn">Study flashcards</button></div><div class="mode"><strong>Multiple Choice</strong><span class="small">20 original scenario questions, untimed, with immediate explanations.</span><button class="btn2" id="mcqBtn">Start MCQ practice</button></div><div class="mode"><strong>Adaptive Mode</strong><span class="small">Targets your weakest domains and concepts based on actual misses.</span><button class="btn" id="adaptiveBtn">Start adaptive drill</button></div><div class="mode"><strong>Full Mock</strong><span class="small">60 questions, 120 minutes, blueprint-weighted. Explanations after submission.</span><button class="btn2" id="mockBtn">Start full mock</button></div></div></div>
+ <div class="panel s6"><h2>Flashcard deck</h2><div class="row"><select id="cardDomain"></select><button class="ghost" id="dueBtn">Study due cards</button></div><div class="small" style="margin-top:8px"><span id="dueCount">0</span> due now • <span id="cardTotal">0</span> total</div></div>
+ <div class="panel s6"><h2>Progress portability</h2><div class="actions"><button class="ghost" id="exportBtn">Export progress</button><label class="ghost" style="padding:11px 14px;border-radius:12px;font-weight:750;cursor:pointer">Import progress<input class="hidden" id="importFile" type="file" accept=".json"></label><button class="bad" id="resetBtn">Reset</button></div></div>
+ <div class="panel s12"><h2>Coverage note</h2><div class="small">This build follows the current public CCAR-F Architect–Foundations exam page and Exam Guide v1.0 domain weights as verified September 15, 2026. Product notes are refreshed against current Anthropic docs, but questions are original and do not reproduce recalled or leaked exam items. Current product behavior can evolve faster than the exam blueprint.</div></div>
+</div></section>
+<section id="flashView" class="hidden"><div class="panel"><div class="row"><div><h2>Flashcards</h2><div class="small" id="flashCounter"></div></div><div class="grow"></div><button class="ghost" id="flipBtn">Flip</button><button class="ghost" id="stopFlash">Stop & save</button></div><div class="progress" style="margin:12px 0"><div id="flashProgress"></div></div><div class="flashwrap"><div class="flash" id="flashCard"><div class="face front"><div class="cat" id="frontCat"></div><div class="txt" id="frontText"></div></div><div class="face back"><div class="cat">Answer</div><div class="txt" id="backText"></div></div></div></div><div class="cardcontrols"><button class="bad" data-rate="again">Again</button><button class="ghost" data-rate="hard">Hard</button><button class="good" data-rate="good">Good</button><button class="btn" data-rate="easy">Easy</button></div></div></section>
+<section id="quizView" class="hidden"><div class="panel"><div class="row"><div><h2 id="quizTitle">Multiple Choice</h2><div class="small" id="quizCounter"></div></div><div class="grow"></div><span class="timer" id="timer"></span><button class="ghost" id="stopQuiz">Stop & save</button></div><div class="progress" style="margin:12px 0"><div id="quizProgress"></div></div><div id="quizBody"></div></div></section>
+<section id="resultView" class="hidden"><div class="panel"><h2 id="resultTitle">Results</h2><div class="ready" id="resultScore"></div><p id="resultText"></p><div id="resultDomains"></div><div class="actions" style="margin-top:14px"><button class="btn" id="adaptiveFromResult">Train weak areas</button><button class="btn2" id="homeBtn">Dashboard</button></div><div class="list" id="resultReview" style="margin-top:15px"></div></div></section>
+<div class="footer">Independent study tool; not affiliated with or endorsed by Anthropic or Quizlet. A readiness signal can reduce uncertainty but cannot guarantee a passing result.</div>
+</div>
+<script>window.CCARF_CARDS=[];window.CCARF_QUESTIONS=[];</script>
+<script src="./data/d1.js"></script>
+<script src="./data/d2.js"></script>
+<script src="./data/d3.js"></script>
+<script src="./data/d4.js"></script>
+<script src="./data/d5.js"></script>
+<script src="./app.js"></script>
+</body></html>
