@@ -1,0 +1,267 @@
+{
+  "schemaVersion": "1.0",
+  "reviewedAt": "2026-09-15",
+  "policy": {
+    "runtimeRequires": [
+      "verified practitioner identity",
+      "proctored CCAR-P credential eligibility",
+      "explicit original/non-live-exam provenance",
+      "adaptation rights or explicit permission",
+      "independent technical validation"
+    ],
+    "blockedProvenance": [
+      "live exam questions",
+      "recalled exam questions",
+      "exam screenshots",
+      "brain dumps",
+      "unlicensed third-party quiz extraction"
+    ]
+  },
+  "sources": [
+    {
+      "id": "juanmartincoma-ccarp",
+      "displayName": "Juan Martín Cordero — claude-certified-architect-es",
+      "repository": "juanmartincoma-collab/claude-certified-architect-es",
+      "pinnedCommit": "02e8b166d55b2588c2212fa0e68c23d1f28064fb",
+      "status": "approved-import",
+      "allowedForRuntimeImport": true,
+      "reviewedAt": "2026-09-15",
+      "credential": {
+        "type": "proctored-certification",
+        "name": "Claude Certified Architect - Professional",
+        "verificationProvider": "Credly",
+        "identityMatch": "verified",
+        "eligibleAsCertifiedPractitioner": true
+      },
+      "provenance": {
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "public exam objectives and blueprint"
+      },
+      "rights": {
+        "licenseId": "CC-BY-4.0",
+        "licenseScope": "guides/questions/answers/glossary",
+        "adaptationAllowed": true,
+        "attributionRequired": true,
+        "changeNoticeRequired": true
+      },
+      "notes": "First import candidate; translate/adapt to English with attribution and independent factual review."
+    },
+    {
+      "id": "purcell-ccarp-practice",
+      "displayName": "Matthew Purcell — CCAR-P Full Practice Question Set",
+      "repository": null,
+      "pinnedCommit": null,
+      "status": "reference",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "credential": {
+        "type": "proctored-certification",
+        "name": "Claude Certified Architect - Professional",
+        "verificationProvider": "public practitioner evidence",
+        "identityMatch": "verified",
+        "eligibleAsCertifiedPractitioner": true
+      },
+      "provenance": {
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "Exam Guide v1.0 and practitioner difficulty calibration"
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "licenseScope": "not established for public redistribution",
+        "adaptationAllowed": false,
+        "attributionRequired": true,
+        "changeNoticeRequired": false
+      },
+      "notes": "Calibration/reference only until reuse permission or an applicable license is established."
+    },
+    {
+      "id": "vkorost-ccarp-guide",
+      "displayName": "Vladimir Korostyshevsky — CCAR-P Professional Guide",
+      "repository": "vkorost/claude-certified-architect-professional-guide",
+      "pinnedCommit": null,
+      "status": "validator",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "credential": {
+        "type": "proctored-certification",
+        "name": "Claude Certified Architect - Professional",
+        "verificationProvider": "linked credential",
+        "identityMatch": "verified",
+        "eligibleAsCertifiedPractitioner": true
+      },
+      "provenance": {
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "official exam guide and Anthropic documentation"
+      },
+      "rights": {
+        "licenseId": "CC-BY-NC-SA-4.0",
+        "licenseScope": "guide",
+        "adaptationAllowed": false,
+        "attributionRequired": true,
+        "changeNoticeRequired": true
+      },
+      "notes": "Use for objective/reasoning validation; do not import prose into a potentially commercial engine."
+    },
+    {
+      "id": "amey-thakur-claude-certifications",
+      "displayName": "Amey Thakur — CLAUDE-CERTIFICATIONS",
+      "repository": "Amey-Thakur/CLAUDE-CERTIFICATIONS",
+      "pinnedCommit": null,
+      "status": "reference-pending-credential",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "credential": {
+        "type": "academy-course-completion",
+        "name": "Claude Academy course completions",
+        "verificationProvider": "Claude Academy",
+        "identityMatch": "verified",
+        "eligibleAsCertifiedPractitioner": false
+      },
+      "provenance": {
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "official guides/docs and original practice material"
+      },
+      "rights": {
+        "licenseId": "MIT",
+        "licenseScope": "repository; content scope must be verified per file before import",
+        "adaptationAllowed": true,
+        "attributionRequired": true,
+        "changeNoticeRequired": false
+      },
+      "notes": "Pre-vet as English reference; runtime import remains gated until proctored CCAR-P credential evidence is established."
+    },
+    {
+      "id": "sarveshtalele-claude-architect-exam-guide",
+      "displayName": "Sarvesh Talele — claude-architect-exam-guide",
+      "repository": "sarveshtalele/claude-architect-exam-guide",
+      "pinnedCommit": null,
+      "status": "reference",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "credential": {
+        "type": "program-verification",
+        "name": "Claude Architect certification",
+        "verificationProvider": "Skilljar verification link",
+        "identityMatch": "verified",
+        "eligibleAsCertifiedPractitioner": true
+      },
+      "provenance": {
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "official blueprint; generated practice methodology"
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "licenseScope": "no detected license",
+        "adaptationAllowed": false,
+        "attributionRequired": true,
+        "changeNoticeRequired": false
+      },
+      "notes": "Methodology/concept reference only until rights are clarified."
+    },
+    {
+      "id": "mrkindly-foundations",
+      "displayName": "mrKindly/claude-certified-architect",
+      "repository": "mrKindly/claude-certified-architect",
+      "pinnedCommit": null,
+      "status": "excluded",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "credential": {
+        "type": "practitioner-evidence",
+        "name": "Claude Architect practitioner",
+        "verificationProvider": "public evidence",
+        "identityMatch": "verified",
+        "eligibleAsCertifiedPractitioner": true
+      },
+      "provenance": {
+        "authorOriginal": true,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "Foundations material"
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "licenseScope": "not relevant to CCAR-P",
+        "adaptationAllowed": false,
+        "attributionRequired": true,
+        "changeNoticeRequired": false
+      },
+      "notes": "Excluded from CCAR-P because this repository is Foundations-focused."
+    },
+    {
+      "id": "mrkindly-professional-screenshots",
+      "displayName": "mrKindly Professional screenshot-derived bank",
+      "repository": "mrKindly/claude-certs",
+      "pinnedCommit": null,
+      "status": "blocked",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "credential": {
+        "type": "practitioner-evidence",
+        "name": "Claude Architect practitioner",
+        "verificationProvider": "public evidence",
+        "identityMatch": "verified",
+        "eligibleAsCertifiedPractitioner": true
+      },
+      "provenance": {
+        "authorOriginal": false,
+        "liveExamMaterial": true,
+        "recalledExamMaterial": true,
+        "declaredBasis": "transcribed exam screenshots"
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "licenseScope": "unacceptable provenance regardless of license",
+        "adaptationAllowed": false,
+        "attributionRequired": false,
+        "changeNoticeRequired": false
+      },
+      "notes": "Hard blocked: certification status does not cure live-exam/screenshot provenance."
+    },
+    {
+      "id": "ravnhq-certsafari-chain",
+      "displayName": "ravnhq/claude-certified-architect CertSafari-derived bank",
+      "repository": "ravnhq/claude-certified-architect",
+      "pinnedCommit": null,
+      "status": "blocked",
+      "allowedForRuntimeImport": false,
+      "reviewedAt": "2026-09-15",
+      "credential": {
+        "type": "unverified-for-source",
+        "name": null,
+        "verificationProvider": null,
+        "identityMatch": "unverified",
+        "eligibleAsCertifiedPractitioner": false
+      },
+      "provenance": {
+        "authorOriginal": false,
+        "liveExamMaterial": false,
+        "recalledExamMaterial": false,
+        "declaredBasis": "browser-captured third-party CertSafari quiz corpus"
+      },
+      "rights": {
+        "licenseId": null,
+        "permissionRef": null,
+        "licenseScope": "underlying third-party rights unresolved",
+        "adaptationAllowed": false,
+        "attributionRequired": true,
+        "changeNoticeRequired": false
+      },
+      "notes": "Blocked from direct Q/A import because provenance and redistribution rights chain fail."
+    }
+  ]
+}
