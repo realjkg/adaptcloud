@@ -8,6 +8,7 @@
 
   function conceptKey(q, profileCode){
     if(!q)return "";
+    if(q.familyId)return q.familyId;
     if(q.concept)return q.concept;
     if(profileCode==="CCAR-P"){
       const m=String(q.id||"").match(/^(P-P\d+-\d+)-[AB]$/);
@@ -156,16 +157,40 @@
   function mockSet({questions,profileCode,qProgress,domains,rng=Math.random}){
     const ids=[];
     for(const [domain,meta] of Object.entries(domains||{})){
-      const groups=[...grouped(questions,profileCode,domain).entries()];
-      if(groups.length<(meta.mock||0))return [];
-      const ranked=groups.map(([key,variants])=>{
+      const need=meta.mock||0;
+      const domainQuestions=(questions||[]).filter(q=>q.domain===domain);
+      if(domainQuestions.length<need)return [];
+
+      const ranked=[...grouped(domainQuestions,profileCode,domain).entries()].map(([key,variants])=>{
         const p=conceptProgress(variants,qProgress);
-        return {key,variants,lastSeen:p.lastSeen||0,attempts:p.attempts||0,tie:rng()};
+        const ordered=variants.map(q=>{
+          const qp=progressFor(qProgress,q.id);
+          return {q,attempts:qp.attempts||0,lastSeen:qp.lastSeen||0,tie:rng()};
+        }).sort((a,b)=>a.attempts-b.attempts||a.lastSeen-b.lastSeen||a.tie-b.tie).map(x=>x.q);
+        return {key,variants:ordered,lastSeen:p.lastSeen||0,attempts:p.attempts||0,tie:rng()};
       }).sort((a,b)=>a.attempts-b.attempts||a.lastSeen-b.lastSeen||a.tie-b.tie);
-      ranked.slice(0,meta.mock||0).forEach(g=>{
-        const q=chooseVariant(g.variants,qProgress,rng);
-        if(q)ids.push(q.id);
-      });
+
+      const selected=[];
+      for(const g of ranked){
+        if(selected.length>=need)break;
+        if(g.variants.length)selected.push(g.variants[0]);
+      }
+
+      let round=1;
+      while(selected.length<need){
+        let added=false;
+        for(const g of ranked){
+          if(selected.length>=need)break;
+          if(g.variants[round]){
+            selected.push(g.variants[round]);
+            added=true;
+          }
+        }
+        if(!added)break;
+        round++;
+      }
+      if(selected.length!==need)return [];
+      ids.push(...selected.map(q=>q.id));
     }
     return ids.map(id=>({id,r:rng()})).sort((a,b)=>a.r-b.r).map(x=>x.id);
   }

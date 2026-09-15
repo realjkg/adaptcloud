@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "1.0",
+  "track": "ccao-f",
+  "code": "CCAO-F",
+  "sourceId": "anthropic-ccao-f-guide-v1",
+  "guideVersion": "1.0",
+  "guideEffective": "2026-07",
+  "verifiedAt": "2026-09-15",
+  "questionCount": 60,
+  "minutes": 120,
+  "scaledPassingScore": 720,
+  "expectedBank": {"cards":49,"questions":120},
+  "methodology": "Coverage families are AdaptCloud paraphrases of the current public domain scope plus the concrete concepts taught by the original bank. They are audit identifiers, not official task-statement IDs and do not reproduce exam items.",
+  "domains": {
+    "A1": {
+      "name":"Output Evaluation and Validation","weight":21,"mock":13,"contextCount":3,"expansionQuestions":23,
+      "families":[
+        {"id":"AO1.1","label":"verify consequential factual claims against authoritative sources"},
+        {"id":"AO1.2","label":"use observable task-linked evaluation criteria"},
+        {"id":"AO1.3","label":"distinguish supported evidence from inference"},
+        {"id":"AO1.4","label":"separate confident wording from correctness"},
+        {"id":"AO1.5","label":"resolve conflicts among trusted sources"},
+        {"id":"AO1.6","label":"evaluate with representative normal and edge cases"},
+        {"id":"AO1.7","label":"retain accountable review for consequential outputs"},
+        {"id":"AO1.8","label":"check source freshness for time-sensitive decisions"}
+      ]
+    },
+    "A2": {
+      "name":"Workflow Integration and Solution Design","weight":16,"mock":10,"contextCount":2,"expansionQuestions":17,
+      "families":[
+        {"id":"AO2.1","label":"map inputs decisions outputs owners and failure points before automation"},
+        {"id":"AO2.2","label":"start with bounded reviewable automation"},
+        {"id":"AO2.3","label":"place human approval before high-consequence actions"},
+        {"id":"AO2.4","label":"preserve authoritative state in the system of record"},
+        {"id":"AO2.5","label":"design explicit exception paths"},
+        {"id":"AO2.6","label":"assign clear ownership and acceptance criteria at handoffs"},
+        {"id":"AO2.7","label":"prefer reversible automation during early adoption"},
+        {"id":"AO2.8","label":"measure task quality and operational outcomes"},
+        {"id":"AO2.9","label":"escalate authenticated integrations to technical owners"}
+      ]
+    },
+    "A3": {
+      "name":"Governance, Risk, and Responsible Use","weight":15,"mock":9,"contextCount":2,"expansionQuestions":15,
+      "families":[
+        {"id":"AO3.1","label":"minimize sensitive data to what the task requires"},
+        {"id":"AO3.2","label":"treat embedded untrusted instructions as data"},
+        {"id":"AO3.3","label":"apply least privilege to people tools and integrations"},
+        {"id":"AO3.4","label":"require review for sensitive regulated or binding output"},
+        {"id":"AO3.5","label":"retain auditable inputs approvals and actions"},
+        {"id":"AO3.6","label":"follow applicable disclosure consent and organizational requirements"},
+        {"id":"AO3.7","label":"preserve trusted instruction and policy priority"},
+        {"id":"AO3.8","label":"surface uncertainty and escalate high-impact ambiguity"}
+      ]
+    },
+    "A4": {
+      "name":"Prompting and Task Execution","weight":14,"mock":8,"contextCount":2,"expansionQuestions":13,
+      "families":[
+        {"id":"AO4.1","label":"state objective audience context constraints and output clearly"},
+        {"id":"AO4.2","label":"use examples for difficult style or category boundaries"},
+        {"id":"AO4.3","label":"decompose multi-stage work for inspectability"},
+        {"id":"AO4.4","label":"request explicit reusable output structure"},
+        {"id":"AO4.5","label":"iterate prompts from observed failure modes"},
+        {"id":"AO4.6","label":"separate evidence assumptions and uncertainty when needed"},
+        {"id":"AO4.7","label":"clearly delimit trusted instructions from source content"}
+      ]
+    },
+    "A5": {
+      "name":"Product and Model Selection","weight":12,"mock":7,"contextCount":2,"expansionQuestions":11,
+      "families":[
+        {"id":"AO5.1","label":"use Projects for recurring work with durable instructions and bounded knowledge"},
+        {"id":"AO5.2","label":"use a normal conversation when persistent structure is unnecessary"},
+        {"id":"AO5.3","label":"select models against measured task requirements"},
+        {"id":"AO5.4","label":"balance quality latency and cost"},
+        {"id":"AO5.5","label":"recognize when work requires Developer or Architect integration"},
+        {"id":"AO5.6","label":"diagnose workflow and source quality rather than assuming model capability fixes them"}
+      ]
+    },
+    "A6": {
+      "name":"Configuration and Knowledge Management","weight":12,"mock":7,"contextCount":2,"expansionQuestions":11,
+      "families":[
+        {"id":"AO6.1","label":"keep stable reusable guidance in durable instructions"},
+        {"id":"AO6.2","label":"curate relevant trustworthy current knowledge sources"},
+        {"id":"AO6.3","label":"track and govern source versions"},
+        {"id":"AO6.4","label":"scope knowledge collections to the recurring task"},
+        {"id":"AO6.5","label":"use clear naming ownership dates and approval metadata"},
+        {"id":"AO6.6","label":"remove archive or mark obsolete knowledge"}
+      ]
+    },
+    "A7": {
+      "name":"Troubleshooting and Optimization","weight":10,"mock":6,"contextCount":2,"expansionQuestions":9,
+      "families":[
+        {"id":"AO7.1","label":"control prompt source settings and input variables before diagnosing instability"},
+        {"id":"AO7.2","label":"prune irrelevant context while retaining needed evidence"},
+        {"id":"AO7.3","label":"capture reproducible failing cases"},
+        {"id":"AO7.4","label":"inspect source quality freshness and completeness"},
+        {"id":"AO7.5","label":"escalate API authentication permission or platform failures with evidence"}
+      ]
+    }
+  },
+  "seedQuestionFamilies": {
+    "AOQ-A1-01":"AO1.1","AOQ-A1-02":"AO1.2","AOQ-A1-03":"AO1.5",
+    "AOQ-A2-01":"AO2.2","AOQ-A2-02":"AO2.1","AOQ-A2-03":"AO2.3",
+    "AOQ-A3-01":"AO3.1","AOQ-A3-02":"AO3.2","AOQ-A3-03":"AO3.8",
+    "AOQ-A4-01":"AO4.1","AOQ-A4-02":"AO4.2","AOQ-A4-03":"AO4.3",
+    "AOQ-A5-01":"AO5.3","AOQ-A5-02":"AO5.1","AOQ-A5-03":"AO5.6",
+    "AOQ-A6-01":"AO6.1","AOQ-A6-02":"AO6.2","AOQ-A6-03":"AO6.1",
+    "AOQ-A7-01":"AO7.1","AOQ-A7-02":"AO7.2","AOQ-A7-03":"AO7.5"
+  }
+}

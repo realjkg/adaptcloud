@@ -1,0 +1,106 @@
+name: Validate CCAO-F objective coverage
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/certifications.js"
+      - "ccar-f/ccao-f.seed.js"
+      - "ccar-f/ccao-f.bank.js"
+      - "ccar-f/ccao-f.family-map.js"
+      - "ccar-f/adaptive-core.js"
+      - "ccar-f/audits/ccao-f.json"
+      - "ccar-f/sources/foundations/**"
+      - "ccar-f/index.html"
+      - ".github/workflows/ccao-f-objective-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-associate-foundations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check syntax and runtime wiring
+        run: |
+          node --check ccar-f/ccao-f.family-map.js
+          node --check ccar-f/adaptive-core.js
+          grep -q 'ccao-f.family-map.js' ccar-f/index.html
+          test "$(grep -n 'ccao-f.bank.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'ccao-f.family-map.js' ccar-f/index.html | cut -d: -f1)"
+          test "$(grep -n 'ccao-f.family-map.js' ccar-f/index.html | cut -d: -f1)" -lt "$(grep -n 'loader.js' ccar-f/index.html | cut -d: -f1)"
+      - name: Validate objective traceability, family diversity, and mock geometry
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          global.window={};
+          require('./ccar-f/certifications.js');
+          require('./ccar-f/ccao-f.seed.js');
+          require('./ccar-f/ccao-f.bank.js');
+          require('./ccar-f/ccao-f.family-map.js');
+          const core=require('./ccar-f/adaptive-core.js');
+          const audit=JSON.parse(fs.readFileSync('./ccar-f/audits/ccao-f.json','utf8'));
+          const baselines=JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/profile-baselines.json','utf8'));
+          const registry=JSON.parse(fs.readFileSync('./ccar-f/sources/foundations/source-registry.json','utf8'));
+          const baseline=baselines.tracks['ccao-f'];
+          const profile=window.CLAUDE_CERTIFICATIONS['ccao-f'];
+          const seed=window.CLAUDE_CERT_SEED_DATA['ccao-f'];
+          const expansion=window.CLAUDE_CERT_BANK_EXPANSIONS['ccao-f'];
+          const bank={cards:[...seed.cards,...expansion.cards],questions:[...seed.questions,...expansion.questions]};
+          const familyMap=window.CCAOF_FAMILY_MAP;
+          const fail=m=>{throw new Error(m)};
+
+          if(!baseline||baseline.sourceId!==audit.sourceId) fail('CCAO-F audit source does not match pinned baseline');
+          if(audit.guideVersion!==baseline.guideVersion||audit.guideEffective!==baseline.guideEffective) fail('CCAO-F audit guide pin mismatch');
+          const authority=registry.sources.find(s=>s.id===audit.sourceId);
+          if(!authority||authority.status!=='authoritative'||authority.allowedForRuntimeImport!==false||authority.provenance?.officialProgramSource!==true) fail('CCAO-F authoritative scope source missing or misclassified');
+          if(profile.questionCount!==audit.questionCount||profile.minutes!==audit.minutes||profile.scaledPassingScore!==audit.scaledPassingScore) fail('CCAO-F exam geometry mismatch');
+          if(bank.cards.length!==audit.expectedBank.cards||bank.questions.length!==audit.expectedBank.questions) fail(`CCAO-F bank size drift: ${bank.cards.length} cards / ${bank.questions.length} questions`);
+          if(new Set(bank.questions.map(q=>q.id)).size!==bank.questions.length) fail('Duplicate CCAO-F question IDs');
+          if(new Set(bank.questions.map(q=>String(q.q).trim().toLowerCase())).size!==bank.questions.length) fail('Duplicate CCAO-F question text');
+
+          let mockTotal=0, familyTotal=0;
+          for(const [domain,meta] of Object.entries(audit.domains)){
+            const p=profile.domains[domain];
+            if(!p||p.weight!==meta.weight||p.mock!==meta.mock) fail(`${domain}: profile geometry mismatch`);
+            mockTotal+=meta.mock;
+            const expectedFamilies=meta.families.map(x=>x.id);
+            familyTotal+=expectedFamilies.length;
+            const mapped=familyMap.families[domain]||[];
+            if(JSON.stringify(mapped)!==JSON.stringify(expectedFamilies)) fail(`${domain}: family map does not match audit`);
+            const qs=bank.questions.filter(q=>q.domain===domain);
+            if(qs.length!==meta.mock*2) fail(`${domain}: expected exactly 2x mock depth, found ${qs.length}`);
+            for(const q of qs){
+              if(!Array.isArray(q.choices)||q.choices.length!==4||!Number.isInteger(q.answer)||q.answer<0||q.answer>3||!String(q.why||'').trim()) fail(`${q.id}: malformed question`);
+              if(!q.familyId||!expectedFamilies.includes(q.familyId)) fail(`${q.id}: missing or invalid familyId`);
+            }
+            const represented=new Set(qs.map(q=>q.familyId));
+            for(const id of expectedFamilies) if(!represented.has(id)) fail(`${domain}: uncovered family ${id}`);
+          }
+          if(mockTotal!==profile.questionCount) fail(`CCAO-F mock allocation sums to ${mockTotal}`);
+          if(familyTotal!==49) fail(`CCAO-F family count drifted to ${familyTotal}`);
+
+          const rng=()=>0.314159;
+          const mockIds=core.mockSet({questions:bank.questions,profileCode:profile.code,qProgress:{},domains:profile.domains,rng});
+          if(mockIds.length!==profile.questionCount) fail(`CCAO-F mock generator returned ${mockIds.length} items`);
+          if(new Set(mockIds).size!==mockIds.length) fail('CCAO-F mock generator repeated a question ID');
+          for(const [domain,meta] of Object.entries(profile.domains)){
+            const n=mockIds.map(id=>bank.questions.find(q=>q.id===id)).filter(q=>q&&q.domain===domain).length;
+            if(n!==meta.mock) fail(`${domain}: mock generated ${n}, expected ${meta.mock}`);
+          }
+
+          const practiceIds=core.practiceSet({questions:bank.questions,profileCode:profile.code,qProgress:{},recentConcepts:[],n:20,rng});
+          const practiceFamilies=practiceIds.map(id=>core.conceptKey(bank.questions.find(q=>q.id===id),profile.code));
+          if(new Set(practiceFamilies).size!==practiceFamilies.length) fail('CCAO-F practice set repeats a family before exhausting breadth');
+
+          const used=[];
+          for(let i=0;i<20;i++){
+            const q=core.nextAdaptiveQuestion({questions:bank.questions,profileCode:profile.code,qProgress:{},domainStats:{},domains:profile.domains,recentConcepts:[],usedIds:used,targetAccuracy:0.9,now:Date.now(),rng});
+            if(!q) fail(`Adaptive selector stopped after ${i} questions`);
+            used.push(q.id);
+          }
+          const adaptiveFamilies=used.map(id=>core.conceptKey(bank.questions.find(q=>q.id===id),profile.code));
+          if(new Set(adaptiveFamilies).size!==adaptiveFamilies.length) fail('CCAO-F adaptive session repeated a family in-session');
+
+          console.log(`CCAO-F validated: ${familyTotal} families, ${bank.cards.length} cards, ${bank.questions.length} questions, ${mockIds.length}-question mock.`);
+          NODE
