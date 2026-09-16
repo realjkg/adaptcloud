@@ -1,0 +1,26 @@
+{
+  "schemaVersion":"1.0",
+  "track":"CCAR-P",
+  "officialDomain":"D4",
+  "internalDomain":"P3",
+  "name":"Evaluation, Testing & Optimization semantic-family reconciliation",
+  "reviewedAt":"2026-09-15",
+  "runtimeVersion":"2026-09-15-d4-v1",
+  "questionCount":20,
+  "canonicalFamilyCount":10,
+  "methodology":"Preserve each evaluation lifecycle decision as its own competency rather than collapsing them into a generic evaluation family. A/B testing, regression gating, failure diagnosis, production feedback, and release thresholds test different decisions even when the same quality metrics appear.",
+  "canonicalFamilies":[
+    {"id":"D4-EVAL-STRATEGY","objectiveIds":["D4.2"],"questionIds":["P-P3-01-A","P-P3-01-B"]},
+    {"id":"D4-EVAL-DATASET","objectiveIds":["D4.2"],"questionIds":["P-P3-02-A","P-P3-02-B"]},
+    {"id":"D4-JUDGE-CALIBRATION","objectiveIds":["D4.2"],"questionIds":["P-P3-03-A","P-P3-03-B"]},
+    {"id":"D4-AB-TESTING","objectiveIds":["D4.3"],"questionIds":["P-P3-04-A","P-P3-04-B"]},
+    {"id":"D4-REGRESSION-GATE","objectiveIds":["D4.2"],"questionIds":["P-P3-05-A","P-P3-05-B"]},
+    {"id":"D4-FAILURE-TAXONOMY","objectiveIds":["D4.4"],"questionIds":["P-P3-06-A","P-P3-06-B"]},
+    {"id":"D4-MULTIMETRIC-OPTIMIZATION","objectiveIds":["D4.5"],"questionIds":["P-P3-07-A","P-P3-07-B"]},
+    {"id":"D4-REQUIREMENT-TRACEABILITY","objectiveIds":["D4.1"],"questionIds":["P-P3-08-A","P-P3-08-B"]},
+    {"id":"D4-PRODUCTION-FEEDBACK","objectiveIds":["D4.6"],"questionIds":["P-P3-09-A","P-P3-09-B"]},
+    {"id":"D4-RELEASE-THRESHOLDS","objectiveIds":["D4.1"],"questionIds":["P-P3-10-A","P-P3-10-B"]}
+  ],
+  "crossDomainBoundary":"D4 owns evaluation design, test evidence, diagnosis, optimization, and release gates. D6 remains separate when metrics are being communicated to stakeholders, used to negotiate expectations, or tied to sponsorship/adoption rather than used to design or operate the evaluation system.",
+  "contentMutationPolicy":"Metadata/selection reconciliation only; no question text is changed in this PR."
+}
