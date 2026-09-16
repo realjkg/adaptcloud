@@ -48,14 +48,22 @@
   window.CCARF_QUESTIONS=data.questions;
 
   const loadScript=src=>new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error(`Unable to load ${src}`));document.body.appendChild(s)});
+  const foundationTrack=["ccao-f","ccdv-f","ccar-f"].includes(track);
+  if(foundationTrack)await loadScript("./foundations-scenario-fidelity.js");
+  if(track==="ccar-f")await loadScript("./foundations-scenario-fit-patch.js");
+
   if(track==="ccar-f"){
     await loadScript("./app.js");
     await loadScript("./ccar-f-runtime-patch.js");
     await loadScript("./exam.js");
+    await loadScript("./foundations-exam.js");
   }else{
     await loadScript("./multi-app.js");
     await loadScript("./adaptive-core.js");
     await loadScript("./adaptive-patch.js");
-    if(profile.bankStatus!=="planned")await loadScript("./exam.js");
+    if(profile.bankStatus!=="planned"){
+      await loadScript("./exam.js");
+      if(foundationTrack)await loadScript("./foundations-exam.js");
+    }
   }
 }catch(e){document.body.innerHTML=`<main style="font-family:system-ui;max-width:760px;margin:40px auto;padding:20px"><h1>Claude Certification Study Engine</h1><p>Unable to load this certification track in this browser.</p><pre>${String(e)}</pre></main>`}})();

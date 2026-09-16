@@ -1,0 +1,114 @@
+name: Validate Foundations scenario fidelity
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/foundations-scenario-fidelity.js"
+      - "ccar-f/foundations-scenario-fit-patch.js"
+      - "ccar-f/foundations-exam.js"
+      - "ccar-f/loader.js"
+      - "ccar-f/audits/foundations-scenario-fidelity.json"
+      - "ccar-f/ccao-f.seed.js"
+      - "ccar-f/ccao-f.bank.js"
+      - "ccar-f/ccao-f.family-map.js"
+      - "ccar-f/ccdv-f.seed.js"
+      - "ccar-f/ccdv-f.bank-core.js"
+      - "ccar-f/ccdv-f.bank-tools.js"
+      - "ccar-f/ccdv-f.remediation.js"
+      - "ccar-f/ccdv-f.family-map.js"
+      - "ccar-f/ccar-f.audit-bank.js"
+      - "ccar-f/payload*.js"
+      - ".github/workflows/foundations-scenario-fidelity-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-foundations-scenarios:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check syntax and load order
+        run: |
+          node --check ccar-f/foundations-scenario-fidelity.js
+          node --check ccar-f/foundations-scenario-fit-patch.js
+          node --check ccar-f/foundations-exam.js
+          node --check ccar-f/loader.js
+          grep -q 'foundations-scenario-fidelity.js' ccar-f/loader.js
+          grep -q 'foundations-scenario-fit-patch.js' ccar-f/loader.js
+          grep -q 'foundations-exam.js' ccar-f/loader.js
+          test "$(grep -n 'foundations-scenario-fidelity.js' ccar-f/loader.js | head -1 | cut -d: -f1)" -lt "$(grep -n 'foundations-scenario-fit-patch.js' ccar-f/loader.js | head -1 | cut -d: -f1)"
+          test "$(grep -n 'foundations-scenario-fit-patch.js' ccar-f/loader.js | head -1 | cut -d: -f1)" -lt "$(grep -n 'await loadScript(\"./app.js\")' ccar-f/loader.js | head -1 | cut -d: -f1)"
+          test "$(grep -n 'await loadScript(\"./exam.js\")' ccar-f/loader.js | head -1 | cut -d: -f1)" -lt "$(grep -n 'foundations-exam.js' ccar-f/loader.js | head -1 | cut -d: -f1)"
+
+      - name: Validate scenario forms, bank preservation, and content boundary
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),vm=require('vm'),zlib=require('zlib');
+          const audit=JSON.parse(fs.readFileSync('ccar-f/audits/foundations-scenario-fidelity.json','utf8'));
+          const fidelity=fs.readFileSync('ccar-f/foundations-scenario-fidelity.js','utf8');
+          const fitPatch=fs.readFileSync('ccar-f/foundations-scenario-fit-patch.js','utf8');
+          const fail=m=>{throw new Error(m)};
+          const evalFile=(ctx,path)=>vm.runInContext(fs.readFileSync(path,'utf8'),ctx,{filename:path});
+          const makeCtx=()=>vm.createContext({window:{},console,URL,TextEncoder,TextDecoder});
+          const rngFrom=seed=>{let x=seed>>>0;return()=>((x=(Math.imul(x,1664525)+1013904223)>>>0)/4294967296)};
+
+          if(audit.contentBoundary.liveExamMaterialImported!==false||audit.contentBoundary.recalledExamMaterialImported!==false)fail('Content boundary does not fail closed');
+          for(const term of ['exam dumps','recalled live questions','screenshots or transcriptions of protected exam items','NDA material']) if(!audit.contentBoundary.blocked.includes(term)) fail(`Missing blocked-source class: ${term}`);
+
+          function baseContext(){
+            const ctx=makeCtx();
+            evalFile(ctx,'ccar-f/certifications.js');
+            return ctx;
+          }
+          function buildCCAO(){
+            const ctx=baseContext();
+            evalFile(ctx,'ccar-f/ccao-f.seed.js');evalFile(ctx,'ccar-f/ccao-f.bank.js');evalFile(ctx,'ccar-f/ccao-f.family-map.js');
+            const seed=ctx.window.CLAUDE_CERT_SEED_DATA['ccao-f'],exp=ctx.window.CLAUDE_CERT_BANK_EXPANSIONS['ccao-f'];
+            ctx.window.CERT_TRACK='ccao-f';ctx.window.CERT_PROFILE=ctx.window.CLAUDE_CERTIFICATIONS['ccao-f'];ctx.window.CCARF_QUESTIONS=[...(seed.questions||[]),...(exp.questions||[])];
+            return ctx;
+          }
+          function buildCCDV(){
+            const ctx=baseContext();
+            evalFile(ctx,'ccar-f/ccdv-f.seed.js');evalFile(ctx,'ccar-f/ccdv-f.bank-core.js');evalFile(ctx,'ccar-f/ccdv-f.bank-tools.js');evalFile(ctx,'ccar-f/ccdv-f.remediation.js');evalFile(ctx,'ccar-f/ccdv-f.family-map.js');
+            const seed=ctx.window.CLAUDE_CERT_SEED_DATA['ccdv-f'],exp=ctx.window.CLAUDE_CERT_BANK_EXPANSIONS['ccdv-f'];
+            ctx.window.CERT_TRACK='ccdv-f';ctx.window.CERT_PROFILE=ctx.window.CLAUDE_CERTIFICATIONS['ccdv-f'];ctx.window.CCARF_QUESTIONS=[...(seed.questions||[]),...(exp.questions||[])];
+            return ctx;
+          }
+          function buildCCAR(){
+            const ctx=baseContext();
+            evalFile(ctx,'ccar-f/ccar-f.bank.js');evalFile(ctx,'ccar-f/ccar-f.bank-topup.js');evalFile(ctx,'ccar-f/ccar-f.audit-bank.js');
+            let b64='';for(let n=1;n<=5;n++){const text=fs.readFileSync(`ccar-f/payload${n}.js`,'utf8'),m=text.match(/push\("([A-Za-z0-9+/=]+)"\);/);if(!m)fail(`payload${n} unreadable`);b64+=m[1];}
+            const base=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64'))),exp=ctx.window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-f'];
+            ctx.window.CERT_TRACK='ccar-f';ctx.window.CERT_PROFILE=ctx.window.CLAUDE_CERTIFICATIONS['ccar-f'];ctx.window.CCARF_QUESTIONS=[...(base.questions||[]),...(exp.questions||[])];
+            return ctx;
+          }
+
+          const builders={'CCAO-F':buildCCAO,'CCDV-F':buildCCDV,'CCAR-F':buildCCAR};
+          for(const [code,builder] of Object.entries(builders)){
+            const ctx=builder(),profile=ctx.window.CERT_PROFILE,bank=ctx.window.CCARF_QUESTIONS;
+            const before=new Map(bank.map(q=>[q.id,{answer:q.answer,choices:JSON.stringify(q.choices),q:q.q}]));
+            vm.runInContext(fidelity,ctx,{filename:'foundations-scenario-fidelity.js'});
+            if(code==='CCAR-F')vm.runInContext(fitPatch,ctx,{filename:'foundations-scenario-fit-patch.js'});
+            const sim=ctx.window.FOUNDATIONS_EXAM_SIM?.[code];if(!sim)fail(`${code}: simulator missing`);
+            for(const q of bank){const old=before.get(q.id);if(!old)continue;if(q.answer!==old.answer||JSON.stringify(q.choices)!==old.choices)fail(`${code}: runtime enrichment changed answer mechanics for ${q.id}`);if(q.scenarioFidelity!=='foundations-v1')fail(`${code}: ${q.id} not scenario-enriched`);if(String(q.q||'').length<100)fail(`${code}: ${q.id} scenario stem too thin`);}
+            for(let seed=1;seed<=12;seed++){
+              const form=sim.buildForm(rngFrom(seed));
+              if(form.length!==profile.questionCount)fail(`${code}: form length ${form.length}`);
+              if(new Set(form.map(q=>q.id)).size!==form.length)fail(`${code}: duplicate item ids in form`);
+              for(const [domain,meta] of Object.entries(profile.domains)){const n=form.filter(q=>q.domain===domain).length;if(n!==meta.mock)fail(`${code} ${domain}: ${n} items, expected ${meta.mock}`);}
+              const multis=form.filter(q=>q.itemType==='multi');if(multis.length!==Object.keys(profile.domains).length)fail(`${code}: expected one multiple-response concept per domain, found ${multis.length}`);
+              for(const q of multis){if(q.selectCount!==2||q.choices.length!==5||q.answers.length!==2||q.choiceWhy.length!==5)fail(`${code}: malformed multi ${q.id}`);if(q.provenance!=='project-original')fail(`${code}: non-original multi ${q.id}`);}
+              if(code==='CCAR-F'){
+                if(sim.scenarioFitPatch!=='ccar-f-context-neutral-v1')fail('CCAR-F scenario-fit patch missing');
+                const scenarios=[...new Set(form.map(q=>q.scenarioId))];if(scenarios.length!==4)fail(`CCAR-F: expected four scenario blocks, found ${scenarios.length}`);
+                for(const s of scenarios){const n=form.filter(q=>q.scenarioId===s).length;if(n!==15)fail(`CCAR-F ${s}: expected 15 items, found ${n}`);}
+                const allowed=new Set(audit.tracks['CCAR-F'].publishedScenarioTitles);for(const q of form)if(!allowed.has(q.scenarioTitle))fail(`CCAR-F: unknown scenario title ${q.scenarioTitle}`);
+                for(const q of multis)if(q.scenarioFit!=='ccar-f-context-neutral-v1'||!String(q.q).startsWith('Within this scenario,'))fail(`CCAR-F: ${q.id} is not context-neutral inside its scenario block`);
+              }
+            }
+            console.log(`${code}: scenario-enriched ${bank.length} bank items and validated 12 full forms.`);
+          }
+          NODE

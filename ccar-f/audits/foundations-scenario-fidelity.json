@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "1.0",
+  "reviewedAt": "2026-09-15",
+  "purpose": "Reconcile the three Foundations certification simulators with the applied scenario style and published item mechanics without using live, recalled, screenshot-derived, or dump content.",
+  "tracks": {
+    "CCAO-F": {
+      "items": 60,
+      "minutes": 120,
+      "publishedItemFormats": ["multiple-choice", "multiple-response"],
+      "publishedGroupedScenarioStructure": false,
+      "simulatorStructure": "independent applied business/workflow vignettes",
+      "mockDomainAllocation": {"A1": 13, "A2": 10, "A3": 9, "A4": 8, "A5": 7, "A6": 7, "A7": 6},
+      "simulatorMultipleResponsePolicy": "one original select-two concept per domain per form; this is a practice design choice, not a claimed official item-type percentage"
+    },
+    "CCDV-F": {
+      "items": 53,
+      "minutes": 120,
+      "publishedItemFormats": ["multiple-choice", "multiple-response"],
+      "publishedGroupedScenarioStructure": false,
+      "simulatorStructure": "independent production engineering vignettes",
+      "mockDomainAllocation": {"D1": 18, "D2": 9, "D3": 8, "D4": 6, "D5": 5, "D6": 4, "D7": 2, "D8": 1},
+      "simulatorMultipleResponsePolicy": "one original select-two concept per domain per form; this is a practice design choice, not a claimed official item-type percentage"
+    },
+    "CCAR-F": {
+      "items": 60,
+      "minutes": 120,
+      "publishedItemFormats": ["multiple-choice", "multiple-response"],
+      "publishedGroupedScenarioStructure": true,
+      "publishedScenarioSelection": "4 scenarios drawn from a bank of 6",
+      "publishedScenarioTitles": [
+        "Customer Support Resolution Agent",
+        "Code Generation with Claude Code",
+        "Multi-Agent Research System",
+        "Developer Productivity with Claude",
+        "Claude Code for Continuous Integration",
+        "Structured Data Extraction"
+      ],
+      "simulatorStructure": "four 15-item scenario blocks selected from the six published contexts, while retaining blueprint domain geometry",
+      "mockDomainAllocation": {"D1": 16, "D2": 11, "D3": 12, "D4": 12, "D5": 9},
+      "simulatorMultipleResponsePolicy": "one original select-two concept per domain per form; this is a practice design choice, not a claimed official item-type percentage"
+    }
+  },
+  "evidence": [
+    {
+      "type": "official-program-page",
+      "source": "Anthropic Academy",
+      "url": "https://anthropic-partners.skilljar.com/claude-certified-associate-foundations-certification",
+      "supports": ["CCAO-F identity", "60 questions", "120 minutes", "domain weights"]
+    },
+    {
+      "type": "official-program-page",
+      "source": "Anthropic Academy",
+      "url": "https://anthropic-partners.skilljar.com/claude-certified-architect-foundations-certification",
+      "supports": ["CCAR-F identity", "60 questions", "120 minutes", "domain weights"]
+    },
+    {
+      "type": "public-guide-mirror",
+      "source": "Claude Certifications / Amey Thakur",
+      "url": "https://amey-thakur.github.io/CLAUDE-CERTIFICATIONS/associate-foundations/",
+      "supports": ["CCAO-F Exam Guide v1.0 summary", "multiple-choice and multiple-response format", "three official sample questions referenced", "applied-judgment preparation framing"]
+    },
+    {
+      "type": "public-guide-mirror",
+      "source": "Claude Certifications / Amey Thakur",
+      "url": "https://amey-thakur.github.io/CLAUDE-CERTIFICATIONS/developer-foundations/",
+      "supports": ["CCDV-F Exam Guide v1.0 summary", "53 multiple-choice and multiple-response items", "three official sample questions referenced", "production engineering scope"]
+    },
+    {
+      "type": "public-guide-mirror",
+      "source": "CCAF Preparation",
+      "url": "https://www.ccafpreparation.com/exam-guide",
+      "supports": ["CCAR-F Exam Guide v1.0 summary", "multiple-choice and multiple-response format", "4-of-6 scenario structure", "six published scenario contexts"]
+    },
+    {
+      "type": "independent-original-practice-calibration",
+      "source": "Preporato",
+      "url": "https://preporato.com/blog/ccdv-f-practice-questions-with-explanations-2026",
+      "supports": ["symptom-first production-vignette practice style", "plausible distractor calibration"],
+      "runtimeImport": false
+    },
+    {
+      "type": "independent-original-practice-calibration",
+      "source": "Preporato",
+      "url": "https://preporato.com/blog/ccao-f-practice-questions-with-explanations-2026",
+      "supports": ["workday-vignette practice style", "judgment-led distractor calibration"],
+      "runtimeImport": false
+    }
+  ],
+  "contentBoundary": {
+    "allowed": [
+      "official exam guides and public program pages",
+      "official sample-question mechanics and rationales",
+      "official product documentation",
+      "high-level practitioner reports about style and difficulty",
+      "independently authored practice material used only for structural calibration",
+      "project-original questions"
+    ],
+    "blocked": [
+      "exam dumps",
+      "brain dumps",
+      "recalled live questions",
+      "screenshots or transcriptions of protected exam items",
+      "NDA material",
+      "unlicensed copied question banks"
+    ],
+    "liveExamMaterialImported": false,
+    "recalledExamMaterialImported": false
+  },
+  "implementation": {
+    "practiceAndAdaptive": "Existing family/objective coverage is retained. Runtime scenario enrichment replaces generic lead-ins with richer role, evidence, operational, and accountability constraints while preserving the tested concept and answer key.",
+    "fullMock": "A dedicated Foundations scenario layer builds the official item count and existing blueprint domain allocation. Select-multiple items are project-original and simulation-only, so they do not alter the validated two-deep concept banks.",
+    "CCARF": "Scenario blocks use the published six contexts and choose four per form. Questions are assigned to the selected contexts at form construction while the domain allocation remains 16/11/12/12/9.",
+    "scoring": "Select-multiple items use all-or-nothing item scoring. Raw simulator accuracy is never presented as a conversion to the published scaled score."
+  }
+}
