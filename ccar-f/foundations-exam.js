@@ -11,6 +11,20 @@
   const esc2 = x => esc(String(x ?? ""));
   const label = i => String.fromCharCode(65 + i);
   const isFoundationMock = () => state.activeQuiz?.mode === "mock" && state.activeQuiz?.foundationScenarioVersion === SIM.version;
+  const variantKey = q => `${q?.familyId || String(q?.id || "").split("::")[0]}::${q?.variantId || String(q?.id || "").split("::")[0]}`;
+  const shuffleLocal = a => {
+    const b=a.slice();
+    for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}
+    return b;
+  };
+  const shuffleMulti = q => {
+    if ((q.itemType || "single") !== "multi") return q;
+    const correct = new Set(q.answers || []);
+    const entries = q.choices.map((text,i)=>({text,why:q.choiceWhy?.[i],correct:correct.has(i)}));
+    const shuffled = shuffleLocal(entries);
+    return {...q,choices:shuffled.map(x=>x.text),choiceWhy:Array.isArray(q.choiceWhy)?shuffled.map(x=>x.why):q.choiceWhy,answers:shuffled.map((x,i)=>x.correct?i:-1).filter(i=>i>=0)};
+  };
+  const formOverlap = (form, recent) => form.reduce((n,q)=>n+(recent.has(variantKey(q))?1:0),0);
 
   if (!document.getElementById("foundationsExamStyle")) {
     const style = document.createElement("style");
@@ -60,7 +74,11 @@
 
   function startFoundationMock() {
     let form;
-    try { form = SIM.buildForm(Math.random); }
+    try {
+      const recent = new Set(state.mockHistory.slice(-2).flatMap(m=>m.variantKeys||[]));
+      const candidates = Array.from({length:4},()=>SIM.buildForm(Math.random));
+      form = candidates.sort((a,b)=>formOverlap(a,recent)-formOverlap(b,recent))[0].map(shuffleMulti);
+    }
     catch (e) { alert(`${PROFILE.code} scenario mock could not be built: ${e.message || e}`); return; }
     if (!Array.isArray(form) || form.length !== PROFILE.questionCount) {
       alert(`${PROFILE.code} scenario mock expected ${PROFILE.questionCount} items but built ${form?.length || 0}.`);
@@ -158,7 +176,7 @@
     const answers=t.form.map(q=>({id:q.id,domain:q.domain,response:t.responses[q.id],correct:correct(q,t.responses[q.id]),q}));
     if(!t.scored){answers.forEach(a=>{const p=qP(a.id);p.attempts++;if(a.correct)p.correct++;else p.lastWrong=Date.now();const ds=state.domainStats[a.domain];ds.attempts++;if(a.correct)ds.correct++;});t.scored=true;}
     const correctN=answers.filter(a=>a.correct).length,total=answers.length,score=total?correctN/total:0;
-    state.mockHistory.push({date:new Date().toISOString(),score,correct:correctN,total,timedOut:!!timedOut,format:SIM.version});
+    state.mockHistory.push({date:new Date().toISOString(),score,correct:correctN,total,timedOut:!!timedOut,format:SIM.version,variantKeys:t.form.map(variantKey)});
     state.activeQuiz=null;save();show("resultView");resultTitle.textContent=`${PROFILE.code} Scenario Mock Results`;resultScore.textContent=Math.round(score*100)+"%";resultText.textContent=`${correctN} of ${total} items answered correctly${timedOut?" before time expired":""}. This is raw practice accuracy, not a conversion to Anthropic's scaled score.`;
     const by={};Object.keys(DOMAINS).forEach(d=>by[d]={a:0,c:0});answers.forEach(a=>{by[a.domain].a++;if(a.correct)by[a.domain].c++;});
     resultDomains.innerHTML="<div class='domainGrid'>"+Object.entries(DOMAINS).map(([d,x])=>`<div class="name">${esc2(x.name)}</div><div class="score">${by[d].a?Math.round(by[d].c/by[d].a*100)+"%":"—"}</div><div class="small">${by[d].a} Q</div>`).join("")+"</div>";
