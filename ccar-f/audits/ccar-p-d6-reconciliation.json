@@ -1,0 +1,25 @@
+{
+  "schemaVersion":"1.0",
+  "track":"CCAR-P",
+  "officialDomain":"D6",
+  "internalDomain":"P5",
+  "name":"Stakeholder Communication & Lifecycle semantic-family reconciliation",
+  "reviewedAt":"2026-09-15",
+  "runtimeVersion":"2026-09-15-d6-v1",
+  "questionCount":18,
+  "canonicalFamilyCount":9,
+  "methodology":"Keep the nine stakeholder/lifecycle concepts distinct. Their technical subject matter may overlap D1, D4, or D7, but D6 mastery is defined by the stakeholder/lifecycle action the architect must take: discover, explain trade-offs, assign ownership, plan readiness, drive adoption, report outcomes, hand off, govern change, or prioritize a roadmap.",
+  "canonicalFamilies":[
+    {"id":"D6-STRUCTURED-DISCOVERY","objectiveIds":["D6.1"],"questionIds":["P-P5-01-A","P-P5-01-B"]},
+    {"id":"D6-TRADEOFF-COMMUNICATION","objectiveIds":["D6.2"],"questionIds":["P-P5-02-A","P-P5-02-B"]},
+    {"id":"D6-OPERATIONAL-OWNERSHIP","objectiveIds":["D6.5"],"questionIds":["P-P5-03-A","P-P5-03-B"]},
+    {"id":"D6-LIFECYCLE-READINESS","objectiveIds":["D6.5"],"questionIds":["P-P5-04-A","P-P5-04-B"]},
+    {"id":"D6-ADOPTION-FEEDBACK","objectiveIds":["D6.3"],"questionIds":["P-P5-05-A","P-P5-05-B"]},
+    {"id":"D6-EXECUTIVE-OUTCOMES","objectiveIds":["D6.3"],"questionIds":["P-P5-06-A","P-P5-06-B"]},
+    {"id":"D6-HANDOFF-GUIDANCE","objectiveIds":["D6.4"],"questionIds":["P-P5-07-A","P-P5-07-B"]},
+    {"id":"D6-CHANGE-GOVERNANCE","objectiveIds":["D6.5"],"questionIds":["P-P5-08-A","P-P5-08-B"]},
+    {"id":"D6-ROADMAP-PRIORITIZATION","objectiveIds":["D6.3"],"questionIds":["P-P5-09-A","P-P5-09-B"]}
+  ],
+  "crossDomainBoundary":"Do not merge D6 families with technically similar D1/D4/D7 questions unless the tested decision is also stakeholder/lifecycle management. A technical SLA optimization is D1; negotiating an achievable SLA with evidence is D6. Evaluation metric design is D4; reporting business outcomes and aligning sponsors is D6. Runbook mechanics are D7; transfer of ownership and implementation guidance is D6.",
+  "contentMutationPolicy":"Metadata/selection reconciliation only; no question text is changed in this PR."
+}

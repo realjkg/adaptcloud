@@ -5,7 +5,11 @@ on:
     paths:
       - "ccar-f/certifications.js"
       - "ccar-f/ccar-p.bank-enterprise.js"
+      - "ccar-f/ccar-p.d6-reconcile.js"
+      - "ccar-f/adaptive-core.js"
       - "ccar-f/audits/ccar-p-d6.json"
+      - "ccar-f/audits/ccar-p-d6-reconciliation.json"
+      - "ccar-f/index.html"
       - ".github/workflows/ccar-p-d6-validate.yml"
   workflow_dispatch:
 
@@ -17,28 +21,69 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate D6 traceability and bank depth
+      - name: Check D6 reconciliation syntax and wiring
+        run: |
+          node --check ccar-f/ccar-p.d6-reconcile.js
+          node --check ccar-f/adaptive-core.js
+          grep -q 'ccar-p.d6-reconcile.js' ccar-f/index.html
+      - name: Validate D6 traceability, responsibility boundaries, semantic families, and bank depth
         run: |
           node <<'NODE'
           const fs=require('fs');
+          const adaptive=require('./ccar-f/adaptive-core.js');
           global.window={};
           require('./ccar-f/certifications.js');
           require('./ccar-f/ccar-p.bank-architecture.js');
           require('./ccar-f/ccar-p.bank-enterprise.js');
+          require('./ccar-f/ccar-p.d6-reconcile.js');
           const m=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d6.json','utf8'));
+          const r=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d6-reconciliation.json','utf8'));
           const p=window.CLAUDE_CERTIFICATIONS['ccar-p'];
           const b=window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-p'];
           const d=p.domains[m.internalDomain];
-          if(!d||d.weight!==m.weight||d.mock!==m.mockQuestions) throw new Error('D6 profile geometry mismatch');
-          if(m.verificationStatus!=='verified-against-exam-guide-v1.0'||(m.requiredRemediation||[]).length) throw new Error('D6 audit is not closed');
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
+          assert(d&&d.weight===m.weight&&d.mock===m.mockQuestions,'D6 profile geometry mismatch');
+          assert(m.verificationStatus==='verified-against-exam-guide-v1.0'&&!(m.requiredRemediation||[]).length,'D6 audit is not closed');
           const objectiveIds=new Set(m.objectives.map(x=>x.id));
-          if(objectiveIds.size!==m.objectiveCount) throw new Error('D6 objective count mismatch');
+          assert(objectiveIds.size===m.objectiveCount,'D6 objective count mismatch');
           const cards=b.cards.filter(x=>x.domain===m.internalDomain), qs=b.questions.filter(x=>x.domain===m.internalDomain);
-          if(cards.length<m.mockQuestions||qs.length<m.mockQuestions*2) throw new Error(`D6 insufficient bank depth: ${cards.length} cards / ${qs.length} questions`);
+          assert(cards.length>=m.mockQuestions&&qs.length>=m.mockQuestions*2,`D6 insufficient bank depth: ${cards.length} cards / ${qs.length} questions`);
           const used=new Set();
-          for(const c of cards){const x=c.id.match(/^P-(P\d+-\d+)-C$/)?.[1];if(!x||!m.conceptToObjective[x])throw new Error(`Unmapped D6 card ${c.id}`);used.add(m.conceptToObjective[x]);}
-          for(const q of qs){const x=q.id.match(/^P-(P\d+-\d+)-[AB]$/)?.[1];if(!x||!m.conceptToObjective[x])throw new Error(`Unmapped D6 question ${q.id}`);if(!Array.isArray(q.choices)||q.choices.length!==4||!q.why)throw new Error(`Malformed D6 question ${q.id}`);}
-          for(const id of objectiveIds) if(!used.has(id)) throw new Error(`D6 objective not covered: ${id}`);
-          if(new Set(qs.map(q=>q.id)).size!==qs.length) throw new Error('Duplicate D6 question IDs');
-          console.log(`D6 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions.`);
+          for(const c of cards){const x=c.id.match(/^P-(P\d+-\d+)-C$/)?.[1];assert(x&&m.conceptToObjective[x],`Unmapped D6 card ${c.id}`);used.add(m.conceptToObjective[x]);}
+          for(const q of qs){const x=q.id.match(/^P-(P\d+-\d+)-[AB]$/)?.[1];assert(x&&m.conceptToObjective[x],`Unmapped D6 question ${q.id}`);assert(Array.isArray(q.choices)&&q.choices.length===4&&q.why,`Malformed D6 question ${q.id}`);}
+          for(const id of objectiveIds) assert(used.has(id),`D6 objective not covered: ${id}`);
+          assert(new Set(qs.map(q=>q.id)).size===qs.length,'Duplicate D6 question IDs');
+
+          const recon=window.CLAUDE_CERT_RECONCILIATIONS?.['ccar-p-d6'];
+          assert(recon&&recon.version===r.runtimeVersion,'D6 reconciliation runtime metadata missing');
+          assert(qs.length===r.questionCount,`D6 expected ${r.questionCount} questions, found ${qs.length}`);
+          assert(recon.canonicalFamilyCount===r.canonicalFamilyCount,`Expected ${r.canonicalFamilyCount} D6 families, found ${recon.canonicalFamilyCount}`);
+          for(const q of qs){
+            assert(q.semanticReconciliation?.version===r.runtimeVersion,`${q.id}: missing semantic reconciliation metadata`);
+            assert(q.semanticReconciliation?.responsibilityBoundary==='stakeholder-lifecycle-decision',`${q.id}: responsibility boundary missing`);
+            assert(q.familyId===q.semanticReconciliation.canonicalFamilyId,`${q.id}: canonical family mismatch`);
+          }
+          const familyCounts=new Map();
+          for(const q of qs) familyCounts.set(q.familyId,(familyCounts.get(q.familyId)||0)+1);
+          assert(familyCounts.size===9,'D6 must retain nine distinct stakeholder/lifecycle competencies');
+          for(const [family,n] of familyCounts) assert(n===2,`${family}: expected exactly two spaced variants, found ${n}`);
+
+          const byId=Object.fromEntries(qs.map(q=>[q.id,q]));
+          assert(byId['P-P5-02-A'].familyId!==byId['P-P5-06-A'].familyId,'Trade-off communication and executive outcome reporting must remain distinct');
+          assert(byId['P-P5-03-A'].familyId!==byId['P-P5-07-A'].familyId,'Operational ownership and handoff guidance must remain distinct');
+          assert(byId['P-P5-04-A'].familyId!==byId['P-P5-08-A'].familyId,'Lifecycle readiness and change governance must remain distinct');
+
+          const mockIds=adaptive.mockSet({questions:qs,profileCode:'CCAR-P',qProgress:{},domains:{P5:{mock:9,weight:14}},rng:()=>0.314159});
+          assert(mockIds.length===9,'D6 mock must contain 9 questions');
+          assert(new Set(mockIds.map(id=>byId[id].familyId)).size===9,'D6 mock repeated a stakeholder semantic family');
+          const practiceIds=adaptive.practiceSet({questions:qs,profileCode:'CCAR-P',qProgress:{},recentConcepts:[],n:9,rng:()=>0.271828});
+          assert(practiceIds.length===9,'D6 practice should expose all nine semantic families before repetition');
+          assert(new Set(practiceIds.map(id=>byId[id].familyId)).size===9,'D6 practice repeated a semantic family before breadth was exhausted');
+
+          const html=fs.readFileSync('./ccar-f/index.html','utf8');
+          const bankAt=html.indexOf('./ccar-p.bank-enterprise.js');
+          const reconAt=html.indexOf('./ccar-p.d6-reconcile.js');
+          const loaderAt=html.indexOf('./loader.js');
+          assert(reconAt>bankAt&&loaderAt>reconAt,'D6 reconciliation load order is invalid');
+          console.log(`D6 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions, ${recon.canonicalFamilyCount} semantic families.`);
           NODE
