@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "1.0",
+  "track": "CCAR-P",
+  "reviewedAt": "2026-09-15",
+  "purpose": "Define the highest-fidelity public-evidence exam simulation without importing or reproducing live, recalled, screenshot-derived, or NDA exam content.",
+  "officialPublicEvidence": {
+    "guideVersion": "1.0",
+    "effective": "July 2026",
+    "items": 63,
+    "minutes": 120,
+    "formats": ["multiple choice", "multiple response"],
+    "source": "https://ravnhq.github.io/claude-certified-architect/guides/professional-en.html",
+    "note": "The public guide says each item states how many responses to select."
+  },
+  "practitionerReportedFormatEvidence": {
+    "source": "https://www.linkedin.com/posts/purcellmatthew_claude-certified-architect-professional-practice-activity-7482176978008342528-204Q",
+    "reportedFormats": ["scenario matching with reusable drop-down options"],
+    "additionalCorroboration": "https://ravnhq.github.io/claude-certified-architect/guides/professional-en.html#item-formats",
+    "additionalReportedFormat": "yes/no matrix with one scenario and independently judged statements",
+    "status": "practitioner-reported, not official blueprint text"
+  },
+  "userSuppliedReferenceReview": {
+    "description": "Independent CCAR-P full practice set supplied for structural comparison; not committed to the repository.",
+    "declaredByAuthor": "Original practice content, not live exam content.",
+    "itemCount": 63,
+    "minutes": 120,
+    "observedReferenceMix": {
+      "singleAnswer": 44,
+      "multipleResponse": 14,
+      "scenarioMatching": 5
+    },
+    "domainGeometry": {
+      "D1": 11,
+      "D2": 8,
+      "D3": 12,
+      "D4": 10,
+      "D5": 9,
+      "D6": 9,
+      "D7": 4
+    }
+  },
+  "simulationPolicy": {
+    "fullFormItems": 63,
+    "minutes": 120,
+    "domainGeometryInternal": {
+      "P1": 12,
+      "P2": 11,
+      "P3": 10,
+      "P4": 9,
+      "P5": 9,
+      "P6": 8,
+      "P7": 4
+    },
+    "defaultReferenceMix": {
+      "single": 44,
+      "multi": 14,
+      "matching": 5
+    },
+    "alternateCompositeForm": {
+      "single": 44,
+      "multi": 14,
+      "matching": 4,
+      "matrix": 1
+    },
+    "scoring": "All-or-nothing per item for single-answer, multiple-response, matching, and matrix composites.",
+    "questionDesign": "Enterprise judgment scenarios where a discriminating constraint determines the best architectural action and distractors remain plausible but off-target.",
+    "contentProvenance": "Original practice content only. No live, recalled, screenshot-derived, dump, or NDA exam questions."
+  }
+}
