@@ -1,0 +1,55 @@
+:root{
+  --font-ui:ui-rounded,system-ui,sans-serif;
+  --font-display:ui-serif,serif;
+}
+
+html,body,button,input,select,textarea,
+.qtext,.choice,.small,.muted,.timer,.ready,
+.face .txt,.face.back .txt,.review-row,.matching-select{
+  font-family:var(--font-ui);
+}
+
+.brand h1,
+h2,
+h3,
+.mode strong,
+.face .cat,
+#quizView h2,
+#resultView h2,
+#quizView .exam-intro h3,
+#quizView .exam-palette-head strong,
+#quizView .exam-item-type,
+#quizView .foundation-item-type,
+#quizView .post-review-meta,
+#quizView .review-type{
+  font-family:var(--font-display);
+}
+
+.brand h1{
+  font-weight:700;
+  letter-spacing:.065em;
+  text-transform:uppercase;
+  line-height:1.08;
+}
+
+h2,
+#quizView h2,
+#resultView h2,
+#quizView .exam-intro h3{
+  font-weight:700;
+  letter-spacing:.035em;
+}
+
+.mode strong,
+.face .cat,
+#quizView .exam-palette-head strong,
+#quizView .exam-item-type,
+#quizView .foundation-item-type,
+#quizView .post-review-meta,
+#quizView .review-type{
+  font-weight:700;
+  letter-spacing:.085em;
+  text-transform:uppercase;
+}
+
+/* Preserve the clean game UI: use typography, not extra ornament, for hierarchy. */
