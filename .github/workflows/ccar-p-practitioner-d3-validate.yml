@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - "ccar-f/imported/ccar-p.d3.practitioner.js"
+      - "ccar-f/ccar-p.bank-architecture.js"
+      - "ccar-f/ccar-p.d3-topup.js"
+      - "ccar-f/ccar-p.d3-reconcile.js"
+      - "ccar-f/adaptive-core.js"
       - "ccar-f/source-governance.js"
       - "ccar-f/sources/ccar-p/**"
       - "ccar-f/audits/ccar-p-d3.json"
@@ -20,22 +24,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check JavaScript syntax
-        run: node --check ccar-f/imported/ccar-p.d3.practitioner.js
-      - name: Validate provenance, objectives, variants, and distractor rationales
+        run: |
+          node --check ccar-f/imported/ccar-p.d3.practitioner.js
+          node --check ccar-f/ccar-p.d3-reconcile.js
+          node --check ccar-f/adaptive-core.js
+      - name: Validate provenance, objectives, semantic families, and adaptive diversity
         run: |
           node <<'NODE'
           const fs=require('fs');
           const gov=require('./ccar-f/source-governance.js');
+          const adaptive=require('./ccar-f/adaptive-core.js');
           const registry=JSON.parse(fs.readFileSync('./ccar-f/sources/ccar-p/source-registry.json','utf8'));
           const audit=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d3.json','utf8'));
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
+
           global.window={};
+          require('./ccar-f/ccar-p.bank-architecture.js');
+          require('./ccar-f/ccar-p.d3-topup.js');
           require('./ccar-f/imported/ccar-p.d3.practitioner.js');
+          require('./ccar-f/ccar-p.d3-reconcile.js');
+
           const bank=window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-p'];
           const qs=bank.questions.filter(q=>q.id.startsWith('EXT-D3-'));
-          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
+          const d3=bank.questions.filter(q=>q.domain==='P1');
           const objectiveIds=new Set(audit.objectives.map(o=>o.id));
           const seenIds=new Set(), seenVariants=new Set();
+
           assert(qs.length===12,`Expected 12 D3 practitioner variants, found ${qs.length}`);
+          assert(d3.length===42,`Expected 42 total D3 variants after reconciliation, found ${d3.length}`);
+
           for(const q of qs){
             assert(!seenIds.has(q.id),`Duplicate question id ${q.id}`);seenIds.add(q.id);
             assert(q.domain==='P1',`${q.id}: wrong internal domain`);
@@ -53,11 +70,55 @@ jobs:
             assert(Array.isArray(q.validation.practitionerCrosscheck)&&q.validation.practitionerCrosscheck.length>=2,`${q.id}: practitioner cross-check required`);
             gov.validateQuestionProvenance(q,registry);
           }
+
           const covered=new Set(qs.flatMap(q=>q.objectiveIds));
           for(const id of objectiveIds)assert(covered.has(id),`D3 practitioner bank does not cover ${id}`);
+
+          const recon=window.CLAUDE_CERT_RECONCILIATIONS?.['ccar-p-d3'];
+          assert(recon&&recon.version==='2026-09-15-d3-v1','D3 reconciliation metadata missing');
+          assert(recon.canonicalFamilyCount===19,`Expected 19 canonical D3 semantic families, found ${recon?.canonicalFamilyCount}`);
+          assert(recon.rewriteCandidates.length===2,'Expected exactly two first-pass near-duplicate rewrite candidates');
+          for(const q of d3){
+            assert(q.semanticReconciliation?.version===recon.version,`${q.id}: missing semantic reconciliation metadata`);
+            assert(q.familyId===q.semanticReconciliation.canonicalFamilyId,`${q.id}: reconciliation family mismatch`);
+          }
+
+          const byId=Object.fromEntries(d3.map(q=>[q.id,q]));
+          const sameFamily=(ids)=>{
+            const families=new Set(ids.map(id=>byId[id]?.familyId));
+            assert(!ids.some(id=>!byId[id]),`Missing expected D3 question in ${ids.join(', ')}`);
+            assert(families.size===1,`Expected one semantic family for ${ids.join(', ')}, found ${[...families].join(', ')}`);
+          };
+
+          sameFamily(['P-P1-02-A','P-P1-02-B','EXT-D3-029']);
+          sameFamily(['P-P1-04-A','P-P1-04-B','EXT-D3-024','EXT-D3-034']);
+          sameFamily(['P-P1-08-A','P-P1-08-B','EXT-D3-025']);
+          sameFamily(['P-P1-12-A','P-P1-12-B','EXT-D3-023']);
+          sameFamily(['P-P1-13-A','P-P1-13-B','EXT-D3-033']);
+          sameFamily(['P-P1-14-A','P-P1-14-B','EXT-D3-026']);
+          sameFamily(['P-P1-15-B','EXT-D3-031']);
+
+          assert(byId['P-P1-15-A'].familyId!==byId['P-P1-15-B'].familyId,'P1-15 retrieval strategy and authorized retrieval must remain distinct');
+          const distinct=['EXT-D3-028','EXT-D3-030','EXT-D3-032'].map(id=>byId[id].familyId);
+          assert(new Set(distinct).size===3,'Chunking, retrieval diagnosis, and index freshness must remain distinct families');
+
+          const mockIds=adaptive.mockSet({questions:d3,profileCode:'CCAR-P',qProgress:{},domains:{P1:{mock:12,weight:19}},rng:()=>0.314159});
+          assert(mockIds.length===12,`D3 mock returned ${mockIds.length} items instead of 12`);
+          assert(new Set(mockIds.map(id=>byId[id].familyId)).size===12,'D3 mock repeated a reconciled semantic family');
+
+          const practiceIds=adaptive.practiceSet({questions:d3,profileCode:'CCAR-P',qProgress:{},recentConcepts:[],n:19,rng:()=>0.271828});
+          assert(practiceIds.length===19,'D3 practice should expose all 19 semantic families before repetition');
+          assert(new Set(practiceIds.map(id=>byId[id].familyId)).size===19,'D3 practice repeated a family before breadth was exhausted');
+
           const html=fs.readFileSync('./ccar-f/index.html','utf8');
-          assert(html.includes('./imported/ccar-p.d3.practitioner.js'),'Runtime does not load D3 practitioner bank');
+          const practitionerAt=html.indexOf('./imported/ccar-p.d3.practitioner.js');
+          const reconcileAt=html.indexOf('./ccar-p.d3-reconcile.js');
+          const loaderAt=html.indexOf('./loader.js');
+          assert(practitionerAt>=0,'Runtime does not load D3 practitioner bank');
+          assert(reconcileAt>practitionerAt,'D3 reconciliation must load after practitioner content');
+          assert(loaderAt>reconcileAt,'D3 reconciliation must run before bank assembly');
+
           const source=registry.sources.find(s=>s.id==='juanmartincoma-ccarp');
           assert(source&&source.allowedForRuntimeImport===true,'Approved practitioner source no longer runtime-eligible');
-          console.log(`Validated ${qs.length} CCAR-P D3 practitioner-derived variants across ${covered.size} objectives.`);
+          console.log(`Validated ${d3.length} D3 variants as ${recon.canonicalFamilyCount} semantic families; ${qs.length} practitioner variants cover ${covered.size} objectives.`);
           NODE

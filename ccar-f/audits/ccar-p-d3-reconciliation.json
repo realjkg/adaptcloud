@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0",
+  "track": "CCAR-P",
+  "officialDomain": "D3",
+  "internalDomain": "P1",
+  "name": "Integration semantic-family reconciliation",
+  "reviewedAt": "2026-09-15",
+  "runtimeVersion": "2026-09-15-d3-v1",
+  "methodology": "Question IDs are grouped by the reasoning competency actually required to answer them. Same-family items remain available as spaced variants but are suppressed from repeating as independent concepts in one session. Distinct retrieval subskills remain separate even when they share a broader RAG topic.",
+  "questionCount": 42,
+  "canonicalFamilyCount": 19,
+  "canonicalFamilies": [
+    {"id":"D3-INTEGRATION-BOUNDARY","objectiveIds":["D3.7"],"questionIds":["P-P1-01-A","P-P1-01-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-PROGRESSIVE-DISCOVERY","objectiveIds":["D3.8","D3.1"],"questionIds":["P-P1-02-A","P-P1-02-B","EXT-D3-029"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-AUTHORIZATION-PROPAGATION","objectiveIds":["D3.2"],"questionIds":["P-P1-03-A","P-P1-03-B","EXT-D3-027"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-CONNECTION-MECHANISM","objectiveIds":["D3.7"],"questionIds":["P-P1-04-A","P-P1-04-B","EXT-D3-024","EXT-D3-034"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-RAG-EVIDENCE-BOUNDARY","objectiveIds":["D3.5"],"questionIds":["P-P1-05-A","P-P1-05-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-ASYNC-INTEGRATION","objectiveIds":["D3.3"],"questionIds":["P-P1-06-A","P-P1-06-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-IDEMPOTENT-SIDE-EFFECTS","objectiveIds":["D3.3"],"questionIds":["P-P1-07-A","P-P1-07-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-CORRELATED-OBSERVABILITY","objectiveIds":["D3.4"],"questionIds":["P-P1-08-A","P-P1-08-B","EXT-D3-025"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-DATA-CONTRACT-GOVERNANCE","objectiveIds":["D3.7"],"questionIds":["P-P1-09-A","P-P1-09-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-FAILURE-ISOLATION","objectiveIds":["D3.3"],"questionIds":["P-P1-10-A","P-P1-10-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-DATA-RESIDENCY","objectiveIds":["D3.2"],"questionIds":["P-P1-11-A","P-P1-11-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-HIGH-RISK-ACTION-CONTROLS","objectiveIds":["D3.2"],"questionIds":["P-P1-12-A","P-P1-12-B","EXT-D3-023"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-CAPABILITY-SURFACE","objectiveIds":["D3.1"],"questionIds":["P-P1-13-A","P-P1-13-B","EXT-D3-033"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-ACCURACY-LATENCY","objectiveIds":["D3.3","D3.5"],"questionIds":["P-P1-14-A","P-P1-14-B","EXT-D3-026"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D3-RETRIEVAL-STRATEGY","objectiveIds":["D3.6"],"questionIds":["P-P1-15-A"],"disposition":"keep-distinct"},
+    {"id":"D3-AUTHORIZED-RETRIEVAL","objectiveIds":["D3.2","D3.6"],"questionIds":["P-P1-15-B","EXT-D3-031"],"disposition":"near-duplicate-rewrite-candidate"},
+    {"id":"D3-STRUCTURE-AWARE-CHUNKING","objectiveIds":["D3.5"],"questionIds":["EXT-D3-028"],"disposition":"keep-distinct"},
+    {"id":"D3-RETRIEVAL-DIAGNOSIS","objectiveIds":["D3.5","D3.6","D3.2"],"questionIds":["EXT-D3-030"],"disposition":"keep-distinct"},
+    {"id":"D3-INDEX-FRESHNESS","objectiveIds":["D3.5"],"questionIds":["EXT-D3-032"],"disposition":"keep-distinct"}
+  ],
+  "rewriteCandidates": [
+    {
+      "questionIds": ["P-P1-15-B", "EXT-D3-031"],
+      "reason": "Both ask for authorization-aware filtering before retrieved evidence reaches the model. Keep grouped immediately; replace one scenario later rather than counting them as separate mastery evidence."
+    }
+  ],
+  "contentMutationPolicy": "This reconciliation changes semantic-family metadata only. It does not delete practitioner material or rewrite question text in this PR."
+}
