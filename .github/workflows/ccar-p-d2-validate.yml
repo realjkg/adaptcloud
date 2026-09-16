@@ -6,6 +6,7 @@ on:
       - "ccar-f/certifications.js"
       - "ccar-f/ccar-p.bank-enterprise.js"
       - "ccar-f/ccar-p.d2-topup.js"
+      - "ccar-f/ccar-p.d2-scenario-rewrite.js"
       - "ccar-f/ccar-p.d2-reconcile.js"
       - "ccar-f/adaptive-core.js"
       - "ccar-f/audits/ccar-p-d2.json"
@@ -22,14 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check D2 remediation and reconciliation syntax and wiring
+      - name: Check D2 remediation, scenario rewrite, and reconciliation syntax and wiring
         run: |
           node --check ccar-f/ccar-p.d2-topup.js
+          node --check ccar-f/ccar-p.d2-scenario-rewrite.js
           node --check ccar-f/ccar-p.d2-reconcile.js
           node --check ccar-f/adaptive-core.js
           grep -q 'ccar-p.d2-topup.js' ccar-f/index.html
+          grep -q 'ccar-p.d2-scenario-rewrite.js' ccar-f/index.html
           grep -q 'ccar-p.d2-reconcile.js' ccar-f/index.html
-      - name: Validate D2 traceability, semantic families, freshness policy, and bank depth
+      - name: Validate D2 traceability, rewritten scenarios, semantic families, freshness policy, and bank depth
         run: |
           node <<'NODE'
           const fs=require('fs');
@@ -39,6 +42,7 @@ jobs:
           require('./ccar-f/ccar-p.bank-architecture.js');
           require('./ccar-f/ccar-p.bank-enterprise.js');
           require('./ccar-f/ccar-p.d2-topup.js');
+          require('./ccar-f/ccar-p.d2-scenario-rewrite.js');
           require('./ccar-f/ccar-p.d2-reconcile.js');
           const m=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d2.json','utf8'));
           const r=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d2-reconciliation.json','utf8'));
@@ -74,6 +78,21 @@ jobs:
           assert(byId['P-P6-09-A'].familyId!==byId['P-P6-02-A'].familyId,'Prompt technique selection must remain distinct from prompt architecture');
           assert(r.freshnessReview.status==='current-no-runtime-rewrite-required','D2 freshness review must be explicit');
 
+          const rewrite=window.CLAUDE_CERT_SCENARIO_REWRITES?.['ccar-p-d2'];
+          assert(rewrite&&rewrite.version==='2026-09-15-d2-scenarios-v1','D2 scenario rewrite metadata missing');
+          assert(rewrite.rewrittenQuestionIds.length===8,'Expected 8 rewritten legacy D2 B variants');
+          const words=s=>new Set(String(s).toLowerCase().match(/[a-z0-9]+/g)?.filter(w=>w.length>3)||[]);
+          const jaccard=(a,b)=>{const A=words(a),B=words(b);let inter=0;for(const w of A)if(B.has(w))inter++;const union=new Set([...A,...B]).size;return union?inter/union:0;};
+          for(const id of rewrite.rewrittenQuestionIds){
+            const qb=byId[id], qa=byId[id.replace(/-B$/,'-A')];
+            assert(qb&&qa,`${id}: expected A/B pair missing`);
+            assert(qb.scenarioRewrite?.version===rewrite.version,`${id}: rewrite metadata missing`);
+            assert(!/^During a production design review,/i.test(qb.q),`${id}: generic wrapper survived rewrite`);
+            assert(Array.isArray(qb.choiceWhy)&&qb.choiceWhy.length===4,`${id}: rewritten choices require four rationales`);
+            assert(typeof qb.why==='string'&&qb.why.length>=100,`${id}: rewritten explanation too thin`);
+            assert(jaccard(qa.q,qb.q)<0.55,`${id}: rewritten scenario remains too lexically close to its A variant`);
+          }
+
           const mockIds=adaptive.mockSet({questions:qs,profileCode:'CCAR-P',qProgress:{},domains:{P6:{mock:8,weight:13}},rng:()=>0.314159});
           assert(mockIds.length===8,'D2 mock must contain 8 questions');
           assert(new Set(mockIds.map(id=>byId[id].familyId)).size===8,'D2 mock repeated a reconciled semantic family');
@@ -83,8 +102,9 @@ jobs:
 
           const html=fs.readFileSync('./ccar-f/index.html','utf8');
           const bankAt=html.indexOf('./ccar-p.d2-topup.js');
+          const rewriteAt=html.indexOf('./ccar-p.d2-scenario-rewrite.js');
           const reconAt=html.indexOf('./ccar-p.d2-reconcile.js');
           const loaderAt=html.indexOf('./loader.js');
-          assert(reconAt>bankAt&&loaderAt>reconAt,'D2 reconciliation load order is invalid');
-          console.log(`D2 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions, ${recon.canonicalFamilyCount} semantic families.`);
+          assert(rewriteAt>bankAt&&reconAt>rewriteAt&&loaderAt>reconAt,'D2 rewrite/reconciliation load order is invalid');
+          console.log(`D2 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions, ${rewrite.rewrittenQuestionIds.length} rewritten scenarios, ${recon.canonicalFamilyCount} semantic families.`);
           NODE
