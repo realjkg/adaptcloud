@@ -1,0 +1,144 @@
+name: Validate CCAR-P exam fidelity
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/certifications.js"
+      - "ccar-f/ccar-p.bank-architecture.js"
+      - "ccar-f/ccar-p.bank-enterprise.js"
+      - "ccar-f/ccar-p.d2-topup.js"
+      - "ccar-f/ccar-p.d3-topup.js"
+      - "ccar-f/ccar-p.d5-topup.js"
+      - "ccar-f/imported/ccar-p.d3.practitioner.js"
+      - "ccar-f/ccar-p.d1-scenario-rewrite.js"
+      - "ccar-f/ccar-p.d2-scenario-rewrite.js"
+      - "ccar-f/ccar-p.d3-scenario-rewrite.js"
+      - "ccar-f/ccar-p.d4-scenario-rewrite.js"
+      - "ccar-f/ccar-p.d5-scenario-rewrite.js"
+      - "ccar-f/ccar-p.d6-scenario-rewrite.js"
+      - "ccar-f/ccar-p.d7-scenario-rewrite.js"
+      - "ccar-f/ccar-p.d1-reconcile.js"
+      - "ccar-f/ccar-p.d2-reconcile.js"
+      - "ccar-f/ccar-p.d3-reconcile.js"
+      - "ccar-f/ccar-p.d4-reconcile.js"
+      - "ccar-f/ccar-p.d6-reconcile.js"
+      - "ccar-f/ccar-p.exam-simulation.js"
+      - "ccar-f/audits/ccar-p-exam-fidelity.json"
+      - "ccar-f/exam.js"
+      - "ccar-f/exam.css"
+      - "ccar-f/index.html"
+      - ".github/workflows/ccar-p-exam-fidelity-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-exam-fidelity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check exam simulation syntax and audit metadata
+        run: |
+          node --check ccar-f/ccar-p.exam-simulation.js
+          node --check ccar-f/exam.js
+          node -e "JSON.parse(require('fs').readFileSync('ccar-f/audits/ccar-p-exam-fidelity.json','utf8')); console.log('audit json valid')"
+      - name: Validate 63-item mixed-format form geometry and provenance
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          global.window={};
+          require('./ccar-f/certifications.js');
+          require('./ccar-f/ccar-p.bank-architecture.js');
+          require('./ccar-f/ccar-p.d3-topup.js');
+          require('./ccar-f/ccar-p.bank-enterprise.js');
+          require('./ccar-f/ccar-p.d2-topup.js');
+          require('./ccar-f/ccar-p.d5-topup.js');
+          require('./ccar-f/imported/ccar-p.d3.practitioner.js');
+          require('./ccar-f/ccar-p.d3-scenario-rewrite.js');
+          require('./ccar-f/ccar-p.d2-scenario-rewrite.js');
+          require('./ccar-f/ccar-p.d6-scenario-rewrite.js');
+          require('./ccar-f/ccar-p.d1-scenario-rewrite.js');
+          require('./ccar-f/ccar-p.d4-scenario-rewrite.js');
+          require('./ccar-f/ccar-p.d5-scenario-rewrite.js');
+          require('./ccar-f/ccar-p.d7-scenario-rewrite.js');
+          require('./ccar-f/ccar-p.d1-reconcile.js');
+          require('./ccar-f/ccar-p.d4-reconcile.js');
+          require('./ccar-f/ccar-p.d6-reconcile.js');
+          require('./ccar-f/ccar-p.d2-reconcile.js');
+          require('./ccar-f/ccar-p.d3-reconcile.js');
+          require('./ccar-f/ccar-p.exam-simulation.js');
+
+          const fail=m=>{throw new Error(m)};
+          const assert=(v,m)=>{if(!v)fail(m)};
+          const profile=window.CLAUDE_CERTIFICATIONS['ccar-p'];
+          const sim=window.CCARP_EXAM_SIM;
+          const audit=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-exam-fidelity.json','utf8'));
+          assert(profile.questionCount===63&&profile.minutes===120,'CCAR-P profile must remain 63 items / 120 minutes');
+          assert(sim?.ready,`Exam simulation not ready: ${(sim?.missingSourceIds||[]).join(', ')}`);
+          assert(sim.version==='2026-09-15-exam-fidelity-v1','Unexpected exam simulation version');
+          assert(sim.items.length===64,'Expected 64-item pool: 63 form slots plus one composite-format alternate');
+          assert(sim.formSlots.length===63,'Expected exactly 63 form slots');
+          assert(new Set(sim.items.map(q=>q.id)).size===sim.items.length,'Duplicate exam simulation item ids');
+
+          const expectedDomains={P1:12,P2:11,P3:10,P4:9,P5:9,P6:8,P7:4};
+          const count=(ids,key)=>ids.reduce((m,id)=>{const q=sim.itemById[id];const k=key(q);m[k]=(m[k]||0)+1;return m;},{});
+          const verifyForm=(ids,expectedTypes,label)=>{
+            assert(ids.length===63,`${label}: expected 63 items, found ${ids.length}`);
+            assert(new Set(ids).size===63,`${label}: duplicate item in form`);
+            const byDomain=count(ids,q=>q.domain),byType=count(ids,q=>q.itemType||'single');
+            for(const [d,n] of Object.entries(expectedDomains))assert(byDomain[d]===n,`${label}: ${d} expected ${n}, found ${byDomain[d]||0}`);
+            for(const [t,n] of Object.entries(expectedTypes))assert((byType[t]||0)===n,`${label}: ${t} expected ${n}, found ${byType[t]||0}`);
+            assert(Object.values(byDomain).reduce((a,b)=>a+b,0)===63,`${label}: domain count does not total 63`);
+          };
+          const matchingForm=sim.buildForm(()=>0);
+          const matrixForm=sim.buildForm(()=>0.999999);
+          verifyForm(matchingForm,{single:44,multi:14,matching:5,matrix:0},'matching form');
+          verifyForm(matrixForm,{single:44,multi:14,matching:4,matrix:1},'matrix form');
+
+          for(const q of sim.items){
+            assert(q&&q.id&&q.domain&&q.q&&q.why,`${q?.id||'unknown'}: incomplete base item`);
+            assert(expectedDomains[q.domain],`${q.id}: unexpected domain ${q.domain}`);
+            assert(q.examSimulation?.liveExamContent===false,`${q.id}: live-content provenance must be false`);
+            const type=q.itemType||'single';
+            if(type==='single'){
+              assert(q.sourceQuestionId&&/-B$/.test(q.sourceQuestionId),`${q.id}: single item must derive from rewritten B variant`);
+              assert(Array.isArray(q.choices)&&q.choices.length===4,`${q.id}: single item requires four choices`);
+              assert(Number.isInteger(q.answer)&&q.answer>=0&&q.answer<4,`${q.id}: invalid single answer`);
+              assert(Array.isArray(q.choiceWhy)&&q.choiceWhy.length===4,`${q.id}: single item must retain four choice rationales`);
+              assert(q.scenarioRewrite?.sourcePolicy==='original-not-live-exam-content',`${q.id}: source scenario provenance missing`);
+            }else if(type==='multi'){
+              assert(Array.isArray(q.choices)&&q.choices.length===5,`${q.id}: multi item requires five choices`);
+              assert(q.selectCount===2&&Array.isArray(q.answers)&&q.answers.length===2,`${q.id}: expected select-two response`);
+              assert(new Set(q.answers).size===2&&q.answers.every(i=>Number.isInteger(i)&&i>=0&&i<5),`${q.id}: invalid multi answers`);
+              assert(Array.isArray(q.choiceWhy)&&q.choiceWhy.length===5,`${q.id}: multi item requires a rationale for every choice`);
+              assert(q.provenance?.liveExamContent===false,`${q.id}: custom item provenance missing`);
+            }else if(type==='matching'){
+              assert(Array.isArray(q.prompts)&&q.prompts.length===5,`${q.id}: matching item requires five scenarios`);
+              assert(Array.isArray(q.options)&&q.options.length>=3,`${q.id}: matching item requires a reusable option set`);
+              assert(Array.isArray(q.answers)&&q.answers.length===5&&q.answers.every(i=>Number.isInteger(i)&&i>=0&&i<q.options.length),`${q.id}: invalid matching answers`);
+              assert(Array.isArray(q.rowWhy)&&q.rowWhy.length===5,`${q.id}: matching item requires row rationales`);
+              assert(q.provenance?.liveExamContent===false,`${q.id}: custom item provenance missing`);
+            }else if(type==='matrix'){
+              assert(Array.isArray(q.statements)&&q.statements.length===5,`${q.id}: matrix item requires five statements`);
+              assert(Array.isArray(q.answers)&&q.answers.length===5&&q.answers.every(v=>typeof v==='boolean'),`${q.id}: invalid matrix answers`);
+              assert(Array.isArray(q.statementWhy)&&q.statementWhy.length===5,`${q.id}: matrix item requires statement rationales`);
+              assert(q.provenance?.liveExamContent===false,`${q.id}: custom item provenance missing`);
+            }else fail(`${q.id}: unsupported item type ${type}`);
+          }
+
+          const sourceSingles=sim.items.filter(q=>(q.itemType||'single')==='single');
+          assert(sourceSingles.length===44,'Expected 44 rewritten single-answer items');
+          const customMulti=sim.items.filter(q=>q.itemType==='multi');
+          assert(customMulti.length===14,'Expected 14 multiple-response items');
+          assert(audit.simulationPolicy.contentProvenance.includes('No live'),'Audit must preserve no-live-content boundary');
+          assert(audit.userSuppliedReferenceReview.observedReferenceMix.singleAnswer===44&&audit.userSuppliedReferenceReview.observedReferenceMix.multipleResponse===14&&audit.userSuppliedReferenceReview.observedReferenceMix.scenarioMatching===5,'Reference mix audit mismatch');
+
+          const html=fs.readFileSync('./ccar-f/index.html','utf8');
+          const simAt=html.indexOf('./ccar-p.exam-simulation.js'),reconAt=html.indexOf('./ccar-p.d3-reconcile.js'),loaderAt=html.indexOf('./loader.js');
+          assert(simAt>reconAt&&loaderAt>simAt,'Exam simulation must load after reconciliation and before loader');
+          const exam=fs.readFileSync('./ccar-f/exam.js','utf8');
+          for(const token of ['renderMulti','renderMatching','renderMatrix','responseComplete','itemCorrect'])assert(exam.includes(token),`exam.js missing mixed-format support: ${token}`);
+          assert(!exam.includes('<strong>60</strong><span>questions</span>'),'exam.js must not hard-code the Foundations item count');
+          console.log(`CCAR-P exam fidelity validated: ${matchingForm.length} items; 44 single, 14 multi, five composite slots; exact seven-domain geometry.`);
+          NODE
