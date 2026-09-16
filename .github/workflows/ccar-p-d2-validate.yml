@@ -6,7 +6,10 @@ on:
       - "ccar-f/certifications.js"
       - "ccar-f/ccar-p.bank-enterprise.js"
       - "ccar-f/ccar-p.d2-topup.js"
+      - "ccar-f/ccar-p.d2-reconcile.js"
+      - "ccar-f/adaptive-core.js"
       - "ccar-f/audits/ccar-p-d2.json"
+      - "ccar-f/audits/ccar-p-d2-reconciliation.json"
       - "ccar-f/index.html"
       - ".github/workflows/ccar-p-d2-validate.yml"
   workflow_dispatch:
@@ -19,34 +22,69 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check D2 remediation syntax and wiring
+      - name: Check D2 remediation and reconciliation syntax and wiring
         run: |
           node --check ccar-f/ccar-p.d2-topup.js
+          node --check ccar-f/ccar-p.d2-reconcile.js
+          node --check ccar-f/adaptive-core.js
           grep -q 'ccar-p.d2-topup.js' ccar-f/index.html
-      - name: Validate D2 traceability and bank depth
+          grep -q 'ccar-p.d2-reconcile.js' ccar-f/index.html
+      - name: Validate D2 traceability, semantic families, freshness policy, and bank depth
         run: |
           node <<'NODE'
           const fs=require('fs');
+          const adaptive=require('./ccar-f/adaptive-core.js');
           global.window={};
           require('./ccar-f/certifications.js');
           require('./ccar-f/ccar-p.bank-architecture.js');
           require('./ccar-f/ccar-p.bank-enterprise.js');
           require('./ccar-f/ccar-p.d2-topup.js');
+          require('./ccar-f/ccar-p.d2-reconcile.js');
           const m=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d2.json','utf8'));
+          const r=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d2-reconciliation.json','utf8'));
           const p=window.CLAUDE_CERTIFICATIONS['ccar-p'];
           const b=window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-p'];
           const d=p.domains[m.internalDomain];
-          if(!d||d.weight!==m.weight||d.mock!==m.mockQuestions) throw new Error('D2 profile geometry mismatch');
-          if(m.verificationStatus!=='verified-against-exam-guide-v1.0'||(m.requiredRemediation||[]).length) throw new Error('D2 audit is not closed');
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
+          assert(d&&d.weight===m.weight&&d.mock===m.mockQuestions,'D2 profile geometry mismatch');
+          assert(m.verificationStatus==='verified-against-exam-guide-v1.0'&&!(m.requiredRemediation||[]).length,'D2 audit is not closed');
           const objectiveIds=new Set(m.objectives.map(x=>x.id));
-          if(objectiveIds.size!==m.objectiveCount) throw new Error('D2 objective count mismatch');
+          assert(objectiveIds.size===m.objectiveCount,'D2 objective count mismatch');
           const cards=b.cards.filter(x=>x.domain===m.internalDomain), qs=b.questions.filter(x=>x.domain===m.internalDomain);
-          if(cards.length<m.mockQuestions||qs.length<m.mockQuestions*2) throw new Error(`D2 insufficient bank depth: ${cards.length} cards / ${qs.length} questions`);
+          assert(cards.length>=m.mockQuestions&&qs.length>=m.mockQuestions*2,`D2 insufficient bank depth: ${cards.length} cards / ${qs.length} questions`);
           const used=new Set();
-          for(const c of cards){const x=c.id.match(/^P-(P\d+-\d+)-C$/)?.[1];if(!x||!m.conceptToObjective[x])throw new Error(`Unmapped D2 card ${c.id}`);used.add(m.conceptToObjective[x]);}
-          for(const q of qs){const x=q.id.match(/^P-(P\d+-\d+)-[AB]$/)?.[1];if(!x||!m.conceptToObjective[x])throw new Error(`Unmapped D2 question ${q.id}`);if(!Array.isArray(q.choices)||q.choices.length!==4||!q.why)throw new Error(`Malformed D2 question ${q.id}`);}
-          for(const id of objectiveIds) if(!used.has(id)) throw new Error(`D2 objective not covered: ${id}`);
-          if(!used.has('D2.3')) throw new Error('D2.3 remediation missing');
-          if(new Set(qs.map(q=>q.id)).size!==qs.length) throw new Error('Duplicate D2 question IDs');
-          console.log(`D2 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions.`);
+          for(const c of cards){const x=c.id.match(/^P-(P\d+-\d+)-C$/)?.[1];assert(x&&m.conceptToObjective[x],`Unmapped D2 card ${c.id}`);used.add(m.conceptToObjective[x]);}
+          for(const q of qs){const x=q.id.match(/^P-(P\d+-\d+)-[AB]$/)?.[1];assert(x&&m.conceptToObjective[x],`Unmapped D2 question ${q.id}`);assert(Array.isArray(q.choices)&&q.choices.length===4&&q.why,`Malformed D2 question ${q.id}`);}
+          for(const id of objectiveIds) assert(used.has(id),`D2 objective not covered: ${id}`);
+          assert(used.has('D2.3'),'D2.3 remediation missing');
+          assert(new Set(qs.map(q=>q.id)).size===qs.length,'Duplicate D2 question IDs');
+
+          const recon=window.CLAUDE_CERT_RECONCILIATIONS?.['ccar-p-d2'];
+          assert(recon&&recon.version===r.runtimeVersion,'D2 reconciliation runtime metadata missing');
+          assert(qs.length===r.questionCount,`D2 reconciliation expected ${r.questionCount} questions, found ${qs.length}`);
+          assert(recon.canonicalFamilyCount===r.canonicalFamilyCount,`Expected ${r.canonicalFamilyCount} D2 families, found ${recon.canonicalFamilyCount}`);
+          for(const q of qs){
+            assert(q.semanticReconciliation?.version===r.runtimeVersion,`${q.id}: missing semantic reconciliation metadata`);
+            assert(q.familyId===q.semanticReconciliation.canonicalFamilyId,`${q.id}: canonical family mismatch`);
+          }
+          const byId=Object.fromEntries(qs.map(q=>[q.id,q]));
+          const contextIds=['P-P6-03-A','P-P6-03-B','P-P6-07-A','P-P6-07-B'];
+          assert(new Set(contextIds.map(id=>byId[id]?.familyId)).size===1,'Context budgeting and long-context strategy should be one semantic family');
+          assert(byId['P-P6-04-A'].familyId!==byId['P-P6-03-A'].familyId,'Prompt caching must remain distinct from context working-set management');
+          assert(byId['P-P6-09-A'].familyId!==byId['P-P6-02-A'].familyId,'Prompt technique selection must remain distinct from prompt architecture');
+          assert(r.freshnessReview.status==='current-no-runtime-rewrite-required','D2 freshness review must be explicit');
+
+          const mockIds=adaptive.mockSet({questions:qs,profileCode:'CCAR-P',qProgress:{},domains:{P6:{mock:8,weight:13}},rng:()=>0.314159});
+          assert(mockIds.length===8,'D2 mock must contain 8 questions');
+          assert(new Set(mockIds.map(id=>byId[id].familyId)).size===8,'D2 mock repeated a reconciled semantic family');
+          const practiceIds=adaptive.practiceSet({questions:qs,profileCode:'CCAR-P',qProgress:{},recentConcepts:[],n:8,rng:()=>0.271828});
+          assert(practiceIds.length===8,'D2 practice should expose all 8 semantic families before repetition');
+          assert(new Set(practiceIds.map(id=>byId[id].familyId)).size===8,'D2 practice repeated a semantic family before breadth was exhausted');
+
+          const html=fs.readFileSync('./ccar-f/index.html','utf8');
+          const bankAt=html.indexOf('./ccar-p.d2-topup.js');
+          const reconAt=html.indexOf('./ccar-p.d2-reconcile.js');
+          const loaderAt=html.indexOf('./loader.js');
+          assert(reconAt>bankAt&&loaderAt>reconAt,'D2 reconciliation load order is invalid');
+          console.log(`D2 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions, ${recon.canonicalFamilyCount} semantic families.`);
           NODE
