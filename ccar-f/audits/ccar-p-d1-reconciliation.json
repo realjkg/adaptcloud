@@ -1,0 +1,27 @@
+{
+  "schemaVersion":"1.0",
+  "track":"CCAR-P",
+  "officialDomain":"D1",
+  "internalDomain":"P2",
+  "name":"Solution Design & Architecture semantic-family reconciliation",
+  "reviewedAt":"2026-09-15",
+  "runtimeVersion":"2026-09-15-d1-v1",
+  "questionCount":22,
+  "canonicalFamilyCount":11,
+  "methodology":"Preserve each of the eleven D1 concepts as a distinct architectural competency. Mechanical A/B variants are one semantic family each. Cross-domain lookalikes remain separate where the responsibility changes: architecture engineering is D1; stakeholder alignment/negotiation is D6.",
+  "canonicalFamilies":[
+    {"id":"D1-PATTERN-SELECTION","objectiveIds":["D1.3"],"questionIds":["P-P2-01-A","P-P2-01-B"]},
+    {"id":"D1-BUSINESS-TRACEABILITY","objectiveIds":["D1.1"],"questionIds":["P-P2-02-A","P-P2-02-B"]},
+    {"id":"D1-DECOMPOSITION","objectiveIds":["D1.5"],"questionIds":["P-P2-03-A","P-P2-03-B"]},
+    {"id":"D1-MULTI-AGENT-ORCHESTRATION","objectiveIds":["D1.4"],"questionIds":["P-P2-04-A","P-P2-04-B"]},
+    {"id":"D1-DURABLE-STATE","objectiveIds":["D1.2"],"questionIds":["P-P2-05-A","P-P2-05-B"]},
+    {"id":"D1-PORTABLE-ARCHITECTURE","objectiveIds":["D1.2"],"questionIds":["P-P2-06-A","P-P2-06-B"]},
+    {"id":"D1-SCALABILITY-BACKPRESSURE","objectiveIds":["D1.2"],"questionIds":["P-P2-07-A","P-P2-07-B"]},
+    {"id":"D1-COST-ARCHITECTURE","objectiveIds":["D1.6"],"questionIds":["P-P2-08-A","P-P2-08-B"]},
+    {"id":"D1-SLA-ENGINEERING","objectiveIds":["D1.6"],"questionIds":["P-P2-09-A","P-P2-09-B"]},
+    {"id":"D1-ENVIRONMENT-PROMOTION","objectiveIds":["D1.2"],"questionIds":["P-P2-10-A","P-P2-10-B"]},
+    {"id":"D1-ARCHITECTURE-DECISION-RECORDS","objectiveIds":["D1.1"],"questionIds":["P-P2-11-A","P-P2-11-B"]}
+  ],
+  "crossDomainBoundary":"Engineering latency/error budgets and fallback behavior is D1 SLA engineering; communicating constraints and negotiating an achievable SLA is D6. Architecture decision records are D1 when they preserve technical rationale; D6 covers stakeholder-facing handoff and implementation guidance.",
+  "contentMutationPolicy":"Metadata/selection reconciliation only; no question text is changed in this PR."
+}
