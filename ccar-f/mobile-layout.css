@@ -1,0 +1,77 @@
+/* Mobile/readability safeguards for the editorial challenge skin. Presentation only. */
+
+/* Never let long copy force neighboring UI out of its box. */
+.brand h1,h1,h2,h3,.qtext,.choice,.face .txt,.fc-example,.small,.muted,
+.mode strong,.notice,.item,.review-row,.review-state,.review-type,.review-open,
+.foundation-scenario,.exam-source-note,.post-review-answer,.post-review-why,
+.matching-prompt,.matrix-statement,button,label{
+  overflow-wrap:anywhere;
+  word-break:normal;
+  min-width:0;
+}
+button,label{white-space:normal}
+
+/* Flashcards: long answers should grow downward/scroll, never bleed above or below the card. */
+.flashwrap{min-height:0!important;align-items:stretch!important;padding-bottom:18px!important}
+.flash{height:clamp(460px,68vh,720px)!important;min-height:460px!important}
+.face{
+  align-items:flex-start!important;
+  justify-content:flex-start!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  padding:58px 28px 30px!important;
+  text-align:left!important;
+}
+.face .txt{width:100%!important;max-width:none!important}
+.face.front .txt{font-size:clamp(22px,3.4vw,31px)!important;line-height:1.34!important}
+.face.back .txt{font-size:clamp(16px,2.1vw,19px)!important;line-height:1.52!important;font-weight:650!important}
+.fc-example{font-size:.86em!important;line-height:1.5!important}
+.cardcontrols{position:relative!important;z-index:2!important;margin-top:14px!important}
+
+/* Keep dense exam components inside the viewport. */
+.exam-layout,.exam-question,.exam-review,.review-list,.matching-grid,.matrix-grid{min-width:0!important}
+.review-row>*{min-width:0!important}
+.ready{overflow-wrap:anywhere!important}
+
+@media(max-width:780px){
+  .app{padding-left:16px!important;padding-right:16px!important}
+  .brand h1{font-size:clamp(42px,12vw,64px)!important;line-height:.92!important}
+  h2{font-size:clamp(28px,8.5vw,42px)!important}
+  .mode strong{font-size:clamp(26px,7vw,32px)!important}
+  .ready{font-size:clamp(48px,14vw,76px)!important;line-height:.94!important}
+  .exam-layout{grid-template-columns:1fr!important}
+  .exam-palette{position:static!important;width:100%!important}
+  .matching-row,.matrix-row{grid-template-columns:1fr!important}
+}
+
+@media(max-width:560px){
+  .app{padding-top:max(16px,env(safe-area-inset-top))!important;padding-bottom:calc(72px + env(safe-area-inset-bottom))!important}
+
+  /* Header controls get their own rows instead of competing with the title/counter. */
+  #flashView>.panel>.row,#quizView>.panel>.row{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;align-items:stretch!important}
+  #flashView>.panel>.row>div:first-child,#quizView>.panel>.row>div:first-child{grid-column:1/-1!important}
+  #flashView>.panel>.row>.grow,#quizView>.panel>.row>.grow{display:none!important}
+  #flashView>.panel>.row button,#quizView>.panel>.row button{width:100%!important}
+  #quizView>.panel>.row .timer{align-self:center!important;justify-self:start!important}
+
+  .flash{height:clamp(500px,70vh,660px)!important;min-height:500px!important}
+  .face{padding:54px 20px 24px!important}
+  .face.front .txt{font-size:clamp(20px,6vw,27px)!important}
+  .face.back .txt{font-size:clamp(15px,4.35vw,18px)!important;line-height:1.5!important}
+  .cardcontrols{grid-template-columns:1fr 1fr!important;gap:10px!important;margin-top:16px!important}
+  .cardcontrols button{width:100%!important;min-height:52px!important}
+
+  .qtext{font-size:clamp(17px,4.8vw,21px)!important;line-height:1.45!important}
+  .choice{font-size:15px!important;line-height:1.4!important}
+  #quizView .exam-intro h3{font-size:clamp(38px,12vw,58px)!important;line-height:.92!important}
+  #quizView .exam-intro-grid{grid-template-columns:1fr!important}
+  #quizView .exam-intro-grid div{border-right:0!important;border-bottom:1px solid rgba(255,255,255,.35)!important}
+  #quizView .exam-intro-grid div:last-child{border-bottom:0!important}
+
+  .review-row{display:flex!important;flex-wrap:wrap!important;gap:7px 10px!important;align-items:center!important}
+  .review-num{flex:0 0 44px!important}.review-state,.review-type,.review-flag{flex:0 1 auto!important}.review-open{margin-left:auto!important}
+  .review-summary{grid-template-columns:1fr 1fr!important}
+
+  .footer{font-size:11px!important;line-height:1.55!important;padding-inline:6px!important}
+}
