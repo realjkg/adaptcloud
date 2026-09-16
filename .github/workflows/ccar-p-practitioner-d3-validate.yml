@@ -6,6 +6,7 @@ on:
       - "ccar-f/imported/ccar-p.d3.practitioner.js"
       - "ccar-f/ccar-p.bank-architecture.js"
       - "ccar-f/ccar-p.d3-topup.js"
+      - "ccar-f/ccar-p.d3-scenario-rewrite.js"
       - "ccar-f/ccar-p.d3-reconcile.js"
       - "ccar-f/adaptive-core.js"
       - "ccar-f/source-governance.js"
@@ -26,9 +27,10 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check ccar-f/imported/ccar-p.d3.practitioner.js
+          node --check ccar-f/ccar-p.d3-scenario-rewrite.js
           node --check ccar-f/ccar-p.d3-reconcile.js
           node --check ccar-f/adaptive-core.js
-      - name: Validate provenance, objectives, semantic families, and adaptive diversity
+      - name: Validate provenance, objectives, rewritten scenarios, semantic families, and adaptive diversity
         run: |
           node <<'NODE'
           const fs=require('fs');
@@ -42,6 +44,7 @@ jobs:
           require('./ccar-f/ccar-p.bank-architecture.js');
           require('./ccar-f/ccar-p.d3-topup.js');
           require('./ccar-f/imported/ccar-p.d3.practitioner.js');
+          require('./ccar-f/ccar-p.d3-scenario-rewrite.js');
           require('./ccar-f/ccar-p.d3-reconcile.js');
 
           const bank=window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-p'];
@@ -102,6 +105,25 @@ jobs:
           const distinct=['EXT-D3-028','EXT-D3-030','EXT-D3-032'].map(id=>byId[id].familyId);
           assert(new Set(distinct).size===3,'Chunking, retrieval diagnosis, and index freshness must remain distinct families');
 
+          const rewrite=window.CLAUDE_CERT_SCENARIO_REWRITES?.['ccar-p-d3'];
+          assert(rewrite&&rewrite.version==='2026-09-15-d3-scenarios-v1','D3 scenario rewrite metadata missing');
+          assert(rewrite.rewrittenQuestionIds.length===12,'Expected 12 rewritten legacy D3 B variants');
+          const words=s=>new Set(String(s).toLowerCase().match(/[a-z0-9]+/g)?.filter(w=>w.length>3)||[]);
+          const jaccard=(a,b)=>{
+            const A=words(a),B=words(b);let inter=0;for(const w of A)if(B.has(w))inter++;
+            const union=new Set([...A,...B]).size;return union?inter/union:0;
+          };
+          for(const id of rewrite.rewrittenQuestionIds){
+            const b=byId[id];
+            const a=byId[id.replace(/-B$/,'-A')];
+            assert(b&&a,`${id}: expected A/B pair missing`);
+            assert(b.scenarioRewrite?.version===rewrite.version,`${id}: rewrite metadata missing`);
+            assert(!/^During a production design review,/i.test(b.q),`${id}: generic wrapper survived rewrite`);
+            assert(Array.isArray(b.choiceWhy)&&b.choiceWhy.length===4,`${id}: rewritten choices require four rationales`);
+            assert(typeof b.why==='string'&&b.why.length>=100,`${id}: rewritten explanation too thin`);
+            assert(jaccard(a.q,b.q)<0.55,`${id}: rewritten scenario remains too lexically close to its A variant`);
+          }
+
           const mockIds=adaptive.mockSet({questions:d3,profileCode:'CCAR-P',qProgress:{},domains:{P1:{mock:12,weight:19}},rng:()=>0.314159});
           assert(mockIds.length===12,`D3 mock returned ${mockIds.length} items instead of 12`);
           assert(new Set(mockIds.map(id=>byId[id].familyId)).size===12,'D3 mock repeated a reconciled semantic family');
@@ -112,13 +134,15 @@ jobs:
 
           const html=fs.readFileSync('./ccar-f/index.html','utf8');
           const practitionerAt=html.indexOf('./imported/ccar-p.d3.practitioner.js');
+          const rewriteAt=html.indexOf('./ccar-p.d3-scenario-rewrite.js');
           const reconcileAt=html.indexOf('./ccar-p.d3-reconcile.js');
           const loaderAt=html.indexOf('./loader.js');
           assert(practitionerAt>=0,'Runtime does not load D3 practitioner bank');
-          assert(reconcileAt>practitionerAt,'D3 reconciliation must load after practitioner content');
+          assert(rewriteAt>practitionerAt,'D3 scenario rewrite must load after practitioner content');
+          assert(reconcileAt>rewriteAt,'D3 reconciliation must load after scenario rewrites');
           assert(loaderAt>reconcileAt,'D3 reconciliation must run before bank assembly');
 
           const source=registry.sources.find(s=>s.id==='juanmartincoma-ccarp');
           assert(source&&source.allowedForRuntimeImport===true,'Approved practitioner source no longer runtime-eligible');
-          console.log(`Validated ${d3.length} D3 variants as ${recon.canonicalFamilyCount} semantic families; ${qs.length} practitioner variants cover ${covered.size} objectives.`);
+          console.log(`Validated ${d3.length} D3 variants as ${recon.canonicalFamilyCount} semantic families; ${rewrite.rewrittenQuestionIds.length} legacy scenarios rewritten; ${qs.length} practitioner variants cover ${covered.size} objectives.`);
           NODE
