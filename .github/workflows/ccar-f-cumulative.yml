@@ -44,12 +44,20 @@ jobs:
           node --check ccar-f/exam-profile.js
           node --check ccar-f/ccar-p.bank-architecture.js
           node --check ccar-f/ccar-p.bank-enterprise.js
+          node --check ccar-f/loader.js
           grep -q 'certTrack' ccar-f/index.html
           grep -q 'exam-profile.js' ccar-f/index.html
           grep -q 'ccar-p.bank-architecture.js' ccar-f/index.html
           grep -q 'ccar-p.bank-enterprise.js' ccar-f/index.html
-          grep -q 'if(profile.bankStatus!=="planned")await loadScript("./exam.js")' ccar-f/loader.js
           node <<'NODE'
+          const fs=require('fs');
+          const loader=fs.readFileSync('ccar-f/loader.js','utf8');
+          if(!loader.includes('if(profile.bankStatus!=="planned"){')) throw new Error('Non-planned exam loader guard regression');
+          const guard=loader.indexOf('if(profile.bankStatus!=="planned"){');
+          const exam=loader.indexOf('await loadScript("./exam.js")',guard);
+          const foundations=loader.indexOf('if(foundationTrack)await loadScript("./foundations-exam.js")',guard);
+          if(guard<0||exam<guard||foundations<exam) throw new Error('Non-planned exam/foundations load ordering regression');
+
           global.window = {};
           require('./ccar-f/certifications.js');
           const p = window.CLAUDE_CERTIFICATIONS;
