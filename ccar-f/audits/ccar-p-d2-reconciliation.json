@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "track": "CCAR-P",
+  "officialDomain": "D2",
+  "internalDomain": "P6",
+  "name": "Claude Models, Prompting & Context Engineering semantic-family reconciliation",
+  "reviewedAt": "2026-09-15",
+  "runtimeVersion": "2026-09-15-d2-v1",
+  "questionCount": 18,
+  "canonicalFamilyCount": 8,
+  "methodology": "Group questions by the decision competency required to answer them. Keep mechanically paired A/B items as spaced variants, and merge context-budgeting and long-context strategy because both currently test management of the same finite working-set problem through compaction, retrieval, and durable state.",
+  "canonicalFamilies": [
+    {"id":"D2-MODEL-SELECTION","objectiveIds":["D2.1"],"questionIds":["P-P6-01-A","P-P6-01-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D2-PROMPT-ARCHITECTURE","objectiveIds":["D2.2","D2.5"],"questionIds":["P-P6-02-A","P-P6-02-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D2-CONTEXT-WORKING-SET","objectiveIds":["D2.4"],"questionIds":["P-P6-03-A","P-P6-03-B","P-P6-07-A","P-P6-07-B"],"disposition":"merged-semantic-family"},
+    {"id":"D2-PROMPT-CACHING","objectiveIds":["D2.5"],"questionIds":["P-P6-04-A","P-P6-04-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D2-STRUCTURED-OUTPUT","objectiveIds":["D2.2"],"questionIds":["P-P6-05-A","P-P6-05-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D2-TOOL-DESCRIPTIONS","objectiveIds":["D2.2"],"questionIds":["P-P6-06-A","P-P6-06-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D2-UNCERTAINTY-ESCALATION","objectiveIds":["D2.2"],"questionIds":["P-P6-08-A","P-P6-08-B"],"disposition":"keep-as-spaced-variants"},
+    {"id":"D2-PROMPT-TECHNIQUE","objectiveIds":["D2.3"],"questionIds":["P-P6-09-A","P-P6-09-B"],"disposition":"keep-as-spaced-variants"}
+  ],
+  "freshnessReview": {
+    "status": "current-no-runtime-rewrite-required",
+    "finding": "No D2 runtime question currently recommends temperature, top_p, or top_k as a general modern optimization technique. These controls are freshness-sensitive on newer Claude models and remain excluded from timeless architecture guidance.",
+    "followUp": "Re-validate model-specific API behavior whenever a question depends on a concrete model control or SDK field."
+  },
+  "contentMutationPolicy": "This reconciliation changes semantic-family metadata only. No question text is deleted or rewritten in this PR."
+}
