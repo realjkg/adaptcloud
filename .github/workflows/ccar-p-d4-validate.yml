@@ -5,6 +5,7 @@ on:
     paths:
       - "ccar-f/certifications.js"
       - "ccar-f/ccar-p.bank-architecture.js"
+      - "ccar-f/ccar-p.d4-scenario-rewrite.js"
       - "ccar-f/ccar-p.d4-reconcile.js"
       - "ccar-f/adaptive-core.js"
       - "ccar-f/audits/ccar-p-d4.json"
@@ -21,12 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check D4 reconciliation syntax and wiring
+      - name: Check D4 rewrite and reconciliation syntax
         run: |
+          node --check ccar-f/ccar-p.d4-scenario-rewrite.js
           node --check ccar-f/ccar-p.d4-reconcile.js
           node --check ccar-f/adaptive-core.js
-          grep -q 'ccar-p.d4-reconcile.js' ccar-f/index.html
-      - name: Validate D4 traceability, semantic families, and evaluation boundaries
+      - name: Validate D4 traceability, scenario diversity, semantic families, and evaluation boundaries
         run: |
           node <<'NODE'
           const fs=require('fs');
@@ -35,6 +36,7 @@ jobs:
           require('./ccar-f/certifications.js');
           require('./ccar-f/ccar-p.bank-architecture.js');
           require('./ccar-f/ccar-p.bank-enterprise.js');
+          require('./ccar-f/ccar-p.d4-scenario-rewrite.js');
           require('./ccar-f/ccar-p.d4-reconcile.js');
           const m=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d4.json','utf8'));
           const r=JSON.parse(fs.readFileSync('./ccar-f/audits/ccar-p-d4-reconciliation.json','utf8'));
@@ -46,44 +48,55 @@ jobs:
           assert(m.verificationStatus==='verified-against-exam-guide-v1.0'&&!(m.requiredRemediation||[]).length,'D4 audit is not closed');
           const objectiveIds=new Set(m.objectives.map(x=>x.id));
           assert(objectiveIds.size===m.objectiveCount,'D4 objective count mismatch');
-          const cards=b.cards.filter(x=>x.domain===m.internalDomain), qs=b.questions.filter(x=>x.domain===m.internalDomain);
-          assert(cards.length>=m.mockQuestions&&qs.length>=m.mockQuestions*2,`D4 insufficient bank depth: ${cards.length} cards / ${qs.length} questions`);
+          const cards=b.cards.filter(x=>x.domain===m.internalDomain),qs=b.questions.filter(x=>x.domain===m.internalDomain);
+          assert(cards.length>=m.mockQuestions&&qs.length===20,`D4 bank geometry unexpected: ${cards.length}/${qs.length}`);
           const used=new Set();
           for(const c of cards){const x=c.id.match(/^P-(P\d+-\d+)-C$/)?.[1];assert(x&&m.conceptToObjective[x],`Unmapped D4 card ${c.id}`);used.add(m.conceptToObjective[x]);}
           for(const q of qs){const x=q.id.match(/^P-(P\d+-\d+)-[AB]$/)?.[1];assert(x&&m.conceptToObjective[x],`Unmapped D4 question ${q.id}`);assert(Array.isArray(q.choices)&&q.choices.length===4&&q.why,`Malformed D4 question ${q.id}`);}
-          for(const id of objectiveIds) assert(used.has(id),`D4 objective not covered: ${id}`);
+          for(const id of objectiveIds)assert(used.has(id),`D4 objective not covered: ${id}`);
           assert(new Set(qs.map(q=>q.id)).size===qs.length,'Duplicate D4 question IDs');
 
           const recon=window.CLAUDE_CERT_RECONCILIATIONS?.['ccar-p-d4'];
           assert(recon&&recon.version===r.runtimeVersion,'D4 reconciliation runtime metadata missing');
           assert(qs.length===r.questionCount,`D4 expected ${r.questionCount} questions, found ${qs.length}`);
-          assert(recon.canonicalFamilyCount===r.canonicalFamilyCount,`Expected ${r.canonicalFamilyCount} D4 families, found ${recon.canonicalFamilyCount}`);
+          assert(recon.canonicalFamilyCount===r.canonicalFamilyCount&&recon.canonicalFamilyCount===10,`Expected ten D4 families, found ${recon.canonicalFamilyCount}`);
           for(const q of qs){
             assert(q.semanticReconciliation?.version===r.runtimeVersion,`${q.id}: missing semantic reconciliation metadata`);
             assert(q.semanticReconciliation?.responsibilityBoundary==='evaluation-testing-decision',`${q.id}: evaluation responsibility boundary missing`);
             assert(q.familyId===q.semanticReconciliation.canonicalFamilyId,`${q.id}: canonical family mismatch`);
           }
           const familyCounts=new Map();
-          for(const q of qs) familyCounts.set(q.familyId,(familyCounts.get(q.familyId)||0)+1);
-          assert(familyCounts.size===10,'D4 must retain ten distinct evaluation lifecycle competencies');
-          for(const [family,n] of familyCounts) assert(n===2,`${family}: expected exactly two spaced variants, found ${n}`);
+          for(const q of qs)familyCounts.set(q.familyId,(familyCounts.get(q.familyId)||0)+1);
+          assert(familyCounts.size===10&&[...familyCounts.values()].every(n=>n===2),'D4 must retain ten two-variant evaluation families');
           const byId=Object.fromEntries(qs.map(q=>[q.id,q]));
           assert(byId['P-P3-01-A'].familyId!==byId['P-P3-08-A'].familyId,'Evaluation strategy and requirement traceability must remain distinct');
           assert(byId['P-P3-05-A'].familyId!==byId['P-P3-09-A'].familyId,'Regression gating and production feedback must remain distinct');
           assert(byId['P-P3-10-A'].familyId!==byId['P-P3-04-A'].familyId,'Release thresholds and A/B testing must remain distinct');
           assert(byId['P-P3-06-A'].familyId!==byId['P-P3-07-A'].familyId,'Failure diagnosis and multi-metric optimization must remain distinct');
 
+          const rewrite=window.CLAUDE_CERT_SCENARIO_REWRITES?.['ccar-p-d4'];
+          assert(rewrite?.version==='2026-09-15-d4-scenarios-v1'&&rewrite.rewrittenQuestionIds.length===10,'D4 rewrite metadata mismatch');
+          const words=s=>new Set(String(s).toLowerCase().match(/[a-z0-9]+/g)?.filter(w=>w.length>3)||[]);
+          const jac=(a,b)=>{const A=words(a),B=words(b);let i=0;for(const w of A)if(B.has(w))i++;return i/(new Set([...A,...B]).size||1)};
+          for(const id of rewrite.rewrittenQuestionIds){
+            const qb=byId[id],qa=byId[id.replace(/-B$/,'-A')];
+            assert(qb&&qa,`${id}: pair missing`);
+            assert(qb.scenarioRewrite?.version===rewrite.version,`${id}: rewrite metadata missing`);
+            assert(Array.isArray(qb.choices)&&qb.choices.length===4,`${id}: four choices required`);
+            assert(new Set(qb.choices.map(x=>String(x).trim().toLowerCase())).size===4,`${id}: duplicate choice text`);
+            assert(Array.isArray(qb.choiceWhy)&&qb.choiceWhy.length===4&&qb.choiceWhy.every(x=>String(x).trim().length>=35),`${id}: choice rationales missing or thin`);
+            assert(qb.why?.length>=100,`${id}: explanation thin`);
+            assert(!/^During a production design review,/i.test(qb.q),`${id}: generic wrapper remains`);
+            assert(jac(qa.q,qb.q)<0.55,`${id}: scenario too close to A`);
+          }
+
           const mockIds=adaptive.mockSet({questions:qs,profileCode:'CCAR-P',qProgress:{},domains:{P3:{mock:10,weight:16}},rng:()=>0.314159});
-          assert(mockIds.length===10,'D4 mock must contain 10 questions');
-          assert(new Set(mockIds.map(id=>byId[id].familyId)).size===10,'D4 mock repeated an evaluation semantic family');
+          assert(mockIds.length===10&&new Set(mockIds.map(id=>byId[id].familyId)).size===10,'D4 mock repeated an evaluation semantic family');
           const practiceIds=adaptive.practiceSet({questions:qs,profileCode:'CCAR-P',qProgress:{},recentConcepts:[],n:10,rng:()=>0.271828});
-          assert(practiceIds.length===10,'D4 practice should expose all ten semantic families before repetition');
-          assert(new Set(practiceIds.map(id=>byId[id].familyId)).size===10,'D4 practice repeated a semantic family before breadth was exhausted');
+          assert(practiceIds.length===10&&new Set(practiceIds.map(id=>byId[id].familyId)).size===10,'D4 practice repeated a semantic family before breadth was exhausted');
 
           const html=fs.readFileSync('./ccar-f/index.html','utf8');
-          const bankAt=html.indexOf('./ccar-p.bank-architecture.js');
-          const reconAt=html.indexOf('./ccar-p.d4-reconcile.js');
-          const loaderAt=html.indexOf('./loader.js');
-          assert(reconAt>bankAt&&loaderAt>reconAt,'D4 reconciliation load order is invalid');
-          console.log(`D4 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions, ${recon.canonicalFamilyCount} semantic families.`);
+          const bankAt=html.indexOf('./ccar-p.bank-architecture.js'),rewriteAt=html.indexOf('./ccar-p.d4-scenario-rewrite.js'),reconAt=html.indexOf('./ccar-p.d4-reconcile.js'),loaderAt=html.indexOf('./loader.js');
+          assert(rewriteAt>bankAt&&reconAt>rewriteAt&&loaderAt>reconAt,'D4 load order invalid');
+          console.log(`D4 validated: ${m.objectiveCount} objectives, ${cards.length} cards, ${qs.length} questions, ${rewrite.rewrittenQuestionIds.length} rewrites, ${recon.canonicalFamilyCount} families.`);
           NODE
