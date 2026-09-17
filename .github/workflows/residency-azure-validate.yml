@@ -62,5 +62,5 @@ jobs:
       - name: Guard against Adapt Cloud subscription coupling
         run: |
           set -euo pipefail
-          ! grep -R -E 'subscription_id[[:space:]]*=[[:space:]]*"[0-9a-fA-F-]{36}"' residency/terraform/providers/azure residency/docs/providers/azure.md
-          ! grep -R -E 'client_secret|ARM_CLIENT_SECRET[[:space:]]*=' residency/terraform/providers/azure residency/docs/providers/azure.md
+          ! grep -R --exclude-dir=.terraform -E 'subscription_id[[:space:]]*=[[:space:]]*"[0-9a-fA-F-]{36}"' residency/terraform/providers/azure residency/docs/providers/azure.md
+          ! grep -R --exclude-dir=.terraform -E 'client_secret|ARM_CLIENT_SECRET[[:space:]]*=' residency/terraform/providers/azure residency/docs/providers/azure.md
