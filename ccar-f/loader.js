@@ -40,16 +40,16 @@
     data=(window.CLAUDE_CERT_SEED_DATA||{})[track]||{cards:[],questions:[]};
   }
   const expansion=(window.CLAUDE_CERT_BANK_EXPANSIONS||{})[track]||{cards:[],questions:[]};
-  data={
-    cards:[...(data.cards||[]),...(expansion.cards||[])],
-    questions:[...(data.questions||[]),...(expansion.questions||[])]
-  };
+  data={cards:[...(data.cards||[]),...(expansion.cards||[])],questions:[...(data.questions||[]),...(expansion.questions||[])]};
   window.CCARF_CARDS=data.cards;
   window.CCARF_QUESTIONS=data.questions;
 
   const loadScript=src=>new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error(`Unable to load ${src}`));document.body.appendChild(s)});
   const foundationTrack=["ccao-f","ccdv-f","ccar-f"].includes(track);
-  if(track==="ccar-f")await loadScript("./ccar-f-foundations-complexity.js");
+  if(track==="ccar-f"){
+    await loadScript("./ccar-f-foundations-complexity.js");
+    await loadScript("./ccar-f-complexity-position-balance.js");
+  }
   if(foundationTrack)await loadScript("./foundations-scenario-fidelity.js");
   if(track==="ccar-f")await loadScript("./foundations-scenario-fit-patch.js");
 
