@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: applied-ai-residency
+  labels:
+    app.kubernetes.io/part-of: applied-ai-residency
