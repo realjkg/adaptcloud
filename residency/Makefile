@@ -4,7 +4,7 @@ ENV ?= dev
 FROM ?=
 TO ?=
 
-.PHONY: doctor init plan deploy validate observe promote destroy
+.PHONY: doctor init plan deploy validate observe promote destroy check-provider check-env
 
 check-provider:
 	@test -n "$(PROVIDER)" || { echo "PROVIDER is required (aws|azure|gcp|openstack)"; exit 2; }
@@ -14,8 +14,8 @@ check-env:
 	@case "$(ENV)" in dev|qa|staging|prod) ;; *) echo "ENV must be dev|qa|staging|prod"; exit 2;; esac
 
 doctor init plan deploy validate observe destroy: check-provider check-env
-	@./cli/residency.sh $@ "$(PROVIDER)" "$(ENV)"
+	@bash ./cli/residency.sh $@ "$(PROVIDER)" "$(ENV)"
 
 promote: check-provider
 	@test -n "$(FROM)" -a -n "$(TO)" || { echo "FROM and TO are required"; exit 2; }
-	@./cli/residency.sh promote "$(PROVIDER)" "$(FROM)" "$(TO)"
+	@bash ./cli/residency.sh promote "$(PROVIDER)" "$(FROM)" "$(TO)"
