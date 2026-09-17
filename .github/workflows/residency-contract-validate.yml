@@ -1,0 +1,42 @@
+name: Residency platform contract
+
+on:
+  pull_request:
+    paths:
+      - 'residency/**'
+      - '.github/workflows/residency-contract-validate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate platform contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s residency/README.md
+          test -s residency/docs/architecture.md
+          test -s residency/docs/provider-contract.md
+
+          for provider in aws azure gcp openstack; do
+            grep -q "$provider" residency/README.md
+            grep -q "$provider" residency/docs/provider-contract.md
+          done
+
+          for command in doctor init plan deploy validate observe promote destroy; do
+            grep -q "make $command" residency/README.md
+          done
+
+          for env in dev qa staging prod; do
+            grep -qi "$env" residency/README.md
+          done
+
+          grep -q 'OpenTelemetry' residency/README.md
+          grep -q 'OpenTelemetry' residency/docs/architecture.md
+          grep -q 'Korifi' residency/README.md
+          grep -q 'CI validates configuration and contracts without provisioning billable infrastructure' residency/README.md
