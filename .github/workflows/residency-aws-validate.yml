@@ -1,0 +1,55 @@
+name: Residency AWS adapter
+
+on:
+  pull_request:
+    paths:
+      - 'residency/**'
+      - '.github/workflows/residency-aws-validate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.13.3'
+      - uses: azure/setup-kubectl@v4
+
+      - name: Shell syntax
+        run: bash -n residency/cli/residency.sh
+
+      - name: Terraform formatting
+        run: terraform -chdir=residency/terraform/providers/aws fmt -check -recursive
+
+      - name: Terraform initialize without backend
+        run: terraform -chdir=residency/terraform/providers/aws init -backend=false
+
+      - name: Terraform validate
+        run: terraform -chdir=residency/terraform/providers/aws validate
+
+      - name: Kubernetes render all environments
+        run: |
+          set -euo pipefail
+          for env in dev qa staging prod; do
+            kubectl kustomize "residency/kubernetes/environments/$env" > "/tmp/$env.yaml"
+            grep -q 'kind: Deployment' "/tmp/$env.yaml"
+            grep -q 'kind: Service' "/tmp/$env.yaml"
+            grep -q 'applied-ai-residency' "/tmp/$env.yaml"
+          done
+
+      - name: Contract assertions
+        run: |
+          set -euo pipefail
+          grep -q 'ALLOW_BILLABLE' residency/cli/residency.sh
+          grep -q 'aws sts get-caller-identity' residency/cli/residency.sh
+          grep -q 'aws eks update-kubeconfig' residency/cli/residency.sh
+          grep -q 'docker push' residency/cli/residency.sh
+          grep -q 'terraform.*destroy\|aws_tf destroy' residency/cli/residency.sh
+          grep -q 'Metrics, logs, traces' residency/docs/providers/aws.md
+          grep -q 'Destroy and verify' residency/docs/providers/aws.md
+          grep -q 'EKS' residency/docs/providers/aws.md
