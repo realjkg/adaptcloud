@@ -76,7 +76,7 @@ make -C residency validate PROVIDER=aws ENV=dev
 
 Without a live cluster this performs Terraform and Kustomize validation. With the cluster present it also checks nodes, workload objects and rollout status.
 
-## 8. Health, logs, traces and metrics
+## 8. Metrics, logs, traces and health
 
 ```bash
 make -C residency observe PROVIDER=aws ENV=dev
