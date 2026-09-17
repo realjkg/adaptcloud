@@ -46,13 +46,13 @@ resource "azurerm_subnet" "aks" {
 }
 
 resource "azurerm_container_registry" "workload" {
-  name                = local.acr_name
-  resource_group_name = azurerm_resource_group.residency.name
-  location            = azurerm_resource_group.residency.location
-  sku                 = "Basic"
-  admin_enabled       = false
+  name                 = local.acr_name
+  resource_group_name  = azurerm_resource_group.residency.name
+  location             = azurerm_resource_group.residency.location
+  sku                  = "Basic"
+  admin_enabled        = false
   role_assignment_mode = "LegacyRegistryPermissions"
-  tags                = local.tags
+  tags                 = local.tags
 }
 
 resource "azurerm_log_analytics_workspace" "aks" {
@@ -75,14 +75,14 @@ resource "azurerm_kubernetes_cluster" "residency" {
   workload_identity_enabled = true
 
   default_node_pool {
-    name                 = "system"
-    vm_size              = var.node_vm_size
-    node_count           = var.node_count
-    vnet_subnet_id       = azurerm_subnet.aks.id
-    auto_scaling_enabled = false
-    os_disk_size_gb      = 64
+    name                         = "system"
+    vm_size                      = var.node_vm_size
+    node_count                   = var.node_count
+    vnet_subnet_id               = azurerm_subnet.aks.id
+    auto_scaling_enabled         = false
+    os_disk_size_gb              = 64
     only_critical_addons_enabled = false
-    tags                 = local.tags
+    tags                         = local.tags
   }
 
   identity {
