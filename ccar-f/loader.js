@@ -49,6 +49,7 @@
 
   const loadScript=src=>new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error(`Unable to load ${src}`));document.body.appendChild(s)});
   const foundationTrack=["ccao-f","ccdv-f","ccar-f"].includes(track);
+  if(track==="ccar-f")await loadScript("./ccar-f-foundations-complexity.js");
   if(foundationTrack)await loadScript("./foundations-scenario-fidelity.js");
   if(track==="ccar-f")await loadScript("./foundations-scenario-fit-patch.js");
 
