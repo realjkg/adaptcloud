@@ -1,0 +1,64 @@
+name: Residency GCP adapter
+
+on:
+  pull_request:
+    paths:
+      - 'residency/**'
+      - '.github/workflows/residency-gcp-validate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.13.3'
+      - uses: azure/setup-kubectl@v4
+
+      - name: Shell syntax
+        run: bash -n residency/cli/residency.sh
+
+      - name: Terraform formatting
+        run: terraform -chdir=residency/terraform/providers/gcp fmt -check -recursive
+
+      - name: Terraform initialize without backend
+        run: terraform -chdir=residency/terraform/providers/gcp init -backend=false
+
+      - name: Terraform validate
+        run: terraform -chdir=residency/terraform/providers/gcp validate
+
+      - name: Kubernetes render all environments
+        run: |
+          set -euo pipefail
+          for env in dev qa staging prod; do
+            kubectl kustomize "residency/kubernetes/environments/$env" > "/tmp/$env.yaml"
+            grep -q 'kind: Deployment' "/tmp/$env.yaml"
+            grep -q 'kind: Service' "/tmp/$env.yaml"
+            grep -q 'applied-ai-residency' "/tmp/$env.yaml"
+          done
+
+      - name: GCP contract assertions
+        run: |
+          set -euo pipefail
+          grep -q 'gcloud auth application-default print-access-token' residency/cli/residency.sh
+          grep -q 'gcloud container clusters get-credentials' residency/cli/residency.sh
+          grep -q 'gcloud auth configure-docker' residency/cli/residency.sh
+          grep -q 'docker push' residency/cli/residency.sh
+          grep -q 'gcp_tf destroy' residency/cli/residency.sh
+          grep -q 'ALLOW_BILLABLE' residency/cli/residency.sh
+          grep -q 'workload_identity_config' residency/terraform/providers/gcp/main.tf
+          grep -q 'managed_prometheus' residency/terraform/providers/gcp/main.tf
+          grep -q 'Artifact Registry' residency/docs/providers/gcp.md
+          grep -q 'Metrics, logs, traces' residency/docs/providers/gcp.md
+          grep -q 'Destroy and verify' residency/docs/providers/gcp.md
+          grep -q 'Legacy `gke/` note' residency/docs/providers/gcp.md
+
+      - name: Guard against hard-coded legacy project reuse
+        run: |
+          set -euo pipefail
+          ! grep -R 'mystical-button-380517' residency/terraform/providers/gcp residency/cli residency/docs/providers/gcp.md
