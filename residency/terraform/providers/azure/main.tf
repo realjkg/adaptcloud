@@ -3,7 +3,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 5.4"
+      version = "~> 5.4.0"
     }
   }
 }
@@ -73,6 +73,11 @@ resource "azurerm_kubernetes_cluster" "residency" {
 
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
+
+  node_provisioning_profile {
+    mode               = "Manual"
+    default_node_pools = "None"
+  }
 
   default_node_pool {
     name                         = "system"
