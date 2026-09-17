@@ -1,0 +1,42 @@
+name: CCAR-F complexity calibration
+on:
+  pull_request:
+    paths:
+      - 'ccar-f/ccar-f-foundations-complexity.js'
+      - 'ccar-f/ccar-f-complexity-position-balance.js'
+      - 'ccar-f/loader.js'
+      - '.github/workflows/ccar-f-complexity-calibration-validate.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax and calibration contract
+        run: |
+          node --check ccar-f/ccar-f-foundations-complexity.js
+          node --check ccar-f/ccar-f-complexity-position-balance.js
+          node --check ccar-f/loader.js
+          node <<'NODE'
+          const fs=require('fs'),vm=require('vm');
+          const ctx={window:{CERT_TRACK:'ccar-f',CCARF_QUESTIONS:[]}};vm.createContext(ctx);
+          vm.runInContext(fs.readFileSync('ccar-f/ccar-f-foundations-complexity.js','utf8'),ctx);
+          vm.runInContext(fs.readFileSync('ccar-f/ccar-f-complexity-position-balance.js','utf8'),ctx);
+          const q=ctx.window.CCARF_QUESTIONS;
+          if(q.length!==20)throw Error(`expected 20 calibrated questions, got ${q.length}`);
+          for(const d of ['D1','D2','D3','D4','D5'])if(q.filter(x=>x.domain===d).length!==4)throw Error(`${d}: expected 4 calibrated questions`);
+          for(const x of q){
+            if(x.choices.length!==4||!Number.isInteger(x.answer)||x.answer<0||x.answer>3)throw Error(`${x.id}: invalid answer contract`);
+            if(!x.why||x.why.length<40||x.difficulty!=='calibrated-hard'||x.provenance!=='project-original-structure-calibrated')throw Error(`${x.id}: metadata/rationale contract failed`);
+          }
+          const positions=[0,0,0,0];q.forEach(x=>positions[x.answer]++);
+          if(positions.some(n=>n!==5))throw Error(`expected 5 answers in each position, got ${positions}`);
+          if(ctx.window.CCARF_COMPLEXITY_CALIBRATION?.thirdPartyTextCopied!==false)throw Error('provenance boundary missing');
+          const loader=fs.readFileSync('ccar-f/loader.js','utf8');
+          const cx=loader.indexOf('ccar-f-foundations-complexity.js'), balance=loader.indexOf('ccar-f-complexity-position-balance.js'), fidelity=loader.indexOf('foundations-scenario-fidelity.js');
+          if(cx<0||balance<cx||fidelity<balance)throw Error('complexity -> balance -> fidelity load order invalid');
+          console.log('CCAR-F complexity calibration OK', {count:q.length,positions});
+          NODE
