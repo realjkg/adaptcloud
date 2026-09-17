@@ -191,6 +191,113 @@ gcp_promote() {
   echo "source=$from target=$to"
 }
 
+azure_dir() { echo "$ROOT/terraform/providers/azure"; }
+azure_cluster() { echo "adapt-residency-${ENVIRONMENT}"; }
+azure_group() { echo "adapt-residency-${ENVIRONMENT}-rg"; }
+azure_subscription() { [[ -n ${AZURE_SUBSCRIPTION_ID:-} ]] || { echo "AZURE_SUBSCRIPTION_ID is required" >&2; return 2; }; echo "$AZURE_SUBSCRIPTION_ID"; }
+azure_tf() { local cmd=$1; shift; terraform -chdir="$(azure_dir)" "$cmd" "$@"; }
+
+azure_doctor() {
+  local failed=0 subscription
+  for c in az terraform kubectl docker; do need "$c" || failed=1; done
+  (( failed == 0 )) || return 1
+  subscription=$(azure_subscription)
+  az account show >/dev/null || { echo "no active Azure CLI identity; run: az login" >&2; return 1; }
+  az account set --subscription "$subscription"
+  echo "Azure identity: $(az account show --query user.name -o tsv)"
+  echo "Azure subscription: $(az account show --query id -o tsv)"
+  terraform version | head -1
+  kubectl version --client >/dev/null
+  docker version >/dev/null
+  echo "doctor: Azure prerequisites are ready"
+}
+
+azure_init() {
+  local namespace
+  azure_doctor
+  for namespace in Microsoft.ContainerService Microsoft.ContainerRegistry Microsoft.Network Microsoft.OperationalInsights Microsoft.Insights; do
+    echo "ensuring Azure resource provider is registered: $namespace"
+    az provider register --namespace "$namespace" --wait
+  done
+  azure_tf init
+}
+
+azure_plan() {
+  local subscription
+  subscription=$(azure_subscription)
+  azure_tf plan -var="subscription_id=$subscription" -var="environment=${ENVIRONMENT}" -var="location=${AZURE_LOCATION:-eastus2}" -out="${ENVIRONMENT}.tfplan"
+}
+
+azure_image() {
+  local repo registry tag
+  registry=$(azure_tf output -raw acr_name)
+  repo=$(azure_tf output -raw workload_image_repository)
+  tag=${IMAGE_TAG:-$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)}
+  az acr login --name "$registry"
+  docker build -t "$repo:$tag" "$REPO_ROOT/insurance-agent-demo/api"
+  docker push "$repo:$tag"
+  echo "$repo:$tag"
+}
+
+azure_deploy() {
+  local image
+  [[ ${ALLOW_BILLABLE:-} == yes ]] || { echo "Refusing billable deployment. Re-run with ALLOW_BILLABLE=yes after reviewing the plan." >&2; exit 3; }
+  azure_tf apply "${ENVIRONMENT}.tfplan"
+  az aks get-credentials --resource-group "$(azure_group)" --name "$(azure_cluster)" --overwrite-existing
+  image=$(azure_image | tail -1)
+  kubectl apply -k "$ROOT/kubernetes/environments/${ENVIRONMENT}"
+  kubectl -n applied-ai-residency set image deployment/applied-ai-workload "api=$image"
+  kubectl -n applied-ai-residency rollout status deployment/applied-ai-workload --timeout=5m
+  echo "deployed immutable ACR tag: $image"
+}
+
+azure_validate() {
+  azure_tf validate
+  kubectl kustomize "$ROOT/kubernetes/environments/${ENVIRONMENT}" >/dev/null
+  if az aks show --resource-group "$(azure_group)" --name "$(azure_cluster)" >/dev/null 2>&1; then
+    az aks get-credentials --resource-group "$(azure_group)" --name "$(azure_cluster)" --overwrite-existing >/dev/null
+    kubectl get nodes
+    kubectl -n applied-ai-residency get deploy,svc,pods
+    kubectl -n applied-ai-residency rollout status deployment/applied-ai-workload --timeout=60s
+  else
+    echo "static validation complete; no live ${ENVIRONMENT} AKS cluster detected"
+  fi
+}
+
+azure_observe() {
+  local workspace
+  echo "Health:    kubectl -n applied-ai-residency get pods"
+  echo "Logs:      kubectl -n applied-ai-residency logs deployment/applied-ai-workload"
+  echo "Events:    kubectl -n applied-ai-residency get events --sort-by=.lastTimestamp"
+  echo "AKS:       az aks show -g $(azure_group) -n $(azure_cluster) -o table"
+  if workspace=$(azure_tf output -raw log_analytics_workspace_name 2>/dev/null); then
+    echo "Workspace: az monitor log-analytics workspace show -g $(azure_group) -n $workspace -o table"
+  fi
+  echo "Metrics:   Azure Monitor/Container insights plus Kubernetes metrics; shared OpenTelemetry export follows after provider parity."
+  echo "Cost:      Azure Cost Management scoped to resource group $(azure_group) and tags Project=applied-ai-residency, Environment=${ENVIRONMENT}."
+  echo "Resources: az resource list -g $(azure_group) -o table"
+}
+
+azure_destroy() {
+  local subscription
+  subscription=$(azure_subscription)
+  echo "Destroying Azure residency environment=${ENVIRONMENT}. Resources outside this Terraform state are not removed."
+  kubectl delete -k "$ROOT/kubernetes/environments/${ENVIRONMENT}" --ignore-not-found=true 2>/dev/null || true
+  azure_tf destroy -var="subscription_id=$subscription" -var="environment=${ENVIRONMENT}" -var="location=${AZURE_LOCATION:-eastus2}"
+  echo "Post-destroy verification:"
+  if az group show --name "$(azure_group)" >/dev/null 2>&1; then
+    echo "resource group still exists" >&2; exit 4
+  fi
+  echo "Residency resource group no longer resolves. Review subscription resources and Cost Management for anything outside Terraform state."
+}
+
+azure_promote() {
+  local from=$ENVIRONMENT to=${4:-}
+  valid_env "$to" || { echo "invalid promotion target: $to" >&2; exit 2; }
+  echo "Promotion preserves the immutable ACR image tag/digest. Provision target, then deploy it with IMAGE_TAG set to the source artifact."
+  echo "source=$from target=$to"
+}
+
 [[ -n "$ACTION" && -n "$PROVIDER" ]] || { echo "usage: residency.sh <action> <provider> <environment> [target]" >&2; exit 2; }
 valid_env "$ENVIRONMENT" || { echo "invalid environment: $ENVIRONMENT" >&2; exit 2; }
 
@@ -211,5 +318,13 @@ case "$PROVIDER:$ACTION" in
   gcp:observe) gcp_observe;;
   gcp:destroy) gcp_destroy;;
   gcp:promote) gcp_promote "$@";;
+  azure:doctor) azure_doctor;;
+  azure:init) azure_init;;
+  azure:plan) azure_plan;;
+  azure:deploy) azure_deploy;;
+  azure:validate) azure_validate;;
+  azure:observe) azure_observe;;
+  azure:destroy) azure_destroy;;
+  azure:promote) azure_promote "$@";;
   *) echo "$PROVIDER adapter does not implement $ACTION yet" >&2; exit 5;;
 esac

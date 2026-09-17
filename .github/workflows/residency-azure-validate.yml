@@ -1,0 +1,66 @@
+name: Residency Azure adapter
+
+on:
+  pull_request:
+    paths:
+      - 'residency/**'
+      - '.github/workflows/residency-azure-validate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.13.3'
+      - uses: azure/setup-kubectl@v4
+
+      - name: Shell syntax
+        run: bash -n residency/cli/residency.sh
+
+      - name: Terraform formatting
+        run: terraform -chdir=residency/terraform/providers/azure fmt -check -recursive
+
+      - name: Terraform initialize without backend
+        run: terraform -chdir=residency/terraform/providers/azure init -backend=false
+
+      - name: Terraform validate
+        run: terraform -chdir=residency/terraform/providers/azure validate
+
+      - name: Kubernetes render all environments
+        run: |
+          set -euo pipefail
+          for env in dev qa staging prod; do
+            kubectl kustomize "residency/kubernetes/environments/$env" > "/tmp/$env.yaml"
+            grep -q 'kind: Deployment' "/tmp/$env.yaml"
+            grep -q 'kind: Service' "/tmp/$env.yaml"
+            grep -q 'applied-ai-residency' "/tmp/$env.yaml"
+          done
+
+      - name: Azure contract assertions
+        run: |
+          set -euo pipefail
+          grep -q 'AZURE_SUBSCRIPTION_ID' residency/cli/residency.sh
+          grep -q 'az account set' residency/cli/residency.sh
+          grep -q 'az aks get-credentials' residency/cli/residency.sh
+          grep -q 'az acr login' residency/cli/residency.sh
+          grep -q 'ALLOW_BILLABLE' residency/cli/residency.sh
+          grep -q 'azure_tf destroy' residency/cli/residency.sh
+          grep -Eq 'workload_identity_enabled[[:space:]]*=[[:space:]]*true' residency/terraform/providers/azure/main.tf
+          grep -Eq 'network_data_plane[[:space:]]*=[[:space:]]*"cilium"' residency/terraform/providers/azure/main.tf
+          grep -Eq 'admin_enabled[[:space:]]*=[[:space:]]*false' residency/terraform/providers/azure/main.tf
+          grep -Eq 'mode[[:space:]]*=[[:space:]]*"Manual"' residency/terraform/providers/azure/main.tf
+          grep -q 'AcrPull' residency/terraform/providers/azure/main.tf
+          grep -q 'Metrics, logs, traces and health' residency/docs/providers/azure.md
+          grep -q 'Destroy and verify' residency/docs/providers/azure.md
+
+      - name: Guard against Adapt Cloud subscription coupling
+        run: |
+          set -euo pipefail
+          ! grep -R --exclude-dir=.terraform -E 'subscription_id[[:space:]]*=[[:space:]]*"[0-9a-fA-F-]{36}"' residency/terraform/providers/azure residency/docs/providers/azure.md
+          ! grep -R --exclude-dir=.terraform -E 'client_secret|ARM_CLIENT_SECRET[[:space:]]*=' residency/terraform/providers/azure residency/docs/providers/azure.md
