@@ -1,0 +1,27 @@
+name: CCAR-F timed study modes
+
+on:
+  pull_request:
+    paths:
+      - 'ccar-f/multi-app.js'
+      - '.github/workflows/ccar-f-timed-modes-validate.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check ccar-f/multi-app.js
+      - name: Timing contract
+        run: |
+          grep -F 'function quizMinutes(mode,count){return mode==="mock"?PROFILE.minutes:Math.max(1,count*2)}' ccar-f/multi-app.js
+          grep -F 'deadline:started+timeLimitMinutes*60000' ccar-f/multi-app.js
+          grep -F 'if(ms<=0){timer.textContent="0:00";clearInterval(timerHandle);finishQuiz(true);return}' ccar-f/multi-app.js
+          grep -F 'if(state.activeQuiz.deadline&&Date.now()>=state.activeQuiz.deadline){finishQuiz(true);return}' ccar-f/multi-app.js
+          grep -F 'elapsedMs,timeLimitMinutes:t.timeLimitMinutes' ccar-f/multi-app.js
+          grep -F 'not Anthropic' ccar-f/multi-app.js
