@@ -39,8 +39,8 @@ module "vpc" {
   private_subnets = [for i, _ in local.azs : cidrsubnet(var.vpc_cidr, 4, i)]
   public_subnets  = [for i, _ in local.azs : cidrsubnet(var.vpc_cidr, 4, i + 8)]
 
-  enable_nat_gateway = true
-  single_nat_gateway = true
+  enable_nat_gateway   = true
+  single_nat_gateway   = true
   enable_dns_hostnames = true
 
   public_subnet_tags = {
@@ -57,8 +57,8 @@ module "eks" {
 
   name               = local.name
   kubernetes_version = var.kubernetes_version
-  vpc_id              = module.vpc.vpc_id
-  subnet_ids          = module.vpc.private_subnets
+  vpc_id             = module.vpc.vpc_id
+  subnet_ids         = module.vpc.private_subnets
 
   endpoint_public_access                   = true
   enable_cluster_creator_admin_permissions = true
