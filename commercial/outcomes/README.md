@@ -38,7 +38,7 @@ The outcome register is a template, not an automated integration or billing syst
 
 ## Rebuild brochure
 
-From this directory, using Python 3, ReportLab and DejaVu Sans fonts (on Debian/Ubuntu: the `fonts-dejavu-core` package). The renderer embeds `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` and `DejaVuSans-Bold.ttf` for portable PDF viewing:
+From this directory, using Python 3 and ReportLab. The exact Space Grotesk Light (300), Regular (400), and Medium (500) fonts used by the website are bundled under `assets/fonts/` with their SIL Open Font License. The renderer embeds them, so no system font installation or network access is required.
 
 ```sh
 python -m pip install -r requirements-brochure.txt
