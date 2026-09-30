@@ -1,0 +1,3 @@
+*.pdf binary
+assets/*.png binary
+assets/fonts/*.ttf binary
