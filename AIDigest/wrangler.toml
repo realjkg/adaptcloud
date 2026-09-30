@@ -1,0 +1,15 @@
+name = "adaptcloud-ai-digest"
+main = "src/index.ts"
+compatibility_date = "2026-09-30"
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "adaptcloud-ai-digest"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[triggers]
+# Cron is UTC. 12:30 UTC is 7:30 AM CDT / 6:30 AM CST.
+crons = ["30 12 * * *"]
