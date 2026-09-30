@@ -4,9 +4,8 @@
   "contact": "info@adaptcloud.io",
   "website": "adaptcloud.io",
   "page_one": {
-    "eyebrow": "FOR BUSINESS AND TECHNOLOGY LEADERS",
-    "title": "Ongoing AI advisory\nand engineering.",
-    "intro": "Adapt Cloud helps business and technology leaders put Claude to work in their operations and improve systems already in use. The relationship continues as business priorities, model behavior and operating costs change.",
+    "title": "Discover. Design. Build.\nGovern. Manage.",
+    "intro": "Adapt Cloud applies this method to your AI priorities, combining specialist Claude advisory with hands-on engineering. We work with your team from the initial business case through ongoing governance, operation and improvement.",
     "band_title": "An annual service built around your priorities",
     "band_body": "An initial term of 12 months or longer, renewable by agreement. Monthly working reviews and a rolling 90-day plan guide the advisory and engineering work.",
     "offers": [
@@ -26,32 +25,35 @@
     "closing": "A named Adapt Cloud delivery lead stays accountable throughout the term."
   },
   "page_two": {
-    "eyebrow": "HOW THE SERVICE WORKS",
-    "title": "A clear cycle\nfor each improvement.",
+    "title": "The method in practice.",
     "accelerator_title": "PromptForce.AI from DayTwoAI",
     "accelerator_body": "The engagement includes PromptForce.AI from DayTwoAI.com as a platform accelerator for readiness assessment and reusable development components. Adapt Cloud leads the advisory, integration and engineering, and reports on the agreed work.",
     "accelerator_note": "Platform access, usage, support and provider responsibilities are set out in the agreement.",
     "steps": [
       {
-        "label": "01  ASSESS",
-        "body": "Review performance and business priorities. Select the next improvement and agree on its expected value."
+        "label": "01  DISCOVER",
+        "body": "Understand the business need, current systems and costs. Establish the baseline and identify work worth pursuing."
       },
       {
-        "label": "02  AGREE",
-        "body": "Confirm the owner, scope, capacity and acceptance tests before work begins."
+        "label": "02  DESIGN",
+        "body": "Define the solution, data boundaries, responsibilities and acceptance criteria. Agree the scope and investment."
       },
       {
-        "label": "03  IMPLEMENT",
-        "body": "Develop and test the change, obtain the required approvals and release it with a rollback plan."
+        "label": "03  BUILD",
+        "body": "Implement and integrate the solution. Test its performance and controls, then release it with approval and a rollback plan."
       },
       {
-        "label": "04  VERIFY",
-        "body": "Check results against the baseline and quality requirements. Accept, revise or stop the change, then update the next cycle."
+        "label": "04  GOVERN",
+        "body": "Apply access, data, cost and change controls throughout the work. Maintain approval records and evidence of compliance with agreed requirements."
+      },
+      {
+        "label": "05  MANAGE",
+        "body": "Review performance, resolve issues and plan improvements within the service scope. Feed the findings back into Discover."
       }
     ],
-    "proof_title": "Clear commitments and decision rights",
-    "proof_body": "The statement of work names who approves priorities and releases, the capacity included, and the remedy for missed commitments. Agreed measures may include handling time, correction rates or cost per completed task. Missing evidence is reported openly.",
-    "renewal": "Before renewal, we review the business case and agree on the next term. Reporting, reviews and approved engineering continue after each release.",
+    "proof_title": "Governance and management continue",
+    "proof_body": "Govern applies from discovery onward. Manage maintains the operating review and improvement plan throughout the term. The statement of work defines accountability, capacity, acceptance and remedies for missed commitments.",
+    "renewal": "Monthly working reviews and quarterly business reviews guide the next cycle. Renewal follows a review of results and agreement on the next term.",
     "cta": "Discuss your AI priorities with us.",
     "cta_body": "Contact info@adaptcloud.io to discuss your current AI work, the decisions ahead and where specialist support would help."
   }

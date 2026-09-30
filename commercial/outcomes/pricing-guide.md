@@ -72,6 +72,8 @@ At $20,000 delivery cost, gross margin is 50% on the $40,000 base fee, or 55.6% 
 
 ## Price the continuing service
 
+The scope follows **Discover. Design. Build. Govern. Manage.** Price the advisory, engineering and operating commitments within that method; do not invent a separate commercial delivery lifecycle. Governance effort spans every stage, while Manage funds the agreed reporting, issue response and improvement planning that inform the next Discover cycle.
+
 Price the committed work, not just meetings or access to specialists. The annual scope must reserve capacity for engineering as well as reports and reviews. Start each quarter with an approved 90-day plan; use the monthly review to agree tradeoffs within that capacity. A no-change recommendation needs evidence and a recorded decision. The service fee does not imply an unlimited stream of new features or a guaranteed numerical gain every month.
 
 Report monthly capacity use by advisory, engineering, evaluation and support. Separate planned work, completed work and work blocked by dependencies. The same work cannot consume recurring capacity and be billed under a separately priced work package. Resolve conflicts through the agreed work-item assignment before invoicing.

@@ -26,15 +26,15 @@ This schedule does not establish a partnership, endorsement, certification or re
 
 The service starts on the agreed commencement date and continues throughout the term. Establish the account scope, available evidence, decision owners and an initial 90-day plan at commencement. Where data is missing, the first improvement may be a measurement or readiness task. Do not promise a numerical business improvement before its baseline exists.
 
-Maintain one prioritized account backlog and a rolling 90-day plan. Each cycle follows **assess -> agree -> implement -> verify -> assess**. Cycles may overlap reporting periods; continuous service does not imply a release every month or continuous live monitoring.
+Maintain one prioritized account backlog and a rolling 90-day plan. The engagement follows **Discover. Design. Build. Govern. Manage.** Govern applies throughout every stage; Manage feeds evidence and new priorities back into Discover. Cycles may overlap reporting periods; continuous service does not imply a release every month or continuous live monitoring.
 
-| Cycle stage | Decision and accountable owner | Required record |
+| Method stage | Decision and accountable owner | Required record |
 |---|---|---|
-| Assess | Adapt delivery lead reviews the agreed data and proposes priorities with the customer business owner | Current performance, evidence gaps, issue list and benefit hypothesis |
-| Agree | Customer business owner authorizes priority; technical owner confirms access and release requirements | Work item with scope, acceptance criteria, baseline, capacity estimate, owner and target date |
-| Implement | Adapt delivery lead owns the agreed engineering and tests; customer release authority approves production changes | Change record, evaluation results, deployment approval and rollback plan |
-| Verify | Named customer approver accepts or rejects the evidence against the agreed criteria | Result, decision, exceptions, fee treatment where applicable and follow-up actions |
-| Reassess | Adapt and the customer update the plan using the observed result | Retain, extend, revise, pause or retire decision, with the next action and owner |
+| Discover | Adapt delivery lead and customer business owner establish the need, baseline and priorities | Current performance, evidence gaps, issue list and business case |
+| Design | Adapt technical lead proposes the solution; customer business and technical owners approve scope and requirements | Design, data boundaries, capacity estimate, acceptance criteria, owners and target dates |
+| Build | Adapt delivery lead owns implementation, integration and evaluation; customer release authority approves deployment | Test results, acceptance decision, deployment approval and rollback plan |
+| Govern | Adapt and named customer control owners apply the agreed access, data, spend and change policies throughout the work | Control evidence, approval records, exceptions and remediation owners |
+| Manage | Adapt delivery lead maintains the agreed service with the customer business owner | Performance and cost reports, issue actions, capacity use, updated 90-day plan and next Discover priorities |
 
 A failed test returns the work to remediation or a documented stop decision. A released change that later regresses becomes a new issue linked to the original acceptance evidence; the parties apply the agreed defect/remediation terms. Missing evidence produces an explicit measurement task or a not-measurable decision, never an assumed success. A decision to make no change can be appropriate if its reason and supporting evidence are recorded.
 

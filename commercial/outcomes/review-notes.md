@@ -14,7 +14,7 @@
 
 ## Resulting service model
 
-The relationship starts at the agreed service commencement and continues through the contracted term. Each improvement is assessed, agreed, implemented and verified; the result informs the next cycle. Release acceptance closes a work item. Monthly reporting, working reviews and approved engineering continue, with quarterly decisions about value and the next 90 days of work.
+The relationship starts at the agreed service commencement and continues through the contracted term. The current method is **Discover. Design. Build. Govern. Manage.** Governance applies throughout; management findings inform the next discovery cycle. Release acceptance closes a work item. Monthly reporting, working reviews and approved engineering continue, with quarterly decisions about value and the next 90 days of work.
 
 The proposal identifies who leads delivery, who approves work and releases, how capacity is reserved, what evidence is reported, and how missed commitments are handled. The scope distinguishes ongoing services from separately priced work packages and prevents charging both for the same activity.
 
@@ -23,3 +23,9 @@ The proposal identifies who leads delivery, who approves work and releases, how 
 These are commercial inputs, not unresolved editorial defects: actual delivery estimates; customer baselines, scope and named owners; service capacity and response terms; PromptForce.AI entitlement, rights, price and provider support; and the governing agreement. Example prices and capacity are illustrative. No savings, endorsement, certification, platform availability or independently validated customer result has been invented.
 
 The review stopped after seven passes because the identified proposition, scope, consistency and presentation defects were addressed. Further account tailoring should follow discovery and confirmed platform terms.
+
+## Correction after owner review
+
+The owner identified two omissions after the seven-pass review: the established **Discover. Design. Build. Govern. Manage.** method had been displaced by a new four-step sequence, and redundant eyebrow headings competed with the primary page titles. The earlier review therefore did not fully preserve the brand's method or hierarchy.
+
+The brochure now leads with the exact five-stage method. The extra eyebrow headings have been removed, leaving one primary title on each page. The method appears before the supporting platform description. The service schedule, SOW, pricing guide, example and register use the same five stages. Govern is explicitly continuous, and Manage feeds new evidence into Discover; the four-step sequence in the historical pass record above is superseded.

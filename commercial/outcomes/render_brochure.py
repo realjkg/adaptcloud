@@ -54,13 +54,12 @@ def render():
     data = json.loads((ROOT / 'brochure.json').read_text())
     out = ROOT / 'adapt-cloud-outcomes-brochure.pdf'
     c = canvas.Canvas(str(out), pagesize=(WIDTH, HEIGHT), invariant=1)
-    c.setTitle('Adapt Cloud | Ongoing AI Advisory and Engineering')
+    c.setTitle('Adapt Cloud | Discover. Design. Build. Govern. Manage.')
     c.setAuthor('Adapt Cloud')
     c.setSubject('Renewable advisory and engineering with PromptForce.AI')
     d = data['page_one']
     chrome(c, data, 1)
-    y = paragraph(c, d['eyebrow'], LEFT, 672, 520, 9, 12, TEAL, 500)
-    y = paragraph(c, d['title'], LEFT, y-18, 520, 34, 40.8, INK, 400)
+    y = paragraph(c, d['title'], LEFT, 664, 520, 34, 40.8, INK, 400)
     y = paragraph(c, d['intro'], LEFT, y-18, 505, 12, 17, MUTED)
     top = y-23
     c.setFillColor(INK)
@@ -76,18 +75,18 @@ def render():
 
     d = data['page_two']
     chrome(c, data, 2)
-    y = paragraph(c, d['eyebrow'], LEFT, 672, 520, 9, 12, TEAL, 500)
-    y = paragraph(c, d['title'], LEFT, y-15, 520, 29, 34.8, INK, 400)
-    top = y-18
-    c.setFillColor(PALE)
-    c.roundRect(LEFT, top-128, 520, 128, 8, fill=1, stroke=0)
-    y = paragraph(c, d['accelerator_title'], LEFT+17, top-14, 486, 14, 18, TEAL, 500)
-    y = paragraph(c, d['accelerator_body'], LEFT+17, y-7, 486, 11, 15, INK)
-    paragraph(c, d['accelerator_note'], LEFT+17, y-7, 486, 9, 12, MUTED)
-    y = top-147
+    y = paragraph(c, d['title'], LEFT, 664, 520, 29, 34.8, INK, 400)
+    y -= 23
     for step in d['steps']:
         paragraph(c, step['label'], LEFT, y, 105, 9, 12, TEAL, 500)
         y = paragraph(c, step['body'], LEFT+111, y+1, 409, 11, 15, MUTED)-14
+    top = y-3
+    c.setFillColor(PALE)
+    c.roundRect(LEFT, top-113, 520, 113, 8, fill=1, stroke=0)
+    y = paragraph(c, d['accelerator_title'], LEFT+17, top-14, 486, 14, 18, TEAL, 500)
+    y = paragraph(c, d['accelerator_body'], LEFT+17, y-7, 486, 11, 15, INK)
+    paragraph(c, d['accelerator_note'], LEFT+17, y-7, 486, 9, 12, MUTED)
+    y = top-133
     y = paragraph(c, d['proof_title'], LEFT, y-1, 520, 14, 18, INK, 500)
     y = paragraph(c, d['proof_body'], LEFT, y-7, 520, 11, 15, MUTED)
     y = paragraph(c, d['renewal'], LEFT, y-10, 520, 11, 15, MUTED)

@@ -43,7 +43,7 @@ Separately priced work-package fees equal the sum of their allocated milestone f
 
 Adapt delivery lead: [name]. Customer business owner: [name]. Technical/release owner: [name]. Executive sponsor: [name]. Account backlog and evidence location: [restricted reference].
 
-Repeat assess, agree, implement and verify throughout the term, returning verification findings to the next assessment. Maintain a rolling 90-day plan, monthly service report and working review, and quarterly business-value review. The completed annual service schedule defines the evidence, owners and decision points for this cycle.
+Apply **Discover. Design. Build. Govern. Manage.** throughout the term. Discover establishes the need and baseline; Design defines the solution and acceptance criteria; Build implements, tests and releases approved work; Govern applies the agreed controls and approvals across all stages; Manage maintains the service and feeds findings into the next Discover cycle. Maintain a rolling 90-day plan, monthly service report and working review, and quarterly business-value review. The completed annual service schedule maps evidence, owners and decision points to these five stages. Verification is an acceptance activity within the method, not a separate replacement methodology.
 
 Mandatory monthly outputs and due dates: [report, working review, plan update and decision log]. Quarterly outputs: [value assessment and next 90-day plan]. Data-review frequency: [cadence]. Service commencement deliverables: [baseline or explicit evidence gaps, account scope and initial plan].
 

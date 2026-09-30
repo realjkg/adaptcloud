@@ -28,9 +28,9 @@ Mandatory service report delivered: [date/reference] | Review decision: [accepte
 
 | Work item | Fee/capacity allocation | Stage | Baseline and target | Estimate / used | Acceptance and release owner | Evidence / decision | Next action / due date |
 |---|---|---|---|---|---|---|---|
-| [ID] | [recurring or package ID; never both] | [assess/agree/implement/verify/reassess] | [reference] | [hours] | [names] | [reference and decision] | [action, owner, date] |
+| [ID] | [recurring or package ID; never both] | [Discover/Design/Build/Govern/Manage] | [reference] | [hours] | [names] | [reference and decision] | [action, owner, date] |
 
-Record retain, extend, revise, pause or retire decisions with reasons. A release acceptance closes its work item and informs the next cycle. Monthly service fulfillment is recorded separately from work-package acceptance. Track baseline versions so a later revision cannot rewrite prior results.
+Use **Discover. Design. Build. Govern. Manage.** to organize work. Record the primary stage and link the applicable governance evidence throughout; Govern is not a control deferred until after Build. Manage feeds new findings into Discover. Record retain, extend, revise, pause or retire decisions with reasons. A release acceptance closes its work item and informs the next cycle. Monthly service fulfillment is recorded separately from work-package acceptance. Track baseline versions so a later revision cannot rewrite prior results.
 
 ## One row per purchased outcome
 
