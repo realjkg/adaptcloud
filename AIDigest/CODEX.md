@@ -4,10 +4,13 @@
 AIDigest is Adapt Cloud's private AI/cloud intelligence loop. It turns a small set of trusted sources and explicit research tasks into concise executive intelligence and durable, source-backed knowledge.
 
 ## Runtime contract
-There are only two routines:
+There are three bounded routines:
 
-1. DAILY: curated feeds -> normalize/dedupe -> deterministic Adapt relevance -> one AI curation -> validate -> D1 -> digest.
-2. TASK: authenticated user -> validate -> deterministic mode -> at most three read-only evidence steps -> one AI synthesis -> validate -> optional source-backed knowledge -> D1 -> response.
+1. BOOTSTRAP: verify Cloudflare authentication -> provision/link missing bindings -> apply schema -> deploy -> verify readiness -> stop.
+2. DAILY: curated feeds -> normalize/dedupe -> deterministic Adapt relevance -> one AI curation -> validate -> D1 -> digest.
+3. TASK: authenticated user -> validate -> deterministic mode -> at most three read-only evidence steps -> one AI synthesis -> validate -> optional source-backed knowledge -> D1 -> response.
+
+BOOTSTRAP is an operator/Codex routine, not an autonomous runtime action. The deployed Worker must never create infrastructure, mutate Cloudflare account configuration, or grant itself permissions.
 
 ## Guardrails
 - Protect the entire Worker with Cloudflare Access.
@@ -47,3 +50,24 @@ The digest contains THE BIG 3 followed by WORTH KNOWING.
 
 ## Definition of done
 A run is successful only if it is bounded, auditable, source-backed, and useful without adding new infrastructure. Tune sources, scoring, and prompts before adding queues, vectors, workflows, or more agents.
+
+
+## BOOTSTRAP routine
+
+The Codex may perform BOOTSTRAP when deployment readiness is missing.
+
+Sequence:
+1. Confirm Cloudflare authentication is available to Wrangler or CI.
+2. Run the normal deployment path with binding-only D1 configuration.
+3. Allow Wrangler automatic provisioning to create/link D1 when missing.
+4. Apply schema.sql through the DB binding.
+5. Deploy the final Worker.
+6. Query /ops/status through Cloudflare Access.
+7. Mark the environment ready only when articles, knowledge, tasks, and runs are present.
+8. Stop. Do not loop, retry indefinitely, or create duplicate resources.
+
+If authentication is unavailable, report AUTH_REQUIRED and make no infrastructure changes.
+If schema verification fails, report SCHEMA_NOT_READY and do not start DAILY or TASK.
+If readiness succeeds, DAILY and TASK may proceed normally.
+
+The source repository must remain account-portable: do not commit an account-specific D1 UUID merely to satisfy deployment when automatic provisioning is available.
