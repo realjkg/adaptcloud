@@ -4,33 +4,51 @@
   "contact": "info@adaptcloud.io",
   "website": "adaptcloud.io",
   "page_one": {
-    "eyebrow": "CLAUDE ADVISORY + CONSULTING ENGINEERING",
-    "title": "AI outcomes.\nDefined together.\nVerified in practice.",
-    "intro": "Move a valuable workflow from idea to dependable use. Adapt Cloud brings specialist Claude advisory, practical engineering and ongoing measurement to the work your team needs to improve.",
-    "band_title": "One engagement. A continuing commitment.",
-    "band_body": "An initial term of 12 months or longer, with agreed outcomes, regular reviews and renewable service commitments.",
+    "eyebrow": "CLAUDE ADVISORY AND ENGINEERING",
+    "title": "Claude advisory\nand engineering\nfor your business.",
+    "intro": "We help you decide where Claude can be useful, connect it to your existing systems and check whether it is doing the job. You work directly with the specialists responsible for delivery.",
+    "band_title": "Support beyond the initial build",
+    "band_body": "Engagements run for at least 12 months, with ongoing advisory and engineering support. We review the work together before agreeing to renew.",
     "offers": [
-      {"title": "Make the investment clear", "body": "Establish a cost baseline, identify the workflow worth improving and agree on the evidence that will guide the decision."},
-      {"title": "Build a governed workflow", "body": "Design and implement a bounded agent workflow with human oversight, evaluation, operating controls and a practical handover."},
-      {"title": "Improve with evidence", "body": "Review quality, operating cost and performance over time. Prioritize the next improvement through a defined advisory and engineering service."}
+      {
+        "title": "Decide what is worth building",
+        "body": "We look at how your team works today, what takes too much time and what it costs. Together, we choose a starting point with a clear business case."
+      },
+      {
+        "title": "Build it around your existing systems",
+        "body": "We connect the tools and data the work depends on, test with representative cases and agree where a person needs to review or approve a result."
+      },
+      {
+        "title": "Keep track of how it performs",
+        "body": "After launch, we review quality, cost and the problems your team encounters. We plan improvements within the support and engineering scope you have agreed."
+      }
     ],
-    "closing": "Senior-led delivery. Clear ownership. Progress you can review."
+    "closing": "You work with the people who design and build your solution."
   },
   "page_two": {
-    "eyebrow": "YOUR ROADMAP TO MEASURABLE DELIVERY",
-    "title": "Agree on success.\nKeep improving.",
-    "accelerator_title": "Accelerated by PromptForce.AI",
-    "accelerator_body": "Our proposed engagements include PromptForce.AI from DayTwoAI.com as a platform accelerator for scoped AI-readiness and reusable component work. Adapt Cloud provides the advisory, integration, engineering and outcome measurement around your workflow.",
-    "accelerator_note": "Platform access, components, usage and support are specified in the account agreement.",
+    "eyebrow": "WORKING WITH ADAPT CLOUD",
+    "title": "What we agree\nbefore work begins.",
+    "accelerator_title": "PromptForce.AI from DayTwoAI",
+    "accelerator_body": "The engagement includes PromptForce.AI from DayTwoAI.com to support readiness assessment and development with reusable components. Adapt Cloud handles the advice, integration and engineering for your business.",
+    "accelerator_note": "Your agreement sets out the platform access, included usage and support.",
     "steps": [
-      {"label": "01  DEFINE", "body": "Choose the workflow, establish its baseline and agree on success, scope and responsibilities."},
-      {"label": "02  DELIVER", "body": "Build and verify agreed milestones against quality, cost and operational acceptance criteria."},
-      {"label": "03  REVIEW", "body": "Use monthly scorecards and quarterly reviews to guide the next improvement within the contracted service scope."}
+      {
+        "label": "01  SCOPE",
+        "body": "We agree on the work, the systems involved, who needs to participate and how we will judge the result."
+      },
+      {
+        "label": "02  DELIVERY",
+        "body": "Your statement of work sets the milestones and tests you will use to accept each stage of delivery."
+      },
+      {
+        "label": "03  REVIEWS",
+        "body": "Monthly reports and quarterly meetings give us time to discuss what is working, address problems and decide what comes next."
+      }
     ],
-    "proof_title": "What accountability looks like",
-    "proof_body": "Your statement of work names the outcomes, evidence, acceptance process and remedy for missed commitments. Measures may include accepted case quality, handling time, cost per successful workflow or defined control coverage. Targets are set with you after discovery.",
-    "renewal": "At renewal, we review the evidence together and agree on the next term's priorities, capacity and platform needs.",
-    "cta": "Bring us one workflow worth improving.",
-    "cta_body": "Start a conversation about the result, the constraints and how we will know it is working."
+    "proof_title": "How you know the work is done",
+    "proof_body": "The statement of work says what we will deliver, how it will be checked and what happens if we miss a commitment. Depending on the project, we might measure handling time, corrections or cost per completed task. We agree on the targets and quality requirements with you before delivery.",
+    "renewal": "Before renewal, we review the results and agree on the work and support you need for the next term.",
+    "cta": "Tell us what is slowing your team down.",
+    "cta_body": "Email info@adaptcloud.io with the process you want to improve. We will discuss whether it is a good fit and where to begin."
   }
 }
