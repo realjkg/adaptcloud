@@ -11,18 +11,30 @@ TASK:
 Access identity -> validate -> deterministic mode -> <=3 read-only evidence steps -> ONE AI synthesis -> validate -> optional source-backed knowledge -> D1 -> response
 
 ## No-token runtime
+
 AIDigest has no application bearer token. Protect the Worker itself with Cloudflare Access. The Worker reads the authenticated identity from ctx.access; D1 and Workers AI use bindings.
 
-## Setup
+## D1 provisioning
 
-1. cd AIDigest
-2. npm install
-3. npx wrangler d1 create adaptcloud-ai-digest
-4. Paste the returned database_id into wrangler.toml.
-5. npm run db:init:remote
-6. npm run check
-7. npm run deploy
-8. Enable Cloudflare Access on the Worker for production and preview URLs and allow the intended Adapt Cloud identities.
+AIDigest uses Wrangler automatic resource provisioning. There is no D1 UUID to copy into source control.
+
+With Wrangler >=4.45, the binding-only D1 configuration is provisioned and linked on deploy. The bootstrap routine then applies schema.sql and redeploys.
+
+## Bootstrap
+
+From AIDigest, after Cloudflare authentication is available:
+
+npm install
+npm run check
+npm run bootstrap:cloudflare
+
+The bootstrap sequence is:
+
+1. wrangler deploy — provisions/links D1 and deploys the Worker
+2. wrangler d1 execute DB --remote --file=./schema.sql --yes — applies the schema
+3. wrangler deploy — final deploy against the initialized database
+
+Then enable Cloudflare Access for the Worker and allow the intended Adapt Cloud identities.
 
 ## Endpoints
 
