@@ -4,6 +4,8 @@ this repo contains secure hardening and will contain chatGPT webhooks as well as
 
 ## Contents
 
+- [`commercial/outcomes/`](commercial/outcomes/) — proposed renewable AI advisory and engineering commercial model, outcome-based SOW, PromptForce.AI accelerator schedule, and client brochure.
+
 - `gke/` — hardened GKE / Terraform reference deployment (GCP).
 - `azure/` — **insurance agent platform**: a low-code-first insurance application
   (Power Platform + Copilot Studio) plus API connectors, deployed inside an Azure
