@@ -258,6 +258,14 @@ function digestHtml(rows: Array<Record<string, unknown>>): string {
   return "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Adapt Cloud AIDigest</title><style>body{font-family:Georgia,serif;max-width:800px;margin:auto;padding:32px 20px;color:#171717;line-height:1.55}header{border-bottom:2px solid #171717}.k,.s{font:700 .75rem system-ui;text-transform:uppercase;letter-spacing:.06em}.lead{font-weight:700}article{padding:22px 0;border-bottom:1px solid #ddd}a{color:inherit}</style><header><div class=k>ADAPT CLOUD</div><h1>AI DIGEST</h1><p>Executive AI & cloud intelligence</p></header>" + (items || "<p>No curated items yet.</p>");
 }
 
+async function readiness(env: Env): Promise<{ ready: boolean; required_tables: string[]; present_tables: string[]; missing_tables: string[] }> {
+  const required = ["articles", "knowledge", "tasks", "runs"];
+  const r = await env.DB.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'").run<{ name: string }>();
+  const present = (r.results ?? []).map((row) => row.name).filter((name) => typeof name === "string");
+  const missing = required.filter((name) => !present.includes(name));
+  return { ready: missing.length === 0, required_tables: required, present_tables: present, missing_tables: missing };
+}
+
 async function identity(ctx: WorkerContext): Promise<string | null> {
   if (!ctx.access) return null;
   const who = await ctx.access.getIdentity(); return who?.email ?? "authenticated-user";
@@ -267,7 +275,14 @@ export default {
   async fetch(request: Request, env: Env, ctx: WorkerContext): Promise<Response> {
     const who = await identity(ctx); if (!who) return json({ error: "Cloudflare Access authentication required" }, 403);
     const url = new URL(request.url);
-    if (request.method === "GET" && url.pathname === "/health") return json({ ok: true, service: "AIDigest", version: "0.1.0", authenticated_as: who });
+    if (request.method === "GET" && url.pathname === "/health") {
+      const state = await readiness(env);
+      return json({ ok: state.ready, service: "AIDigest", version: "0.2.0", authenticated_as: who, readiness: state }, state.ready ? 200 : 503);
+    }
+    if (request.method === "GET" && url.pathname === "/ops/status") {
+      const state = await readiness(env);
+      return json({ service: "AIDigest", authenticated_as: who, ...state }, state.ready ? 200 : 503);
+    }
     if (request.method === "GET" && url.pathname === "/digest") return new Response(digestHtml(await digestRows(env)), { headers: { "content-type": "text/html; charset=utf-8" } });
     if (request.method === "GET" && url.pathname === "/digest.json") return json(await digestRows(env));
     if (request.method === "GET" && url.pathname === "/knowledge") {
@@ -281,7 +296,7 @@ export default {
     if (request.method === "GET" && url.pathname.startsWith("/agent/tasks/")) {
       const id = url.pathname.split("/").pop() ?? ""; const row = await env.DB.prepare("SELECT id,requested_by,request_text,mode,status,result_json,error,created_at,completed_at FROM tasks WHERE id=?").bind(id).first(); return row ? json(row) : json({ error: "Task not found" }, 404);
     }
-    return json({ service: "Adapt Cloud AIDigest", endpoints: ["GET /health","GET /digest","GET /digest.json","GET /knowledge?q=finops","POST /agent/tasks","GET /agent/tasks/:id"] });
+    return json({ service: "Adapt Cloud AIDigest", endpoints: ["GET /health","GET /ops/status","GET /digest","GET /digest.json","GET /knowledge?q=finops","POST /agent/tasks","GET /agent/tasks/:id"] });
   },
   async scheduled(_controller: unknown, env: Env, ctx: WorkerContext): Promise<void> { ctx.waitUntil(dailyLoop(env)); }
 };
