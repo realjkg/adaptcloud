@@ -4,6 +4,9 @@ AIDigest is the initial Adapt Cloud AI intelligence Worker. It is intentionally 
 
 ## Loops
 
+BOOTSTRAP:
+Cloudflare auth -> automatic binding provisioning -> schema.sql -> final deploy -> /ops/status -> READY
+
 DAILY:
 Cron -> curated feeds -> deterministic score -> top candidates -> ONE AI curation -> validate -> D1 -> /digest
 
@@ -39,6 +42,7 @@ Then enable Cloudflare Access for the Worker and allow the intended Adapt Cloud 
 ## Endpoints
 
 - GET /health
+- GET /ops/status
 - GET /digest
 - GET /digest.json
 - GET /knowledge?q=finops
