@@ -22,23 +22,44 @@ Adapt Cloud leads contracted discovery, architecture, Claude advisory, engineeri
 
 This schedule does not establish a partnership, endorsement, certification or reseller relationship with DayTwoAI or Anthropic. Resolve commercial rights before bundling entitlement into a customer order. The client's contracted deliverable can use the platform while provider components remain subject to their own license.
 
+## Continuous operating model
+
+The service starts on the agreed commencement date and continues throughout the term. Establish the account scope, available evidence, decision owners and an initial 90-day plan at commencement. Where data is missing, the first improvement may be a measurement or readiness task. Do not promise a numerical business improvement before its baseline exists.
+
+Maintain one prioritized account backlog and a rolling 90-day plan. Each cycle follows **assess -> agree -> implement -> verify -> assess**. Cycles may overlap reporting periods; continuous service does not imply a release every month or continuous live monitoring.
+
+| Cycle stage | Decision and accountable owner | Required record |
+|---|---|---|
+| Assess | Adapt delivery lead reviews the agreed data and proposes priorities with the customer business owner | Current performance, evidence gaps, issue list and benefit hypothesis |
+| Agree | Customer business owner authorizes priority; technical owner confirms access and release requirements | Work item with scope, acceptance criteria, baseline, capacity estimate, owner and target date |
+| Implement | Adapt delivery lead owns the agreed engineering and tests; customer release authority approves production changes | Change record, evaluation results, deployment approval and rollback plan |
+| Verify | Named customer approver accepts or rejects the evidence against the agreed criteria | Result, decision, exceptions, fee treatment where applicable and follow-up actions |
+| Reassess | Adapt and the customer update the plan using the observed result | Retain, extend, revise, pause or retire decision, with the next action and owner |
+
+A failed test returns the work to remediation or a documented stop decision. A released change that later regresses becomes a new issue linked to the original acceptance evidence; the parties apply the agreed defect/remediation terms. Missing evidence produces an explicit measurement task or a not-measurable decision, never an assumed success. A decision to make no change can be appropriate if its reason and supporting evidence are recorded.
+
 ## Recurring service scope
 
 | Cadence | Required service output | Account-specific limit |
 |---|---|---|
-| Monthly | Cost and outcome scorecard, evidence gaps and exceptions | [workflows, accounts and data sources] |
-| Monthly | Advisory review, prioritized backlog and agreed actions | [meeting length, participants and capacity] |
-| As scoped | Evaluation, prompt/tool adjustments and engineering improvements | [monthly capacity and change limits] |
-| Quarterly | Regression review, value assessment and next-quarter roadmap | [evaluation population and approval owner] |
-| At least 60 days before expiry | Renewal review, service performance and next-term scope | [owner and decision date] |
+| On the agreed review cadence | Review source data, exceptions and the improvement backlog | [frequency, workflows, access and sources; no implied 24/7 monitoring] |
+| Monthly | Service report with outcome trends, total cost view, accepted work, open risks, capacity used and decisions required | [reporting period, delivery deadline and owner] |
+| Monthly | Working review and approval of the next cycle's priorities | [meeting length, participants and decision deadline] |
+| Each approved work item | Engineering, evaluation, change approval and verification | [capacity estimate, acceptance owner, target date and release controls] |
+| Quarterly | Business-value review and refresh of the rolling 90-day plan | [sponsor, benefit evidence, capacity and scope decisions] |
+| At least 60 days before expiry | Renewal review and proposed next-term scope | [owner, fee proposal and decision date] |
 
 Specialist capacity: [hours or other explicit capacity limit]. Rollover: [rule]. Working hours and timezone: [coverage]. Acknowledgement targets: [severity-specific times]. Resolution targets, if any: [scope and exceptions]. Excluded services: [24/7 response, help desk, unlimited development, extra workflows, or other exclusions].
+
+Define mandatory reporting and governance deliverables separately from the capacity available for engineering. Estimate the effort for both before contracting. The SOW states how much capacity is reserved for engineering and how unused or blocked capacity is handled. Reprioritization within the existing scope is recorded in the plan; a new workflow, integration, service obligation or capacity increase requires an approved change order. Do not charge twice for the same work item under implementation and recurring services.
+
+Customer delays and provider incidents are recorded with their effect on the plan. Use the agreed alternative backlog where possible. If a dependency blocks all approved work, escalate to the sponsors and apply the agreed pause, rescheduling, capacity or fee treatment; do not silently count blocked time as completed delivery.
 
 Each monthly output has [named reviewer], [review deadline], [cure period] and [credit or other agreed remedy]. Capacity and service fees pay for the defined ongoing service, while any contingent performance fee follows its separate acceptance conditions. Platform uptime obligations cannot exceed the agreed provider terms without a deliberately priced Adapt commitment.
 
 ## Term, renewal and exit
 
-- Initial term: [12 or more months], from [date] to [date]. State when platform access and recurring services begin. Implementation has its own milestones within or alongside that term; document any distinct dates.
+- Initial term: [12 or more months], from [date] to [date]. State when platform access and recurring services begin. Implementation work packages sit within the continuing service and have their own acceptance milestones; document any separately agreed commencement dates. A release acceptance closes that work package, not the account service.
 - Renewal: [12 or more months] by mutual written agreement. No automatic renewal in this proposed default. If automatic renewal is later desired, explicitly negotiate its notice, pricing and cancellation terms.
 - Fees: implementation, recurring services, platform entitlement and contingent fees are separately stated, even if presented on one invoice. Monthly installments do not mean monthly cancellation rights.
 - Renewal price: agreed before renewal, with revised scope and allowances. No unilateral unspecified uplift. Do not repeat setup fees without new implementation scope.

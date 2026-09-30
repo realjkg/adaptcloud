@@ -1,10 +1,10 @@
-# Illustrative engagement: document intake assistant
+# Illustrative annual service: document intake and continuing improvement
 
 Fictional worked example for commercial design. Not a customer quote, executed SOW or evidence of prior performance. Use the full [SOW template](sow-template.md) for contracting.
 
 ## Annual arrangement
 
-Initial term: 12 months from an agreed service commencement date. Implementation occurs within that term; recurring service begins at commencement and initially supports readiness, evaluation design and delivery governance. Renewable for further 12-month terms by mutual written agreement, with a review 60 days before expiry. Longer initial terms need a separately costed schedule. No automatic renewal and no automatic repeat implementation fee.
+Initial term: 12 months from an agreed service commencement date. Implementation occurs within that term; recurring service begins at commencement and initially supports account governance, prioritization of follow-on improvements and review of the total business case. Initial baseline, evaluation design, delivery governance and acceptance evidence for O1-O4 are paid for by the implementation package and do not consume recurring service capacity. Renewable for further 12-month terms by mutual written agreement, with a review 60 days before expiry. Longer initial terms need a separately costed schedule. No automatic renewal and no automatic repeat implementation fee.
 
 Include PromptForce.AI from DayTwoAI.com as the platform accelerator for scoped readiness and reusable component work. Provider entitlement, permitted deployment, usage and support must be confirmed before a client quote is finalized. No proprietary platform ownership, unrestricted reuse or reseller rights are assumed.
 
@@ -14,7 +14,7 @@ One English-language document intake workflow; one input connector and one case-
 
 Excluded: autonomous legal or financial decisions, additional document types, data migration, 24/7 operations and integrations not named above. Customer supplies lawful representative data, operator time, approved cloud/model access and an acceptance owner. Cloud and model usage is customer-paid directly and is outside the services-fee cap.
 
-## Outcome prices
+## Initial work-package outcome prices
 
 | ID | Accepted outcome | Acceptance evidence | Base fee |
 |---|---|---|---:|
@@ -28,9 +28,13 @@ The held-out evaluation is separate from the baseline and development cases. Qua
 
 ## Recurring platform and service schedule
 
-Annual advisory and engineering services: **$36,000**, invoiced in 12 monthly installments of $3,000. Proposed capacity is up to 12 specialist hours per month, covering the listed services below; unused capacity does not roll over. This is a costing assumption requiring delivery validation, not an established rate card. Prioritize within that capacity; additional work requires an approved change order.
+Annual advisory and engineering services: **$36,000**, invoiced in 12 monthly installments of $3,000. Proposed reserved capacity is 12 specialist hours per month: 3 for the service report, working review and plan; 7 for approved engineering and evaluation; and 2 for issue triage and support coordination. Unused capacity does not roll over. The customer may approve a different split within the same total before work is performed. This is a costing assumption requiring delivery validation, not an established rate card. Prioritize within that capacity; additional work requires an approved change order.
 
-Each month includes a workflow scorecard, one review meeting, cost and quality review, a prioritized improvement backlog and support coordination. Each quarter includes an agreed regression-evaluation review and roadmap decision. These activities consume the stated capacity. No guaranteed count of new features or additional workflows is included. Support coverage is weekdays 9 am-5 pm Central Time, excluding agreed holidays, with acknowledgement within two business days; this is not a resolution or uptime guarantee. Provider incidents escalate under the actual platform support terms.
+Maintain a rolling 90-day plan and one prioritized backlog. Each month includes a workflow scorecard, one working review, a record of completed and blocked work, and approved next actions. Each quarter includes a business-value review and a refreshed 90-day plan. Reserve the quarterly review effort within that quarter's monthly governance allocations; if the agreed effort cannot fit, revise the scope or capacity before contracting.
+
+An approved improvement follows assess, agree, implement and verify, with results returning to the backlog. Examples after the initial release include investigating a rise in correction time, testing a revised extraction prompt or evaluating a model update. These are candidate work items, not promised results. Agree the estimate, acceptance test and owner before starting; an item can span months. During the initial build, recurring engineering capacity may be used for approved follow-on work distinct from O1-O4. If none is ready, record whether the customer elects alternate work or the agreed unused-capacity treatment. Initial work-package remediation is not charged to this capacity.
+
+The monthly report records capacity used and remaining, costs, quality trends, evidence gaps and decisions required. An accepted release closes its work item; advisory, engineering and reviews continue through the term. No guaranteed count of new features or additional workflows is included. Support coverage is weekdays 9 am-5 pm Central Time, excluding agreed holidays, with acknowledgement within two business days; this is not a resolution or uptime guarantee. Provider incidents escalate under the actual platform support terms.
 
 The customer has five business days to identify an omitted monthly deliverable. Adapt completes attributable omissions within ten business days, without charging additional capacity. If still omitted, the example remedy is a 25% credit against that month's advisory/engineering fee, without waiving any separate termination rights. This proposed credit does not apply to third-party platform charges. Cure work is included in Adapt's cost estimate.
 
@@ -82,6 +86,10 @@ For illustration, $600 total operating cost across 220 eligible cases with 200 a
 The customer approves the baseline, normalization weights and source records. Vendor price changes and labor-rate changes are held at baseline rates for O5 comparison; actual billed costs are reported separately. Unrelated staffing or process changes require an agreed pause or prospective rebaseline. Use a staged comparison group where feasible. Neither party may claim a causal saving solely because two periods differ.
 
 The operating view excludes one-time implementation fees. To illustrate the distinction, at 10,000 accepted cases per year, a $40,000 implementation allocated fully over that year adds $4.00 per case. An earned $5,000 fee adds another $0.50 per case. At $3.00 operating cost, first-year fully loaded cost would be $7.00 or $7.50, before recurring service and platform costs. The $36,000 annual service schedule adds $3.60 per accepted case at that volume, and the platform adds L/10,000. First-year fully loaded cost is therefore $10.60 + L/10,000 without O5, or $11.10 + L/10,000 with O5. The $1.00 operating reduction alone would therefore not justify this illustrative $40,000 project at that volume. Validate additional benefits or reduce scope; do not sell this example as positive ROI.
+
+## Quarter-to-quarter scope
+
+The business owner approves the next 90-day plan each quarter and monthly reprioritization within the contracted workflow and capacity. Additional document families, integrations or service coverage require a change order. Quarterly review does not automatically renew the term, increase fees or create an early cancellation right. If evidence does not support more development, document the decision to maintain, pause an item or retire the capability and use the agreed plan for the remaining service.
 
 ## Acceptance and remedy
 
