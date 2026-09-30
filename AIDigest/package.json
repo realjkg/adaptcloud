@@ -8,11 +8,12 @@
     "deploy": "wrangler deploy",
     "types": "wrangler types",
     "check": "tsc --noEmit",
-    "db:init:local": "wrangler d1 execute adaptcloud-ai-digest --local --file=./schema.sql",
-    "db:init:remote": "wrangler d1 execute adaptcloud-ai-digest --remote --file=./schema.sql"
+    "db:init:local": "wrangler d1 execute DB --local --file=./schema.sql --yes",
+    "db:init:remote": "wrangler d1 execute DB --remote --file=./schema.sql --yes",
+    "bootstrap:cloudflare": "wrangler deploy && wrangler d1 execute DB --remote --file=./schema.sql --yes && wrangler deploy"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
-    "wrangler": "^4.40.0"
+    "wrangler": "^4.45.0"
   }
 }
