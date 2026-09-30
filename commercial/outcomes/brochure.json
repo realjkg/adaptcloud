@@ -4,51 +4,55 @@
   "contact": "info@adaptcloud.io",
   "website": "adaptcloud.io",
   "page_one": {
-    "eyebrow": "CLAUDE ADVISORY AND ENGINEERING",
-    "title": "Claude advisory\nand engineering\nfor your business.",
-    "intro": "We help you decide where Claude can be useful, connect it to your existing systems and check whether it is doing the job. You work directly with the specialists responsible for delivery.",
-    "band_title": "Support beyond the initial build",
-    "band_body": "Engagements run for at least 12 months, with ongoing advisory and engineering support. We review the work together before agreeing to renew.",
+    "eyebrow": "FOR BUSINESS AND TECHNOLOGY LEADERS",
+    "title": "Ongoing AI advisory\nand engineering.",
+    "intro": "Adapt Cloud helps business and technology leaders put Claude to work in their operations and improve systems already in use. The relationship continues as business priorities, model behavior and operating costs change.",
+    "band_title": "An annual service built around your priorities",
+    "band_body": "An initial term of 12 months or longer, renewable by agreement. Monthly working reviews and a rolling 90-day plan guide the advisory and engineering work.",
     "offers": [
       {
-        "title": "Decide what is worth building",
-        "body": "We look at how your team works today, what takes too much time and what it costs. Together, we choose a starting point with a clear business case."
+        "title": "A plan for the next 90 days",
+        "body": "We establish the current position with your business and technical owners. Together, we choose the improvements worth pursuing and revise the plan as evidence and priorities change."
       },
       {
-        "title": "Build it around your existing systems",
-        "body": "We connect the tools and data the work depends on, test with representative cases and agree where a person needs to review or approve a result."
+        "title": "Engineering capacity to act on the plan",
+        "body": "The agreement reserves capacity for approved improvements. Each has a scope, an owner and acceptance tests. Larger changes are scoped separately, with your approval before work begins."
       },
       {
-        "title": "Keep track of how it performs",
-        "body": "After launch, we review quality, cost and the problems your team encounters. We plan improvements within the support and engineering scope you have agreed."
+        "title": "A business review of the results",
+        "body": "Monthly reports cover performance, total cost, completed work and unresolved issues. Quarterly reviews assess whether the benefit justifies further investment and what should change."
       }
     ],
-    "closing": "You work with the people who design and build your solution."
+    "closing": "A named Adapt Cloud delivery lead stays accountable throughout the term."
   },
   "page_two": {
-    "eyebrow": "WORKING WITH ADAPT CLOUD",
-    "title": "What we agree\nbefore work begins.",
+    "eyebrow": "HOW THE SERVICE WORKS",
+    "title": "A clear cycle\nfor each improvement.",
     "accelerator_title": "PromptForce.AI from DayTwoAI",
-    "accelerator_body": "The engagement includes PromptForce.AI from DayTwoAI.com to support readiness assessment and development with reusable components. Adapt Cloud handles the advice, integration and engineering for your business.",
-    "accelerator_note": "Your agreement sets out the platform access, included usage and support.",
+    "accelerator_body": "The engagement includes PromptForce.AI from DayTwoAI.com as a platform accelerator for readiness assessment and reusable development components. Adapt Cloud leads the advisory, integration and engineering, and reports on the agreed work.",
+    "accelerator_note": "Platform access, usage, support and provider responsibilities are set out in the agreement.",
     "steps": [
       {
-        "label": "01  SCOPE",
-        "body": "We agree on the work, the systems involved, who needs to participate and how we will judge the result."
+        "label": "01  ASSESS",
+        "body": "Review performance and business priorities. Select the next improvement and agree on its expected value."
       },
       {
-        "label": "02  DELIVERY",
-        "body": "Your statement of work sets the milestones and tests you will use to accept each stage of delivery."
+        "label": "02  AGREE",
+        "body": "Confirm the owner, scope, capacity and acceptance tests before work begins."
       },
       {
-        "label": "03  REVIEWS",
-        "body": "Monthly reports and quarterly meetings give us time to discuss what is working, address problems and decide what comes next."
+        "label": "03  IMPLEMENT",
+        "body": "Develop and test the change, obtain the required approvals and release it with a rollback plan."
+      },
+      {
+        "label": "04  VERIFY",
+        "body": "Check results against the baseline and quality requirements. Accept, revise or stop the change, then update the next cycle."
       }
     ],
-    "proof_title": "How you know the work is done",
-    "proof_body": "The statement of work says what we will deliver, how it will be checked and what happens if we miss a commitment. Depending on the project, we might measure handling time, corrections or cost per completed task. We agree on the targets and quality requirements with you before delivery.",
-    "renewal": "Before renewal, we review the results and agree on the work and support you need for the next term.",
-    "cta": "Tell us what is slowing your team down.",
-    "cta_body": "Email info@adaptcloud.io with the process you want to improve. We will discuss whether it is a good fit and where to begin."
+    "proof_title": "Clear commitments and decision rights",
+    "proof_body": "The statement of work names who approves priorities and releases, the capacity included, and the remedy for missed commitments. Agreed measures may include handling time, correction rates or cost per completed task. Missing evidence is reported openly.",
+    "renewal": "Before renewal, we review the business case and agree on the next term. Reporting, reviews and approved engineering continue after each release.",
+    "cta": "Discuss your AI priorities with us.",
+    "cta_body": "Contact info@adaptcloud.io to discuss your current AI work, the decisions ahead and where specialist support would help."
   }
 }

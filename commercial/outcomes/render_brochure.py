@@ -54,7 +54,7 @@ def render():
     data = json.loads((ROOT / 'brochure.json').read_text())
     out = ROOT / 'adapt-cloud-outcomes-brochure.pdf'
     c = canvas.Canvas(str(out), pagesize=(WIDTH, HEIGHT), invariant=1)
-    c.setTitle('Adapt Cloud | Measurable AI Outcomes')
+    c.setTitle('Adapt Cloud | Ongoing AI Advisory and Engineering')
     c.setAuthor('Adapt Cloud')
     c.setSubject('Renewable advisory and engineering with PromptForce.AI')
     d = data['page_one']
