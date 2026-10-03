@@ -60,7 +60,24 @@ aidigest_collect() {
   success "AIDigest password hashed (bcrypt cost 10) and AIDIGEST_PROXY_SECRET generated"
 }
 
-# Append-only: a key that already exists in the file is left exactly as it is.
+# Replace an EMPTY "KEY=" / "KEY=''" / 'KEY=""' line with the new line; every other line is
+# copied unchanged. Used for a .env copied from .env.example, whose AIDigest keys are empty.
+aidigest_fill_empty() {
+  local file=$1 key=$2 newline=$3 tmp l
+  tmp=$(mktemp "${file}.aidigest.XXXXXX")   # mktemp creates it mode 600
+  while IFS= read -r l || [[ -n "$l" ]]; do
+    if [[ "$l" == "${key}=" || "$l" == "${key}=''" || "$l" == "${key}=\"\"" ]]; then
+      printf '%s\n' "$newline"
+    else
+      printf '%s\n' "$l"
+    fi
+  done < "$file" > "$tmp"
+  cat "$tmp" > "$file"   # rewrite in place: keeps the file's inode, owner and mode
+  rm -f "$tmp"
+}
+
+# A key that already has a value is never modified; an EMPTY AIDigest key is filled in place;
+# a missing key is appended.
 aidigest_append() {
   local file=$1 line key header_done=0
   for line in "AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET}" \
@@ -69,6 +86,11 @@ aidigest_append() {
               "AIDIGEST_DATABASE_URL=${AIDIGEST_DATABASE_URL}" \
               "COMPOSE_PROFILES=aidigest"; do
     key=${line%%=*}
+    if [[ "$key" != COMPOSE_PROFILES ]] && grep -Eq "^${key}=(''|\"\")?\$" "$file"; then
+      aidigest_fill_empty "$file" "$key" "$line"
+      info "Filled empty ${key}"
+      continue
+    fi
     if grep -q "^${key}=" "$file"; then
       if [[ "$key" == COMPOSE_PROFILES ]] && ! grep -Eq '^COMPOSE_PROFILES=(.*,)?aidigest(,.*)?$' "$file"; then
         warn "COMPOSE_PROFILES is already set in $file; add 'aidigest' to it by hand (setup.sh never edits existing keys)."

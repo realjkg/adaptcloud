@@ -50,17 +50,29 @@ Bounds (all optional, safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST
 
 AIDigest connects as its own role that owns **only** schema `aidigest`. It needs no
 database-level `CREATE` (startup skips `CREATE SCHEMA` when the schema exists) and has no access
-to the homeschool tables in `public`:
+to the homeschool tables in `public`. Run this as an admin role that has `CREATEROLE` and `CREATE`
+on the database (a superuser works too). Replace `<admin>` with that admin role's name:
 
 ```sql
 CREATE ROLE aidigest_app LOGIN PASSWORD '<generate a strong password>';
+-- PostgreSQL 16+: a non-superuser CREATEROLE admin must be a member of the new role before it
+-- can create a schema owned by it (harmless on older versions and for superusers).
+GRANT aidigest_app TO <admin>;
 GRANT CONNECT ON DATABASE <dbname> TO aidigest_app;
 CREATE SCHEMA IF NOT EXISTS aidigest AUTHORIZATION aidigest_app;
--- Nothing else: no CREATE on the database, no grants on schema public.
+-- Drop the temporary membership again; the role keeps owning its schema.
+REVOKE aidigest_app FROM <admin>;
 ```
 
+Nothing else: no `CREATE` on the database, no grants on schema `public`.
+
+**PostgreSQL 14 and older:** every role may create objects in schema `public` by default. Also
+run `REVOKE CREATE ON SCHEMA public FROM PUBLIC;` (or at least `FROM aidigest_app`) so the
+AIDigest role cannot create tables next to the homeschool data. PostgreSQL 15+ already defaults
+to that.
+
 On managed Postgres (Neon, Supabase, ...) create the role in the provider console if `CREATE
-ROLE` is not available to you, then run the `CREATE SCHEMA ... AUTHORIZATION` line.
+ROLE` is not available to you, then run the `GRANT`/`CREATE SCHEMA ... AUTHORIZATION` lines.
 
 ## Upgrading an existing install (read this first)
 
