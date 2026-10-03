@@ -89,12 +89,30 @@ run_case() {  # $1 label  $2 user  $3 hash  $4 secret  $5 expected status for op
   docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
 }
 
+run_raw_case() {  # Caddy started outside compose with NO AIDigest variables: Caddyfile defaults apply
+  echo "== outside compose, no AIDIGEST_* variables at all"
+  if docker run --rm -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" \
+       caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>"$WORK/adapt.err"; then
+    expect "caddy adapt" "adapted" "adapted"
+  else
+    expect "caddy adapt" "adapted" "ERROR: $(tail -c 160 "$WORK/adapt.err" | tr '\n' ' ')"; return
+  fi
+  docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
+  docker run -d --name "caddy-matrix-$$" --network "$NET" --network-alias caddy \
+    -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" >/dev/null
+  sleep 2
+  expect "no credentials" 401 "$(probe "")"
+  expect "aidigest-disabled:<right password>" 401 "$(probe "aidigest-disabled:$PASSWORD")"
+  docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
+}
+
 SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 run_case "user empty, hash empty"   ""    ""            "$SECRET" 401
 run_case "user set,   hash empty"   "ops" ""            "$SECRET" 401
 run_case "user empty, hash set"     ""    "$KNOWN_HASH" "$SECRET" 401
 run_case "user set,   hash set"     "ops" "$KNOWN_HASH" "$SECRET" 502
 run_case "user+hash set, no secret" "ops" "$KNOWN_HASH" ""        401
+run_raw_case
 
 echo
 if [[ $FAILURES -eq 0 ]]; then echo "caddy matrix: all expectations met"; else echo "caddy matrix: $FAILURES failure(s)"; exit 1; fi

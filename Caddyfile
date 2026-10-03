@@ -12,17 +12,26 @@
   # AIDigest: basic auth at the edge. The service trusts a request only when it
   # carries the proxy secret AND the user id Caddy sets here (header_up replaces
   # any client-supplied value). See AIDigest/DESIGN.md.
+  #
+  # Fail closed without ever breaking Caddy (it is the only ingress for the homeschool UI):
+  # unset/empty values fall back to non-empty sentinels, so basic_auth always adapts, and the
+  # route answers 401 before basic_auth whenever AIDigest is not FULLY configured. The sentinel
+  # hash is bcrypt of a random value that was discarded - no password matches it.
   redir /aidigest /aidigest/ 308
   handle_path /aidigest/* {
-    request_body {
-      max_size 64KB
-    }
-    basic_auth {
-      {$AIDIGEST_BASIC_AUTH_USER} {$AIDIGEST_BASIC_AUTH_HASH}
-    }
-    reverse_proxy aidigest:8000 {
-      header_up X-AIDigest-User         {http.auth.user.id}
-      header_up X-AIDigest-Proxy-Secret {$AIDIGEST_PROXY_SECRET}
+    route {
+      @aidigest_unconfigured expression `{env.AIDIGEST_BASIC_AUTH_USER} in ["", "aidigest-disabled"] || {env.AIDIGEST_BASIC_AUTH_HASH} in ["", "$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW"] || {env.AIDIGEST_PROXY_SECRET} == ""`
+      respond @aidigest_unconfigured 401
+      request_body {
+        max_size 64KB
+      }
+      basic_auth {
+        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled} {$AIDIGEST_BASIC_AUTH_HASH:$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
+      }
+      reverse_proxy aidigest:8000 {
+        header_up X-AIDigest-User         {http.auth.user.id}
+        header_up X-AIDigest-Proxy-Secret {$AIDIGEST_PROXY_SECRET}
+      }
     }
   }
 

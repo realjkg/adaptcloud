@@ -19,8 +19,9 @@ version: '3.9'
 #   AIDIGEST_PROXY_SECRET     Caddy -> AIDigest shared secret (openssl rand -hex 32)
 #   AIDIGEST_BASIC_AUTH_USER  Basic-auth user for https://<host>/aidigest/*
 #   AIDIGEST_BASIC_AUTH_HASH  bcrypt hash of that user's password (caddy hash-password)
-# Missing values fail closed: Caddy has no basic-auth account (every request 401)
-# and the aidigest container refuses to start (PRODUCTION=true validation).
+# Missing or partial values fail closed without breaking Caddy: Caddy falls back to
+# sentinel credentials and answers /aidigest/* with 401; the aidigest container refuses to
+# start (PRODUCTION=true validation).
 #
 # Storage model:
 #   All persistent data (encryption keys, voice profiles, audit log) lives in
@@ -118,9 +119,11 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
-    environment:                       # empty when AIDigest is not configured -> /aidigest/* is 401
-      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-}
-      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:-}
+    # Unconfigured AIDigest -> non-empty sentinels (Caddy must always adapt) and /aidigest/* is 401.
+    # The sentinel hash is bcrypt of a discarded random value; see the Caddyfile.
+    environment:
+      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-aidigest-disabled}
+      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:-$$2a$$10$$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
       - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:-}
     networks:
       - internal
