@@ -24,8 +24,10 @@ from tests.fakes import PROXY_SECRET, FakeAI, FakeFetcher, make_settings
 
 PG_BIN = Path(os.environ.get("AIDIGEST_PG_BIN", "/usr/lib/postgresql/16/bin"))
 PG_DIR = Path(os.environ.get("AIDIGEST_PG_DIR", "/tmp/aidg_pg"))
-# Deliberately outside 55432 and 555xx-556xx (owned by other agents).
-PG_PORT = int(os.environ.get("AIDIGEST_PG_PORT", "57650"))
+# Below the kernel ephemeral range (32768-60999), so an outbound client socket can never
+# hold the port, and outside 55432 / 555xx-556xx (owned by other agents).
+PG_PORTS = ([int(os.environ["AIDIGEST_PG_PORT"])] if os.environ.get("AIDIGEST_PG_PORT")
+            else list(range(29650, 29660)))
 
 
 # ── No skips, ever ────────────────────────────────────────────────────────────
@@ -41,7 +43,8 @@ def pytest_runtest_makereport(item, call):
 def _as_postgres(cmd: list[str]) -> subprocess.CompletedProcess:
     if os.geteuid() == 0:
         cmd = ["runuser", "-u", "postgres", "--", *cmd]
-    return subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=120)
+    # cwd=PG_DIR: the postgres user may not be able to read the caller's working directory.
+    return subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=120, cwd=PG_DIR)
 
 
 @pytest.fixture(scope="session")
@@ -60,12 +63,23 @@ def pg_url():
         shutil.chown(PG_DIR, "postgres", "postgres")
     data = PG_DIR / "data"
     _as_postgres([str(PG_BIN / "initdb"), "-D", str(data), "-A", "trust", "-U", "postgres", "--no-sync"])
-    _as_postgres([
-        str(PG_BIN / "pg_ctl"), "-D", str(data), "-l", str(PG_DIR / "pg.log"), "-w", "start",
-        "-o", f"-p {PG_PORT} -k {PG_DIR} -c listen_addresses=127.0.0.1 -c fsync=off",
-    ])
+    port = None
+    for candidate in PG_PORTS:
+        try:
+            _as_postgres([
+                str(PG_BIN / "pg_ctl"), "-D", str(data), "-l", str(PG_DIR / "pg.log"), "-w", "start",
+                "-o", f"-p {candidate} -k {PG_DIR} -c listen_addresses=127.0.0.1 -c fsync=off",
+            ])
+            port = candidate
+            break
+        except subprocess.CalledProcessError:
+            continue  # port busy: try the next one
+    if port is None:
+        log = (PG_DIR / "pg.log").read_text() if (PG_DIR / "pg.log").exists() else ""
+        shutil.rmtree(PG_DIR, ignore_errors=True)
+        raise RuntimeError(f"Could not start test Postgres on ports {PG_PORTS}: {log[-2000:]}")
     try:
-        url = f"postgresql+asyncpg://postgres@127.0.0.1:{PG_PORT}/postgres"
+        url = f"postgresql+asyncpg://postgres@127.0.0.1:{port}/postgres"
         yield url
     finally:
         try:

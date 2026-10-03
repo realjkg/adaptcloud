@@ -15,7 +15,7 @@ ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S104", "S105", "S106", "S108", "S603", "S604", "S607", "S608", "E501"]
-"scripts/*" = ["S603", "S607"]
+"scripts/*" = ["S603", "S607", "E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["aidigest", "tests"]

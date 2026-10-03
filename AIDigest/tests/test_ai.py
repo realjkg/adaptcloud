@@ -44,7 +44,9 @@ async def test_anthropic_adapter_makes_one_call_with_configured_model():
 
 
 async def test_anthropic_adapter_refusal_is_ai_error():
-    ai = AnthropicAI(SimpleNamespace(messages=FakeMessages(message("", "refusal"))), model="m", max_tokens=10)
+    # Partial text with a refusal stop_reason must still be rejected.
+    msgs = FakeMessages(message('[{"id": "x"}]', "refusal"))
+    ai = AnthropicAI(SimpleNamespace(messages=msgs), model="m", max_tokens=10)
     with pytest.raises(AIError):
         await ai.complete(system="s", user="u")
 

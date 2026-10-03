@@ -100,8 +100,11 @@ async def test_daily_prompt_isolates_evidence(engine):
 async def test_daily_rejects_unknown_ids_and_foreign_urls(engine):
     """Finding 2: every selected id must be a candidate id and every URL the candidate's URL."""
     ai = FakeAI()
+    unknown_without_url = selection("https://news.example/never-seen")
+    del unknown_without_url["url"]  # an unknown id must be rejected on its own, not via the URL check
     ai.queue_json([
         selection("https://news.example/never-seen"),
+        unknown_without_url,
         selection("https://news.example/0", url="https://attacker.example/phish"),
         selection("https://news.example/1", id=sha("https://news.example/1").upper()),
         selection("https://news.example/2"),
