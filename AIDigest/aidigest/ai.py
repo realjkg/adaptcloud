@@ -5,6 +5,7 @@ so the model cannot trigger any side effect."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 from typing import Any, Protocol
@@ -19,10 +20,15 @@ class AIClient(Protocol):
 
 
 class AnthropicAI:
-    def __init__(self, client: Any, *, model: str, max_tokens: int):
+    """One non-streaming Messages call. Effort is set explicitly (L5) so adaptive thinking
+    cannot consume the whole max_tokens budget; max_tokens defaults to 16k (non-streaming
+    safe). A max_tokens or refusal stop is a clean AIError - nothing partial is stored."""
+
+    def __init__(self, client: Any, *, model: str, max_tokens: int, effort: str):
         self._client = client
         self.model = model
         self.max_tokens = max_tokens
+        self.effort = effort
 
     async def complete(self, *, system: str, user: str) -> str:
         try:
@@ -31,6 +37,7 @@ class AnthropicAI:
                 max_tokens=self.max_tokens,
                 system=system,
                 messages=[{"role": "user", "content": user}],
+                output_config={"effort": self.effort},
             )
         except anthropic.APIError as exc:
             raise AIError(f"Claude API error: {type(exc).__name__}") from exc
@@ -44,13 +51,26 @@ class AnthropicAI:
         return text
 
 
+class BoundedAI:
+    """Global cap on concurrent AI calls across DAILY and TASK (M6)."""
+
+    def __init__(self, inner: AIClient, *, max_concurrency: int):
+        self._inner = inner
+        self._semaphore = asyncio.Semaphore(max_concurrency)
+
+    async def complete(self, *, system: str, user: str) -> str:
+        async with self._semaphore:
+            return await self._inner.complete(system=system, user=user)
+
+
 def build_anthropic_ai(settings) -> AnthropicAI:
     client = anthropic.AsyncAnthropic(
         api_key=settings.anthropic_api_key or None,
         timeout=settings.aidigest_ai_timeout_seconds,
-        max_retries=2,
+        max_retries=1,  # worst case 2 x timeout, which stays inside the DAILY/TASK budgets
     )
-    return AnthropicAI(client, model=settings.aidigest_model, max_tokens=settings.aidigest_ai_max_tokens)
+    return AnthropicAI(client, model=settings.aidigest_model, max_tokens=settings.aidigest_ai_max_tokens,
+                       effort=settings.aidigest_ai_effort)
 
 
 # ── Strict output parsing ────────────────────────────────────────────────────
@@ -97,4 +117,5 @@ def finite_number(value: Any) -> float | None:
 
 
 def bounded_str(value: Any, limit: int) -> str:
-    return value.strip()[:limit] if isinstance(value, str) else ""
+    """Strings from the model: NUL removed (Postgres TEXT rejects it - M3), trimmed, bounded."""
+    return value.replace("\x00", "").strip()[:limit] if isinstance(value, str) else ""

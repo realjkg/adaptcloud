@@ -15,16 +15,16 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from aidigest import __version__
-from aidigest.ai import AIClient, build_anthropic_ai
+from aidigest.ai import AIClient, BoundedAI, build_anthropic_ai
 from aidigest.auth import AuthMiddleware
 from aidigest.config import Settings
-from aidigest.daily import run_daily
+from aidigest.daily import DailyConfig, run_daily
 from aidigest.db import apply_schema, make_engine, readiness
 from aidigest.digest import digest_html, digest_rows
-from aidigest.errors import AIDigestError
+from aidigest.errors import AIDigestError, RateLimitError
 from aidigest.fetcher import GuardedFetcher
 from aidigest.scheduler import scheduler_loop
-from aidigest.tasks import TaskRequest, get_task, run_task
+from aidigest.tasks import TaskConfig, TaskRequest, get_task, run_task
 
 log = logging.getLogger(__name__)
 
@@ -39,16 +39,20 @@ DIGEST_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; fo
 def create_app(settings: Settings, *, engine: AsyncEngine | None = None, ai: AIClient | None = None,
                fetcher=None) -> FastAPI:
     owns_engine = engine is None
-    engine = engine or make_engine(settings.database_url)
-    ai = ai or build_anthropic_ai(settings)
+    engine = engine or make_engine(settings.aidigest_database_url)
+    # M6: one global cap on concurrent AI calls, shared by DAILY and TASK.
+    ai = BoundedAI(ai or build_anthropic_ai(settings), max_concurrency=settings.aidigest_ai_max_concurrency)
     fetcher = fetcher or GuardedFetcher(
         max_bytes=settings.aidigest_fetch_max_bytes,
         max_redirects=settings.aidigest_fetch_max_redirects,
         timeout=settings.aidigest_fetch_timeout_seconds,
+        total_timeout=settings.aidigest_fetch_total_seconds,
     )
+    daily_config = DailyConfig.from_settings(settings)
+    task_config = TaskConfig.from_settings(settings)
 
     async def scheduled_daily() -> dict:
-        return await run_daily(engine, ai, fetcher, trigger="schedule")
+        return await run_daily(engine, ai, fetcher, trigger="schedule", config=daily_config)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -63,7 +67,8 @@ def create_app(settings: Settings, *, engine: AsyncEngine | None = None, ai: AIC
             log.critical("Readiness check failed at startup", exc_info=True)
         task = None
         if settings.aidigest_scheduler_enabled:
-            task = asyncio.create_task(scheduler_loop(scheduled_daily, settings.daily_hour, settings.daily_minute))
+            task = asyncio.create_task(scheduler_loop(scheduled_daily, settings.daily_hour, settings.daily_minute,
+                                                      catch_up=True))
         app.state.scheduler_task = task
         try:
             yield
@@ -96,9 +101,12 @@ def create_app(settings: Settings, *, engine: AsyncEngine | None = None, ai: AIC
     @app.exception_handler(AIDigestError)
     async def _aidigest_error(_request: Request, exc: AIDigestError):
         body = {"error": str(exc)}
+        headers = dict(NO_STORE)
         if getattr(exc, "missing_tables", None):
             body["missing_tables"] = exc.missing_tables
-        return JSONResponse(body, status_code=exc.status_code, headers=NO_STORE)
+        if isinstance(exc, RateLimitError):
+            headers["retry-after"] = str(exc.retry_after)
+        return JSONResponse(body, status_code=exc.status_code, headers=headers)
 
     @app.exception_handler(SQLAlchemyError)
     async def _db_error(_request: Request, exc: SQLAlchemyError):
@@ -120,9 +128,11 @@ def create_app(settings: Settings, *, engine: AsyncEngine | None = None, ai: AIC
 
     @app.post("/ops/run-daily")
     async def ops_run_daily():
-        result = await run_daily(engine, ai, fetcher, trigger="operator")
-        status = {"completed": 200, "duplicate": 409, "schema_not_ready": 503}[result["status"]]
-        return JSONResponse(result, status_code=status)
+        result = await run_daily(engine, ai, fetcher, trigger="operator", config=daily_config)
+        status = {"completed": 200, "duplicate": 409, "schema_not_ready": 503, "attempts_exhausted": 429,
+                  "lost_lease": 409}[result["status"]]
+        headers = {"retry-after": "3600"} if status == 429 else None
+        return JSONResponse(result, status_code=status, headers=headers)
 
     @app.get("/digest")
     async def digest_page():
@@ -136,6 +146,8 @@ def create_app(settings: Settings, *, engine: AsyncEngine | None = None, ai: AIC
     @app.get("/knowledge")
     async def knowledge(q: str | None = None):
         q = (q or "").strip()
+        if "\x00" in q:
+            return JSONResponse({"error": "q must not contain NUL characters"}, status_code=400)
         if not 2 <= len(q) <= 200:
             return JSONResponse({"error": "Use ?q= with 2-200 characters"}, status_code=400)
         like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
@@ -147,7 +159,7 @@ def create_app(settings: Settings, *, engine: AsyncEngine | None = None, ai: AIC
 
     @app.post("/agent/tasks")
     async def create_task(body: TaskRequest, request: Request):
-        return JSONResponse(await run_task(engine, ai, fetcher, who(request), body))
+        return JSONResponse(await run_task(engine, ai, fetcher, who(request), body, task_config))
 
     @app.get("/agent/tasks/{task_id}")
     async def read_task(task_id: str):

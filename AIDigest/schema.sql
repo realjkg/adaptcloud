@@ -1,5 +1,7 @@
 -- AIDigest schema (Postgres). Applied idempotently at service startup by
 -- aidigest/db.py:apply_schema(); safe to run by hand with psql as well.
+-- When schema "aidigest" already exists (the recommended least-privilege setup,
+-- see README), CREATE SCHEMA is skipped so the role needs no database CREATE.
 -- Everything lives in schema "aidigest" so nothing collides with homeschool
 -- tables in "public". Statements are separated by ";" and must not contain
 -- a literal semicolon.
@@ -51,6 +53,8 @@ CREATE TABLE IF NOT EXISTS aidigest.runs (
   run_key TEXT,                        -- daily:YYYY-MM-DD (UTC)
   trigger TEXT,                        -- schedule | operator
   status TEXT NOT NULL,                -- running | completed | failed | schema_not_ready
+  owner TEXT,                          -- random token of the process holding the lease
+  lease_until TIMESTAMPTZ,             -- a running row may be taken over only after this
   candidates INTEGER NOT NULL DEFAULT 0,
   accepted INTEGER NOT NULL DEFAULT 0,
   error TEXT,
@@ -61,4 +65,5 @@ CREATE TABLE IF NOT EXISTS aidigest.runs (
 -- duplicate DAILY runs across workers and restarts; failed runs free the key.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_runs_active_key
   ON aidigest.runs(run_key) WHERE status IN ('running', 'completed');
-CREATE INDEX IF NOT EXISTS idx_runs_created ON aidigest.runs(created_at DESC)
+CREATE INDEX IF NOT EXISTS idx_runs_created ON aidigest.runs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tasks_user_created ON aidigest.tasks(requested_by, created_at DESC)

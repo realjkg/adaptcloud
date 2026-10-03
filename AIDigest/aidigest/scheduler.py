@@ -26,7 +26,18 @@ async def scheduler_loop(
     *,
     now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    catch_up: bool = False,
 ) -> None:
+    """With catch_up, a process that starts after today's slot runs the job once immediately
+    (L4). run_daily makes this safe: a day that already completed is a no-op 'duplicate', a
+    crashed 'running' row is reclaimed only after its lease expires, and attempts are capped."""
+    if catch_up:
+        current = now()
+        if current >= current.astimezone(timezone.utc).replace(hour=hour, minute=minute, second=0, microsecond=0):
+            try:
+                log.info("Catch-up DAILY after start past %02d:%02d UTC: %s", hour, minute, await job())
+            except Exception:
+                log.exception("Catch-up DAILY failed")
     while True:
         current = now()
         target = next_run_after(current, hour, minute)

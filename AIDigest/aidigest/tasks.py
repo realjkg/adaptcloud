@@ -3,11 +3,13 @@ evidence -> ONE Claude synthesis -> validate -> optional source-backed knowledge
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -17,8 +19,16 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from aidigest.ai import bounded_str, finite_number, parse_json_object
 from aidigest.db import readiness
-from aidigest.errors import AIDigestError, AIError, NotReadyError, StorageError, UnsafeURLError
-from aidigest.feeds import clean_text, collect_feeds, url_id
+from aidigest.errors import (
+    AIDigestError,
+    AIError,
+    DeadlineError,
+    NotReadyError,
+    RateLimitError,
+    StorageError,
+    UnsafeURLError,
+)
+from aidigest.feeds import DEFAULT_PARSE_TIMEOUT, clean_text, collect_feeds, run_parser, url_id
 from aidigest.fetcher import validate_url
 from aidigest.prompts import evidence_block, system_prompt
 
@@ -35,6 +45,18 @@ MIN_CONFIDENCE = 0.75
 STOPWORDS = {"this", "that", "with", "from", "what", "recent", "latest", "adapt", "cloud"}
 
 
+@dataclass(frozen=True)
+class TaskConfig:
+    budget_seconds: float = 600.0
+    hourly_limit: int = 20
+    parse_timeout: float = DEFAULT_PARSE_TIMEOUT
+
+    @classmethod
+    def from_settings(cls, s) -> "TaskConfig":
+        return cls(budget_seconds=s.aidigest_task_budget_seconds, hourly_limit=s.aidigest_task_hourly_limit,
+                   parse_timeout=s.aidigest_parse_timeout_seconds)
+
+
 class TaskRequest(BaseModel):
     """Finding 7: strict runtime validation of the request body."""
 
@@ -48,6 +70,8 @@ class TaskRequest(BaseModel):
     @field_validator("task")
     @classmethod
     def _task_not_blank(cls, value: str) -> str:
+        if "\x00" in value:
+            raise ValueError("task must not contain NUL characters")
         value = value.strip()
         if len(value) < 4:
             raise ValueError("task must contain at least 4 non-blank characters")
@@ -107,18 +131,21 @@ async def _digest_evidence(engine: AsyncEngine) -> list[dict]:
                  "text": f"{r.summary} Why Adapt cares: {r.why_adapt}"} for r in rows]
 
 
-async def gather_evidence(engine: AsyncEngine, fetcher, req: TaskRequest, mode: str) -> list[dict]:
-    """Finding 6: explicit URLs take the first evidence slots; the cap is applied afterwards."""
+async def gather_evidence(engine: AsyncEngine, fetcher, req: TaskRequest, mode: str,
+                          parse_timeout: float = DEFAULT_PARSE_TIMEOUT) -> list[dict]:
+    """Finding 6: explicit URLs take the first evidence slots; the cap is applied afterwards.
+    Page cleaning runs in a worker thread under a deadline (H1)."""
     evidence: list[dict] = []
     for url in req.urls[:MAX_URLS]:
         page = await fetcher.fetch(url)
+        cleaned = await run_parser(clean_text, page.text, timeout=parse_timeout)
         evidence.append({"kind": "url", "source": validate_url(page.url).host, "url": page.url,
-                         "text": clean_text(page.text)[:MAX_URL_TEXT]})
+                         "text": cleaned[:MAX_URL_TEXT]})
     evidence.extend(await _knowledge_evidence(engine, req.task))
     if mode != "knowledge_lookup":
         evidence.extend(await _digest_evidence(engine))
     if not req.urls and mode in FEED_MODES:
-        items, _errors = await collect_feeds(fetcher)
+        items, _errors = await collect_feeds(fetcher, parse_timeout=parse_timeout)
         for item in sorted(items, key=lambda i: i.score, reverse=True)[:8]:
             evidence.append({"kind": "feed", "source": f"{item.source}: {item.title}", "url": item.url,
                              "text": item.description})
@@ -149,7 +176,11 @@ def _strings(value: Any, limit: int, count: int) -> list[str]:
     return [bounded_str(v, limit) for v in value if isinstance(v, str) and v.strip()][:count]
 
 
-def sanitize_task_result(parsed: dict, observed: set[str], persist: bool) -> tuple[dict, list[dict]]:
+def sanitize_task_result(parsed: dict, observed: set[str], persist: bool,
+                         fetched: set[str] | None = None) -> tuple[dict, list[dict]]:
+    """Citations must be URLs present in the evidence (`observed`); durable knowledge must come
+    from a URL actually fetched in THIS task (`fetched`, L7)."""
+    fetched = observed if fetched is None else fetched
     answer = bounded_str(parsed.get("answer"), 6000)
     if not answer:
         raise AIError("Model output has no answer")
@@ -177,7 +208,7 @@ def sanitize_task_result(parsed: dict, observed: set[str], persist: bool) -> tup
             if not isinstance(point, dict):
                 continue
             source_url = point.get("source_url")
-            if not isinstance(source_url, str) or source_url not in observed:
+            if not isinstance(source_url, str) or source_url not in fetched:
                 continue
             confidence = finite_number(point.get("confidence"))
             if confidence is None or confidence < MIN_CONFIDENCE or confidence > 1:
@@ -213,7 +244,40 @@ async def _finish_task(engine, task_id: str, status: str, *, result=None, error=
              "done": datetime.now(timezone.utc), "id": task_id})
 
 
-async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: TaskRequest) -> dict:
+async def _create_task_row(engine: AsyncEngine, task_id: str, requested_by: str, req: TaskRequest, mode: str,
+                           now: datetime, hourly_limit: int) -> None:
+    """Insert the task row unless the user's hourly cap is reached (M6). The per-user advisory
+    lock makes count-then-insert atomic across concurrent requests and workers."""
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": "task:" + requested_by})
+            recent = (await conn.execute(text(
+                "SELECT count(*) FROM aidigest.tasks WHERE requested_by=:by AND created_at > :since"),
+                {"by": requested_by, "since": now - timedelta(hours=1)})).scalar()
+            if recent >= hourly_limit:
+                raise RateLimitError(f"Task limit of {hourly_limit} per hour reached", retry_after=3600)
+            await conn.execute(text(
+                "INSERT INTO aidigest.tasks (id, requested_by, request_text, mode, status, created_at) "
+                "VALUES (:id, :by, :req, :mode, 'running', :now)"),
+                {"id": task_id, "by": requested_by, "req": req.task, "mode": mode, "now": now})
+    except SQLAlchemyError as exc:
+        raise StorageError("Could not create task") from exc
+
+
+async def _execute_task(engine, ai, fetcher, req: TaskRequest, mode: str, now: datetime, cfg: TaskConfig) -> dict:
+    evidence = await gather_evidence(engine, fetcher, req, mode, cfg.parse_timeout)
+    observed = {e["url"] for e in evidence if e.get("url")}
+    fetched = {e["url"] for e in evidence if e["kind"] == "url"}
+    system, user = build_task_prompt(mode, req.task, evidence)
+    raw = await ai.complete(system=system, user=user)  # the single AI call
+    result, knowledge = sanitize_task_result(parse_json_object(raw), observed, req.persist_knowledge, fetched)
+    result["knowledge_saved"] = await _save_knowledge(engine, knowledge, now)
+    return result
+
+
+async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: TaskRequest,
+                   config: TaskConfig | None = None) -> dict:
+    cfg = config or TaskConfig()
     state = await readiness(engine)  # finding 9: gate BEFORE creating a task row
     if not state["ready"]:
         raise NotReadyError(state["missing_tables"])
@@ -221,35 +285,28 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
     mode = resolve_mode(req.task, req.mode, req.urls)
     task_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    try:
-        async with engine.begin() as conn:
-            await conn.execute(text(
-                "INSERT INTO aidigest.tasks (id, requested_by, request_text, mode, status, created_at) "
-                "VALUES (:id, :by, :req, :mode, 'running', :now)"),
-                {"id": task_id, "by": requested_by[:320], "req": req.task, "mode": mode, "now": now})
-    except SQLAlchemyError as exc:
-        raise StorageError("Could not create task") from exc
+    requested_by = requested_by.replace("\x00", "")[:320]
+    await _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit)
 
     try:
-        evidence = await gather_evidence(engine, fetcher, req, mode)
-        observed = {e["url"] for e in evidence if e.get("url")}
-        system, user = build_task_prompt(mode, req.task, evidence)
-        raw = await ai.complete(system=system, user=user)  # the single AI call
-        result, knowledge = sanitize_task_result(parse_json_object(raw), observed, req.persist_knowledge)
-        result["knowledge_saved"] = await _save_knowledge(engine, knowledge, now)
+        result = await asyncio.wait_for(_execute_task(engine, ai, fetcher, req, mode, now, cfg), cfg.budget_seconds)
         await _finish_task(engine, task_id, "completed", result=result)
         return {"id": task_id, "status": "completed", "mode": mode, "result": result}
     except Exception as exc:  # finding 8: classify, record on the task row, re-raise mapped
-        if isinstance(exc, AIDigestError):
-            mapped: AIDigestError = exc
+        if isinstance(exc, TimeoutError):
+            mapped: AIDigestError = DeadlineError(f"Task budget of {cfg.budget_seconds:g}s exceeded")
+        elif isinstance(exc, AIDigestError):
+            mapped = exc
         elif isinstance(exc, SQLAlchemyError):
             mapped = StorageError("Database error while running task")
         else:
             log.exception("Unexpected error in task %s", task_id)
             mapped = AIDigestError("Internal error")
-        detail = str(exc) if isinstance(exc, AIDigestError) else f"{type(exc).__name__}: {exc}"
+        detail = str(mapped) if isinstance(exc, TimeoutError) else (
+            str(exc) if isinstance(exc, AIDigestError) else f"{type(exc).__name__}: {exc}")
         try:
-            await _finish_task(engine, task_id, "failed", error=f"{mapped.status_code}: {detail}"[:1500])
+            await _finish_task(engine, task_id, "failed",
+                               error=f"{mapped.status_code}: {detail}".replace("\x00", "")[:1500])
         except SQLAlchemyError:
             log.exception("Could not record failure for task %s", task_id)
         if mapped is exc:

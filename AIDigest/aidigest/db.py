@@ -17,7 +17,7 @@ _SCHEMA_LOCK_KEY = 0x41494447
 
 def make_engine(url: str) -> AsyncEngine:
     if not url:
-        raise RuntimeError("DATABASE_URL is not set. Provide a postgresql+asyncpg://... connection string.")
+        raise RuntimeError("AIDIGEST_DATABASE_URL is not set. Provide a postgresql+asyncpg://... connection string.")
     return create_async_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5)
 
 
@@ -28,10 +28,18 @@ def schema_statements() -> list[str]:
 
 
 async def apply_schema(engine: AsyncEngine) -> None:
-    """CREATE ... IF NOT EXISTS for every object, in one transaction, under an advisory lock."""
+    """CREATE ... IF NOT EXISTS for every object, in one transaction, under an advisory lock.
+
+    CREATE SCHEMA is skipped when the schema already exists (M8): Postgres checks the
+    database-level CREATE privilege even for IF NOT EXISTS, and the least-privilege role
+    only owns schema "aidigest"."""
     async with engine.begin() as conn:
         await conn.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _SCHEMA_LOCK_KEY})
+        exists = (await conn.execute(
+            text("SELECT 1 FROM pg_namespace WHERE nspname = :s"), {"s": SCHEMA})).scalar() is not None
         for statement in schema_statements():
+            if exists and statement.upper().startswith("CREATE SCHEMA"):
+                continue
             await conn.execute(text(statement))
 
 

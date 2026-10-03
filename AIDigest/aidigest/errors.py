@@ -45,3 +45,21 @@ class NotReadyError(AIDigestError):
     def __init__(self, missing_tables: list[str]):
         self.missing_tables = missing_tables
         super().__init__("SCHEMA_NOT_READY: missing tables " + ", ".join(missing_tables))
+
+
+class DeadlineError(AIDigestError):
+    """A DAILY run or TASK exceeded its total time budget (M1)."""
+
+    status_code = 504
+    public_message = "Time budget exceeded"
+
+
+class RateLimitError(AIDigestError):
+    """Per-user TASK cap or per-day DAILY attempt cap reached (M6)."""
+
+    status_code = 429
+    public_message = "Rate limit reached"
+
+    def __init__(self, message: str | None = None, retry_after: int = 3600):
+        self.retry_after = retry_after
+        super().__init__(message)
