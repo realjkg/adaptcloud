@@ -13,6 +13,7 @@ Usage:  python scripts/mutation_check.py [--only NAME_SUBSTRING] [--out results.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,9 @@ class Mutation:
     name: str
     control: str
     edits: list[tuple[str, str, str]]  # (relative file, old, new)
+    runner: str = "pytest"   # "pytest" | "caddy" (scripts/caddy_matrix.sh against the mutated files)
+    python: str = "default"  # "default" | "py312" (env MUTATION_PY312: an interpreter where the
+                             #  control is observable, e.g. Python 3.12.3 for stdlib-flag differences)
 
 
 M = Mutation
@@ -160,8 +164,8 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/tasks.py", "cleaned = await run_parser(clean_text, page.text, timeout=parse_timeout)",
         "cleaned = clean_text(page.text)")]),
     M("h1-no-parse-deadline", "parsing is bounded by a deadline",
-      [("aidigest/feeds.py", "return await asyncio.wait_for(asyncio.to_thread(func, *args), timeout)",
-        "return await asyncio.to_thread(func, *args)")]),
+      [("aidigest/feeds.py", "return await asyncio.wait_for(loop.run_in_executor(PARSE_EXECUTOR, func, *args), timeout)",
+        "return await loop.run_in_executor(PARSE_EXECUTOR, func, *args)")]),
     # M1: deadlines
     M("m1-no-fetch-deadline", "total deadline per fetch (slowloris)",
       [("aidigest/fetcher.py", "return await asyncio.wait_for(self._fetch(url), self.total_timeout)",
@@ -179,10 +183,11 @@ MUTATIONS: list[Mutation] = [
     M("m2-store-without-owner", "store+complete requires owner and running",
       [("aidigest/daily.py", "        if mine is None:\n            raise LostLease(run_id)", "        if False:\n            raise LostLease(run_id)")]),
     M("m2-takeover-ignores-lease", "only an expired lease may be taken over",
-      [("aidigest/daily.py", '"AND (lease_until < :now OR (lease_until IS NULL AND created_at < :cutoff))"', '"AND true"')]),
+      [("aidigest/daily.py", '"WHERE run_key=:key AND status=\'running\' AND (lease_until IS NULL OR lease_until < now())"',
+        '"WHERE run_key=:key AND status=\'running\'"')]),
     M("m2-refresh-without-owner", "heartbeat only extends our own running lease",
-      [("aidigest/daily.py", "\"UPDATE aidigest.runs SET lease_until=:lease WHERE id=:id AND owner=:owner AND status='running'\"",
-        "\"UPDATE aidigest.runs SET lease_until=:lease WHERE id=:id\"")]),
+      [("aidigest/daily.py", "\"WHERE id=:id AND owner=:owner AND status='running'\"),\n            {\"lease\": lease_seconds",
+        "\"WHERE id=:id\"),\n            {\"lease\": lease_seconds")]),
     M("m2-lease-not-longer-than-budget", "lease must exceed the run budget (DailyConfig)",
       [("aidigest/daily.py", "        if self.lease_seconds <= self.budget_seconds:\n", "        if False:\n")]),
     M("m2-settings-lease-check", "lease must exceed the run budget (Settings)",
@@ -207,7 +212,7 @@ MUTATIONS: list[Mutation] = [
     M("m5-accepts-compression", "Accept-Encoding: identity",
       [("aidigest/fetcher.py", '"Accept-Encoding": "identity"', '"Accept-Encoding": "gzip"')]),
     M("m5-unbounded-decompress", "decompression bounded by the remaining byte budget",
-      [("aidigest/fetcher.py", "out = decoder.decompress(data, self._room(chunks) + 1)", "out = decoder.decompress(data)")]),
+      [("aidigest/fetcher.py", "out = decoder.decompress(data, self.max_bytes - decoded + 1)", "out = decoder.decompress(data)")]),
     M("m5-unsupported-encoding-accepted", "unknown content encodings refused",
       [("aidigest/fetcher.py", '            raise UpstreamError(f"Unsupported content encoding {encoding[:40]!r}")', "            decoder = None")]),
     # M6
@@ -265,16 +270,76 @@ MUTATIONS: list[Mutation] = [
     # L7
     M("l7-single-entity-pass", "entities decoded to a fixed point",
       [("aidigest/feeds.py", "for _ in range(MAX_ENTITY_ROUNDS):", "for _ in range(1):")]),
+    # ═══════════════ challenger round 2 ═══════════════
+    M("r2-m1-quadratic-decoded-total", "O(1) per chunk: running decoded total (gzip path)",
+      [("aidigest/fetcher.py", "                        decoded += len(out)\n                        if decoded > self.max_bytes:",
+        "                        decoded = sum(map(len, chunks)) + len(out)\n                        if decoded > self.max_bytes:")]),
+    M("r2-m1-no-periodic-yield", "read loop yields to the event loop periodically",
+      [("aidigest/fetcher.py", "                    await asyncio.sleep(0)\n", "                    pass\n")]),
+    M("r2-m2-no-unconfigured-guard", "/aidigest/* is 401 unless fully configured (Caddy)",
+      [("../Caddyfile", "      respond @aidigest_unconfigured 401\n", "")], runner="caddy"),
+    M("r2-m2-no-user-sentinel", "compose maps an empty user to a non-empty sentinel",
+      [("../docker-compose.yml", "${AIDIGEST_BASIC_AUTH_USER:-aidigest-disabled}", "${AIDIGEST_BASIC_AUTH_USER:-}")],
+      runner="caddy"),
+    M("r2-m2-no-hash-sentinel", "compose maps an empty hash to a non-empty sentinel",
+      [("../docker-compose.yml", "${AIDIGEST_BASIC_AUTH_HASH:-$$2a$$10$$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}", "${AIDIGEST_BASIC_AUTH_HASH:-}")],
+      runner="caddy"),
+    M("r2-m2-guard-ignores-secret", "/aidigest/* is 401 without a proxy secret (Caddy)",
+      [("../Caddyfile", ' || {env.AIDIGEST_PROXY_SECRET} == ""`', "`")], runner="caddy"),
+    M("r2-m3-no-mapped-unwrap", "IPv4-mapped judged by its IPv4 (observable on 3.12.3)",
+      [("aidigest/fetcher.py", "    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:\n        return ip.ipv4_mapped\n    return ip",
+        "    return ip")], python="py312"),
+    M("r2-l1-non-text-codec-allowed", "only text codecs decode bodies",
+      [("aidigest/fetcher.py", 'if not getattr(info, "_is_text_encoding", True):', "if False:")]),
+    M("r2-l1-decode-errors-unmapped", "decode errors are 502",
+      [("aidigest/fetcher.py", "    except (UnicodeError, ValueError, TypeError) as exc:\n        raise UpstreamError(f\"Could not decode",
+        "    except ZeroDivisionError as exc:\n        raise UpstreamError(f\"Could not decode")]),
+    M("r2-l1-huge-charref", "huge numeric charrefs neutralised before html.unescape",
+      [("aidigest/feeds.py", 'decoded = html.unescape(_LONG_CHARREF.sub("\\ufffd", value))', "decoded = html.unescape(value)")]),
+    M("r2-l2-all-feeds-failed-completes", "all feeds failing is a failed (retryable) run",
+      [("aidigest/daily.py", "    if len(source_errors) == len(SOURCES):\n", "    if False:\n")]),
+    M("r2-l3-empty-keys-not-filled", "setup.sh fills empty AIDigest keys",
+      [("../setup.sh", "    if [[ \"$key\" != COMPOSE_PROFILES ]] && grep -Eq", "    if false && grep -Eq")]),
+    M("r2-l4-readme-no-member-grant", "README role SQL works for a PG16 non-superuser admin",
+      [("README.md", "GRANT aidigest_app TO <admin>;\n", "")]),
+    M("r2-l5-max-retries", "Claude client max_retries=1",
+      [("aidigest/ai.py", "max_retries=1,", "max_retries=2,")]),
+    M("r2-l5-items-per-feed", "<= 25 items per feed",
+      [("aidigest/feeds.py", "MAX_ITEMS_PER_FEED = 25", "MAX_ITEMS_PER_FEED = 50")]),
+    M("r2-l5-description-cap", "<= 1800-char descriptions",
+      [("aidigest/feeds.py", "MAX_DESCRIPTION = 1800", "MAX_DESCRIPTION = 5000")]),
+    M("r2-l5-run-key-local-date", "run_key uses the UTC date",
+      [("aidigest/daily.py", 'run_key = f"daily:{started.astimezone(timezone.utc).date().isoformat()}"',
+        'run_key = f"daily:{started.date().isoformat()}"')]),
+    M("r2-l5-no-claim-lock", "claims serialised by the per-day advisory lock",
+      [("aidigest/daily.py", '        await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": run_key})\n', "")]),
+    M("r2-l5-heartbeat-never-runs", "the heartbeat extends the lease",
+      [("aidigest/daily.py", "    heartbeat = asyncio.create_task(_heartbeat(engine, run_id, owner, cfg))",
+        "    heartbeat = asyncio.create_task(asyncio.sleep(3600))")]),
+    M("r2-l6-default-executor", "parsers use the dedicated bounded executor",
+      [("aidigest/feeds.py", "loop.run_in_executor(PARSE_EXECUTOR, func, *args), timeout)", "loop.run_in_executor(None, func, *args), timeout)")]),
+    M("r2-l7-replica-clock-lease", "lease timestamps from the DB clock",
+      [("aidigest/daily.py", "now() + make_interval(secs => :lease), :now) ", ":now + make_interval(secs => :lease), :now) ")]),
+    M("r2-l8-hardcoded-user-agent", "one version string",
+      [("aidigest/fetcher.py", 'USER_AGENT = f"AdaptCloud-AIDigest/{__version__} (+https://adaptcloud.io)"',
+        'USER_AGENT = "AdaptCloud-AIDigest/0.4 (+https://adaptcloud.io)"')]),
 ]
 
 
-def run_suite(workdir: Path) -> tuple[bool, str, float]:
+def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, float]:
     start = time.monotonic()
+    if m is not None and m.runner == "caddy":
+        cmd = ["bash", str(ROOT / "scripts" / "caddy_matrix.sh"), str(workdir.parent / "Caddyfile"),
+               str(workdir.parent / "docker-compose.yml")]
+    else:
+        python = sys.executable
+        if m is not None and m.python == "py312":
+            python = os.environ.get("MUTATION_PY312", "")
+            if not python:
+                return True, "MUTATION_PY312 not set - mutation NOT evaluated", 0.0
+        cmd = [python, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider"]
     try:
-        proc = subprocess.run(
-            [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider"],
-            cwd=workdir, capture_output=True, text=True, timeout=900,
-        )
+        proc = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True, timeout=900)
     except subprocess.TimeoutExpired:
         return False, "suite timed out (900 s)", time.monotonic() - start
     tail = (proc.stdout.strip().splitlines() or [""])[-1]
@@ -286,7 +351,8 @@ def copy_tree(dest: Path) -> Path:
     app = dest / "AIDigest"
     shutil.copytree(ROOT, app, ignore=shutil.ignore_patterns(
         "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv", "scripts"))
-    shutil.copy2(ROOT.parent / "setup.sh", dest / "setup.sh")
+    for name in ("setup.sh", "Caddyfile", "docker-compose.yml", ".env.example"):
+        shutil.copy2(ROOT.parent / name, dest / name)
     return app
 
 
@@ -316,7 +382,7 @@ def main() -> int:
                     print(f"{m.name}: target found {count}x in {rel}; fix the mutation definition")
                     return 2
                 path.write_text(src.replace(old, new))
-            green, tail, secs = run_suite(work)
+            green, tail, secs = run_suite(work, m)
             verdict = "SURVIVED" if green else "killed"
             survived += green
             rows.append((m.name, m.control, verdict, tail))

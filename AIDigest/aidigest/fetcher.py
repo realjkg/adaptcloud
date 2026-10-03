@@ -43,7 +43,6 @@ NON_PUBLIC_V6 = tuple(ipaddress.ip_network(n) for n in (
     "100::/64",         # discard-only
     "2001:db8::/32",    # documentation
 ))
-NON_TEXT_CODECS = {"idna", "punycode", "undefined"}
 YIELD_EVERY_CHUNKS = 256   # hand the event loop back periodically even if the transport never suspends
 SUPPORTED_ENCODINGS = {"gzip": 16 + zlib.MAX_WBITS, "x-gzip": 16 + zlib.MAX_WBITS, "deflate": zlib.MAX_WBITS}
 
@@ -288,9 +287,9 @@ def decode_text(body: bytes, charset: str | None) -> str:
     """Decode with a real text codec only (round 2 L1): bytes-to-bytes and str-to-str codecs
     (base64, rot13, zlib, ...) and IDNA/punycode are refused as 502, never a 500."""
     info = codecs.lookup(_codec(charset))
-    if not getattr(info, "_is_text_encoding", True) or info.name in NON_TEXT_CODECS:
+    if not getattr(info, "_is_text_encoding", True):     # base64, rot13, zlib, hex, uu, bz2, quopri ...
         raise UpstreamError(f"Unsupported charset {str(charset)[:40]!r}")
-    try:
+    try:  # text codecs that still cannot decode arbitrary bytes: idna, punycode, undefined
         return body.decode(info.name, errors="replace")
     except (UnicodeError, ValueError, TypeError) as exc:
         raise UpstreamError(f"Could not decode the body as charset {str(charset)[:40]!r}") from exc

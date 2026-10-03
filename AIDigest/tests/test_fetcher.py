@@ -585,7 +585,7 @@ async def test_gzip_in_16_byte_chunks_keeps_the_loop_responsive():
 async def test_non_yielding_stream_still_yields_the_loop_periodically():
     """A transport that never suspends (already-buffered data) must not monopolise the loop."""
     async def gen():
-        for _ in range(200_000):
+        for _ in range(1_000_000):           # ~1 s of reading: without periodic yields one ~1 s stall
             yield b"a"
 
     f = fetcher(lambda req: httpx.Response(200, content=gen()), {"a.example": [PUBLIC_V4]},
