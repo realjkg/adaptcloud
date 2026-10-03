@@ -457,8 +457,9 @@ def test_daily_config_requires_lease_longer_than_budget():
 async def test_daily_run_budget(engine):
     gate = asyncio.Event()  # never set: feeds hang
     cfg = DailyConfig(budget_seconds=0.3, lease_seconds=60, heartbeat_seconds=3600)
-    with pytest.raises(DeadlineError):
-        await run_daily(engine, FakeAI(), FakeFetcher({}, gate=gate), trigger="schedule", now=NOW, config=cfg)
+    with pytest.raises(DeadlineError):  # outer bound: without the budget this fails in 5 s, not hangs
+        await asyncio.wait_for(
+            run_daily(engine, FakeAI(), FakeFetcher({}, gate=gate), trigger="schedule", now=NOW, config=cfg), 5)
     assert await scalar(engine, "SELECT status FROM aidigest.runs") == "failed"
     assert "budget" in await scalar(engine, "SELECT error FROM aidigest.runs")
 

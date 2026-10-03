@@ -8,7 +8,7 @@ AIDigest is one small FastAPI service (`aidigest`) in the docker-compose stack, 
 
 There are three bounded routines:
 
-1. STARTUP: apply schema.sql idempotently (`CREATE ... IF NOT EXISTS`) -> check readiness (articles, knowledge, tasks, runs present in schema `aidigest`) -> start the DAILY scheduler -> serve.
+1. STARTUP: apply schema.sql idempotently (`CREATE ... IF NOT EXISTS`; `CREATE SCHEMA` skipped when the schema exists) -> check readiness (articles, knowledge, tasks, runs present in schema `aidigest`) -> start the DAILY scheduler (runs once immediately if started after today's slot) -> serve.
 2. DAILY: scheduler (12:30 UTC, `AIDIGEST_DAILY_TIME`) or operator `POST /ops/run-daily` -> readiness gate -> claim the UTC day in Postgres -> curated feeds -> normalize/dedupe -> deterministic Adapt relevance -> ONE Claude curation -> validate -> Postgres -> digest.
 3. TASK: authenticated user -> strict validation -> readiness gate -> deterministic mode -> at most three read-only explicit URL fetches plus stored knowledge, recent digest and curated feeds -> ONE Claude synthesis -> validate -> optional source-backed knowledge -> Postgres -> response.
 
@@ -33,6 +33,10 @@ The running service never creates infrastructure, changes its own configuration,
 - Validate model output: DAILY ids must be candidate ids and URLs the candidate's URL; TASK citations must be observed URLs; every number must be finite.
 - A durable knowledge statement is saved only when confidence >= 0.75 and its source URL was actually observed during the task or daily run.
 - At most one DAILY run per UTC day, enforced in Postgres (no concurrent or duplicate runs across workers or restarts).
+- A DAILY run holds a lease with an owner token; a stale run that resumes after being taken over makes no AI call and writes nothing. Runs, tasks and fetches have total time budgets; failed DAILY attempts are capped per day.
+- AI calls are globally concurrency-limited and TASKs are capped per user per hour (429).
+- Untrusted text is parsed only with linear-time scanners, off the event loop, under a deadline. NUL bytes are rejected at the API and stripped from stored text.
+- AIDigest connects as a least-privilege role that owns only schema `aidigest`; it is an opt-in compose profile and never blocks the homeschool stack.
 - Prefer original primary sources. Do not reproduce full articles or long passages.
 
 ## Adapt Cloud relevance
