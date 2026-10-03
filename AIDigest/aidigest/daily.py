@@ -16,7 +16,7 @@ import logging
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -25,8 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from aidigest.ai import bounded_str, finite_number, parse_json_array
 from aidigest.db import readiness
-from aidigest.errors import AIDigestError, DeadlineError, StorageError
-from aidigest.feeds import DEFAULT_PARSE_TIMEOUT, FeedItem, collect_feeds, url_id
+from aidigest.errors import AIDigestError, DeadlineError, StorageError, UpstreamError
+from aidigest.feeds import DEFAULT_PARSE_TIMEOUT, SOURCES, FeedItem, collect_feeds, url_id
 from aidigest.prompts import evidence_block, system_prompt
 
 log = logging.getLogger(__name__)
@@ -155,41 +155,41 @@ async def _claim(engine: AsyncEngine, run_key: str, trigger: str, now: datetime,
                  cfg: DailyConfig) -> tuple[str, str | None, str | None]:
     """Atomically claim the day. Returns (outcome, run_id, owner_token)."""
     run_id, owner = str(uuid.uuid4()), secrets.token_hex(16)
-    lease = timedelta(seconds=cfg.lease_seconds)
     async with engine.begin() as conn:
         await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": run_key})
-        # Only an EXPIRED lease may be taken over (rows without a lease: by age).
+        # Only an EXPIRED lease may be taken over. Lease times come from the DATABASE clock
+        # (round 2 L7), so replicas with skewed clocks agree on expiry.
         await conn.execute(text(
-            "UPDATE aidigest.runs SET status='failed', error='abandoned', completed_at=:now "
-            "WHERE run_key=:key AND status='running' "
-            "AND (lease_until < :now OR (lease_until IS NULL AND created_at < :cutoff))"),
-            {"key": run_key, "now": now, "cutoff": now - lease})
+            "UPDATE aidigest.runs SET status='failed', error='abandoned', completed_at=now() "
+            "WHERE run_key=:key AND status='running' AND (lease_until IS NULL OR lease_until < now())"),
+            {"key": run_key})
         attempts = (await conn.execute(text(
             "SELECT count(*) FROM aidigest.runs WHERE run_key=:key AND status='failed'"), {"key": run_key})).scalar()
         if attempts >= cfg.max_attempts:
             return "attempts_exhausted", None, None
         claimed = (await conn.execute(text(
             "INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, owner, lease_until, created_at) "
-            "VALUES (:id, 'daily', :key, :trigger, 'running', :owner, :lease_until, :now) "
+            "VALUES (:id, 'daily', :key, :trigger, 'running', :owner, now() + make_interval(secs => :lease), :now) "
             "ON CONFLICT (run_key) WHERE status IN ('running', 'completed') DO NOTHING RETURNING id"),
-            {"id": run_id, "key": run_key, "trigger": trigger, "owner": owner, "lease_until": now + lease,
+            {"id": run_id, "key": run_key, "trigger": trigger, "owner": owner, "lease": cfg.lease_seconds,
              "now": now})).scalar()
     return ("claimed", run_id, owner) if claimed else ("duplicate", None, None)
 
 
-async def refresh_lease(engine: AsyncEngine, run_id: str, owner: str, lease_until: datetime) -> bool:
+async def refresh_lease(engine: AsyncEngine, run_id: str, owner: str, lease_seconds: float) -> bool:
     async with engine.begin() as conn:
         result = await conn.execute(text(
-            "UPDATE aidigest.runs SET lease_until=:lease WHERE id=:id AND owner=:owner AND status='running'"),
-            {"lease": lease_until, "id": run_id, "owner": owner})
+            "UPDATE aidigest.runs SET lease_until = now() + make_interval(secs => :lease) "
+            "WHERE id=:id AND owner=:owner AND status='running'"),
+            {"lease": lease_seconds, "id": run_id, "owner": owner})
         return result.rowcount == 1
 
 
-async def _heartbeat(engine, run_id, owner, clock, cfg: DailyConfig) -> None:
+async def _heartbeat(engine, run_id, owner, cfg: DailyConfig) -> None:
     while True:
         await asyncio.sleep(cfg.heartbeat_seconds)
         try:
-            if not await refresh_lease(engine, run_id, owner, clock() + timedelta(seconds=cfg.lease_seconds)):
+            if not await refresh_lease(engine, run_id, owner, cfg.lease_seconds):
                 log.warning("DAILY %s lost its lease; heartbeat stopped", run_id)
                 return
         except SQLAlchemyError:
@@ -271,6 +271,10 @@ async def _finish_failed(engine: AsyncEngine, run_id: str, owner: str, error: st
 async def _execute(engine, ai, fetcher, run_id: str, owner: str, run_key: str, now: datetime,
                    cfg: DailyConfig) -> dict:
     items, source_errors = await collect_feeds(fetcher, parse_timeout=cfg.parse_timeout)
+    if len(source_errors) == len(SOURCES):
+        # Round 2 L2: e.g. a boot before egress works. Fail (retryable within the daily attempt
+        # cap) instead of completing the day with nothing.
+        raise UpstreamError("All feeds failed: " + " | ".join(source_errors))
     errors_text = " | ".join(source_errors) or None
     candidates = await _new_candidates(engine, items)
     selected: list[dict[str, Any]] = []
@@ -288,8 +292,7 @@ async def _execute(engine, ai, fetcher, run_id: str, owner: str, run_key: str, n
 async def run_daily(engine: AsyncEngine, ai, fetcher, *, trigger: str, now: datetime | None = None,
                     config: DailyConfig | None = None) -> dict:
     cfg = config or DailyConfig()
-    clock = (lambda: now) if now is not None else (lambda: datetime.now(timezone.utc))
-    started = clock()
+    started = now or datetime.now(timezone.utc)   # only for the run_key date and created_at; leases use the DB clock
     run_key = f"daily:{started.astimezone(timezone.utc).date().isoformat()}"
 
     state = await readiness(engine)  # findings 9/10: never run on a broken schema
@@ -306,7 +309,7 @@ async def run_daily(engine: AsyncEngine, ai, fetcher, *, trigger: str, now: date
         log.info("DAILY %s already running or completed; skipping", run_key)
         return {"status": "duplicate", "run_key": run_key}
 
-    heartbeat = asyncio.create_task(_heartbeat(engine, run_id, owner, clock, cfg))
+    heartbeat = asyncio.create_task(_heartbeat(engine, run_id, owner, cfg))
     try:
         return await asyncio.wait_for(
             _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg), cfg.budget_seconds)
