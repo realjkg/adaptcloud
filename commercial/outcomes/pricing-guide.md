@@ -2,17 +2,19 @@
 
 ## What to sell now
 
-Use an outcome-oriented fixed fee as the default. Set a small number of observable acceptance conditions and allocate the engagement fee across them. Prefer paid discovery to a speculative performance promise. For suitable projects, make roughly 10-15% of the maximum one-time implementation fee contingent on a verified improvement; this is a proposed starting policy, not a market standard. The base fee must support healthy economics without the contingent fee, assuming the base milestones are delivered and accepted.
+Make the annual advisory and engineering service the core offer. Commit to a defined service scope, reporting cadence and reserved improvement capacity for a term of at least 12 months. Agree on acceptance criteria for individual work packages inside that relationship. Establish missing baselines through a scoped discovery activity before promising business improvements.
 
-Package the default delivery model inside a renewable engagement with an initial term of at least 12 months. Quote three explicit components: one-time implementation, annual recurring services plus the PromptForce.AI entitlement, and an optional capped performance fee. Monthly payment is an installment arrangement, not a month-to-month cancellation right. See the [annual service schedule](annual-service-schedule.md).
+Quote the annual recurring service and PromptForce.AI entitlement first, then any initial or substantial implementation package that exceeds the included capacity. An account with an existing system may need no separate initial build. The fictional example includes one; it is not a compulsory charge for every account. Allocate each activity to exactly one fee line, and do not charge routine improvement work again as a new implementation package.
+
+For suitable work packages, an optional performance fee can represent roughly 10-15% of that package's maximum fee. This is a proposed starting policy, not a market standard. Do not make recurring economics depend on that payment or reset it automatically each year. Monthly service payments are installments under the annual commitment, subject to its service remedies and termination terms. See the [annual service schedule](annual-service-schedule.md).
 
 After several comparable deliveries establish stable cost, quality, volume and attribution, consider a per-successful-transaction model with a setup fee, a minimum commitment, volume bands and a cap. Do not start with an unlimited, no-result/no-payment engineering obligation.
 
 | Commercial model | Where it fits | Main limitation | Recommendation |
 |---|---|---|---|
-| Fixed fee for accepted milestones | Defined assessments, integrations, agents and controls | Scope and acceptance must be explicit | Default |
+| Fixed fee for accepted milestones | Work packages exceeding included recurring capacity | Scope and acceptance must be explicit | Used within the continuing relationship |
 | Fixed base plus capped performance fee | Repeatable workflow with a signed baseline | Attribution and measurement overhead | Selective |
-| Monthly improvement retainer | Monitoring, evaluation and a bounded improvement backlog | Can become unlimited support | Annual renewable scope, capacity and response commitments |
+| Annual advisory and engineering service | Recurring decisions, evaluation and reserved improvement capacity | Scope and capacity must support the promised outputs | Default, with monthly installments |
 | Time and materials with a ceiling | Investigation or unstable integration dependencies | Buyer has less final-price certainty | Exception with weekly decisions |
 | Price per accepted transaction | Mature, repetitive service with stable economics | Volume, failure, review and dispute exposure | Later, after evidence |
 | Share of verified savings | Narrow optimization with auditable spend | Counterfactual savings and client changes are disputable | Only with fixed methodology and fee cap |
@@ -23,10 +25,10 @@ These are proposed scope patterns for the offers on adaptcloud.io, not claims ab
 
 | Offer | Purchasable outcome | Evidence and acceptance | Pricing basis |
 |---|---|---|---|
-| AI Tokenomics Business Analysis | An approved investment decision backed by an agreed cost baseline | Reconciled in-scope spend, documented missing coverage, assumptions and prioritized business cases | Fixed assessment fee |
-| Frontier Agent Accelerator | One bounded workflow operating within agreed quality, cost and control limits | Versioned evaluation set, integration tests, acceptance run and operating handover | Milestone fee; optional measured improvement fee |
-| AI FinOps & Governance Implementation | Defined spend and control coverage with repeatable reporting | Account allocation reconciliation, alerts tested, named owners and agreed reporting cadence | Fixed implementation; separate ongoing retainer |
-| Focused Claude advisory | A decision or implementation plan that resolves a named architectural question | Decision record, evaluated options, tradeoffs, practical next steps and stakeholder review | Fixed advisory sprint |
+| AI Tokenomics Business Analysis | An approved investment decision backed by an agreed cost baseline | Reconciled in-scope spend, documented missing coverage, assumptions and prioritized business cases | Included advisory capacity or a separately scoped assessment |
+| Frontier Agent Accelerator | One bounded workflow operating within agreed quality, cost and control limits | Versioned evaluation set, integration tests, acceptance run and operating handover | Included capacity or a separately scoped work package; optional measured improvement fee |
+| AI FinOps & Governance Implementation | Defined spend and control coverage with repeatable reporting | Account allocation reconciliation, alerts tested, named owners and agreed reporting cadence | Annual continuing service; additional implementation only where needed |
+| Focused Claude advisory | A decision or implementation plan that resolves a named architectural question | Decision record, evaluated options, tradeoffs, practical next steps and stakeholder review | Included advisory capacity or a separately scoped sprint |
 
 An assessment may conclude that the proposed agent should not be built. If the agreed analysis is complete and accepted, that is a valid paid outcome. Do not make advisory fees depend on a favorable recommendation.
 
@@ -49,7 +51,7 @@ Use the same method with different account inputs:
 - Define `base fee floor = risk-adjusted delivery cost / (1 - target gross margin)`.
 - Compare that floor with a conservative, customer-validated benefit case and willingness to pay. There is no universal percentage of value that makes a quote correct. If the economics do not work, reduce scope or decline.
 - Adjust the scope and risk allowance for data readiness, integration count, security review, environments, support obligations and dependency uncertainty. Explain scope differences to the customer.
-- Allocate the base fee to meaningful acceptance milestones. Check milestone cash receipts against expected cash outlays.
+- Allocate separately priced work-package fees to meaningful acceptance milestones. For the annual service, align recurring receipts with the cost of committed capacity. Check both schedules against expected cash outlays.
 - Approve any contingent fee separately. Do not rely on it to make an otherwise unprofitable job viable.
 
 ### Illustrative economics, not a rate card
@@ -68,7 +70,13 @@ Use the same method with different account inputs:
 
 At $20,000 delivery cost, gross margin is 50% on the $40,000 base fee, or 55.6% if the full $5,000 contingent fee is earned. At $28,000 actual delivery cost with no contingent fee, it falls to 30%. Gross margin is not net profit; sales, corporate overhead, financing and tax still need coverage. These numbers are arithmetic examples, not evidence of Adapt Cloud's costs or achievable margins.
 
-## Price the annual relationship
+## Price the continuing service
+
+The scope follows **Discover. Design. Build. Govern. Manage.** Price the advisory, engineering and operating commitments within that method; do not invent a separate commercial delivery lifecycle. Governance effort spans every stage, while Manage funds the agreed reporting, issue response and improvement planning that inform the next Discover cycle.
+
+Price the committed work, not just meetings or access to specialists. The annual scope must reserve capacity for engineering as well as reports and reviews. Start each quarter with an approved 90-day plan; use the monthly review to agree tradeoffs within that capacity. A no-change recommendation needs evidence and a recorded decision. The service fee does not imply an unlimited stream of new features or a guaranteed numerical gain every month.
+
+Report monthly capacity use by advisory, engineering, evaluation and support. Separate planned work, completed work and work blocked by dependencies. The same work cannot consume recurring capacity and be billed under a separately priced work package. Resolve conflicts through the agreed work-item assignment before invoicing.
 
 Annual recurring price must cover contracted advisory and engineering capacity, evaluations, reporting, support coordination, platform entitlement and an appropriate margin. Include platform and subcontractor costs in the delivery estimate. Do not set the recurring fee merely as a percentage of the implementation fee.
 

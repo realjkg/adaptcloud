@@ -1,10 +1,12 @@
-# Outcome-based engagements
+# Continuous AI advisory and engineering
 
 Proposed commercial model for Adapt Cloud | 30 September 2026
 
 ## Recommendation
 
-Sell a fixed-scope engagement with explicit acceptance criteria. Use paid discovery when a baseline or scope is missing. Add a small, capped performance fee only where the customer and Adapt Cloud can verify an attributable result. Package implementation with an initial contract term of at least 12 months, renewable by mutual written agreement. Include PromptForce.AI from DayTwoAI.com as the platform accelerator, with separately identified platform entitlement and a bounded recurring advisory and engineering service.
+Offer a continuing advisory and engineering service for an initial term of at least 12 months, renewable by mutual written agreement. Include PromptForce.AI from DayTwoAI.com as the platform accelerator, with a defined entitlement and provider responsibilities. Reserve capacity for approved improvements, maintain a rolling 90-day plan, and use monthly working reviews and quarterly business-value reviews to guide the work.
+
+Use the Adapt Cloud method: **Discover. Design. Build. Govern. Manage.** Governance applies throughout the work; management findings inform the next discovery and design decisions. Acceptance closes a work item, not the account relationship. Price separately scoped implementation only where the work exceeds included capacity; some accounts may start with systems already in use. Add a capped performance fee only where its result is independently verifiable and attributable.
 
 For a three-year-old specialist consultancy, this gives the buyer accountability while protecting delivery capacity and cash flow. Company age alone should not determine price. Relevant experience, delivery evidence, scope, risk and customer value should. Do not discount merely because AI makes delivery faster; price the accepted capability and use delivery efficiency to improve margin.
 
@@ -19,6 +21,7 @@ Cost per successful outcome is a useful operating metric. Price per successful t
 - [Outcome register](outcome-register.md): a lightweight account scorecard and transaction evidence specification.
 - [Brochure](adapt-cloud-outcomes-brochure.pdf): two-page client-facing PDF without pricing.
 - [Brochure source](brochure.json) and [renderer](render_brochure.py).
+- [Editorial review record](review-notes.md): revision findings and final verification.
 
 All example prices, margins, thresholds and schedules are proposals, not published Adapt Cloud rates, client results or market benchmarks. An account quote requires actual delivery estimates, customer inputs and approval. This repository is public: use fictional examples here; keep real account quotes, margins, evidence and customer data in an access-controlled system.
 
@@ -26,13 +29,12 @@ The SOW is a commercial working template. Complete its schedules and align it wi
 
 ## Account workflow
 
-1. Qualify one workflow and its business owner. Confirm data access and a buyer who can approve acceptance.
-2. If evidence is inadequate, scope paid discovery with a defined decision pack as its accepted outcome.
-3. Freeze the baseline, eligible population, metrics, exclusions and cost allocation rules.
-4. Price a bounded scope; allocate the fee to accepted milestones. Make any variable fee optional and capped.
-5. Deliver, reconcile evidence weekly and obtain written milestone acceptance.
-6. Verify performance over the agreed window. Invoice only earned amounts and correct counting errors.
-7. Review actual margin, rework and measurement effort before quoting the next account.
+1. **Discover:** establish the business need, account scope, current systems, baseline and decision owners.
+2. **Design:** agree the solution, data boundaries, acceptance criteria, capacity, platform entitlement and first 90-day plan.
+3. **Build:** implement and test approved work, record acceptance and obtain release approval with rollback evidence.
+4. **Govern:** apply access, data, cost and change controls from discovery onward; record approvals, exceptions and remediation.
+5. **Manage:** deliver the agreed operating reviews, issue actions and monthly service reports. Reassess value each quarter and return findings to Discover.
+6. Review renewal at least 60 days before expiry. Agree the next term or follow the exit plan; do not repeat implementation fees automatically.
 
 The outcome register is a template, not an automated integration or billing system. Start with one account scorecard linked to restricted evidence. Add automation only when manual reconciliation becomes material.
 

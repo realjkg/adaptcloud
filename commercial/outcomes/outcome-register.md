@@ -18,6 +18,20 @@ Service fee / platform fee / usage overage: [separate amounts] | Service credits
 
 Renewal decision: [pending/renewed/expired] | Next-term scope and approved fee: [reference]
 
+## Continuing service plan
+
+Adapt delivery lead: [name] | Customer business owner: [name] | Release/acceptance approver: [name]
+
+Current 90-day plan: [reference/version] | Monthly working review: [date] | Quarterly value review: [date]
+
+Mandatory service report delivered: [date/reference] | Review decision: [accepted/omission/disputed] | Remedy: [if applicable]
+
+| Work item | Fee/capacity allocation | Stage | Baseline and target | Estimate / used | Acceptance and release owner | Evidence / decision | Next action / due date |
+|---|---|---|---|---|---|---|---|
+| [ID] | [recurring or package ID; never both] | [Discover/Design/Build/Govern/Manage] | [reference] | [hours] | [names] | [reference and decision] | [action, owner, date] |
+
+Use **Discover. Design. Build. Govern. Manage.** to organize work. Record the primary stage and link the applicable governance evidence throughout; Govern is not a control deferred until after Build. Manage feeds new findings into Discover. Record retain, extend, revise, pause or retire decisions with reasons. A release acceptance closes its work item and informs the next cycle. Monthly service fulfillment is recorded separately from work-package acceptance. Track baseline versions so a later revision cannot rewrite prior results.
+
 ## One row per purchased outcome
 
 | Outcome ID | Definition / SOW reference | Baseline | Target | Actual | Guardrails | Evidence / coverage | Status | Customer approval | Earned fee | Invoiced / credited |
@@ -53,7 +67,9 @@ Keep these fields in the existing restricted business system or evidence store. 
 
 Avoid raw sensitive prompts or documents in the reporting view. Use restricted references and agreed retention controls.
 
-## Weekly review
+## Evidence and billing review
+
+Use the frequency agreed in the account schedule. Weekly review is a possible scope choice, not a universal service commitment.
 
 1. Reconcile all eligible business cases and all billed usage. Investigate missing attribution and duplicated cases.
 2. Apply review and reopen windows; recompute accepted counts and correction credits.
