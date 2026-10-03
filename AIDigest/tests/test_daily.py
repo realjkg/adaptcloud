@@ -34,12 +34,12 @@ def feed_fetcher(entries):
     return FakeFetcher({SOURCES[0].url: rss(entries)})
 
 
-def selection(url, **over):
+def selection(src, **over):
     row = {
-        "id": sha(url), "url": url, "lead": "Original lead.", "summary": "Short factual summary.",
+        "id": sha(src), "url": src, "lead": "Original lead.", "summary": "Short factual summary.",
         "why_adapt": "Matters for AI FinOps.", "next_move": "Review guidance.", "category": "Governance",
         "score_adjustment": 5,
-        "knowledge": [{"topic": "agent governance", "statement": f"Statement for {url}", "confidence": 0.9}],
+        "knowledge": [{"topic": "agent governance", "statement": f"Statement for {src}", "confidence": 0.9}],
     }
     row.update(over)
     return row
