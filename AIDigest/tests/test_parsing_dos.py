@@ -42,6 +42,8 @@ ADVERSARIAL = {
     "double-entity-run": "'<item><title>' + '&amp;lt;' * (N // 8)",
     "ampersand-run": "'<item><title>' + '&' * N",
     "pubdate-long": "'<item><title>t</title><link>https://x.example/</link><pubDate>' + '1' * N",
+    "charref-huge": "'<item><title>&#' + '1' * N + ';</title>'",       # round 2 L1: int() digit limit
+    "charref-run": "'<item><title>' + '&#1111111111;' * (N // 13)",
 }
 
 

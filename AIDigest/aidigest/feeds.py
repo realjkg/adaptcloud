@@ -10,7 +10,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import html
+import re
 import string
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -47,6 +49,18 @@ MAX_ITEMS_PER_FEED = 25
 MAX_DESCRIPTION = 1800
 MAX_ENTITY_ROUNDS = 5
 DEFAULT_PARSE_TIMEOUT = 10.0
+
+# Round 2 L6: parsers get their own small pool, separate from the default executor that
+# getaddrinfo uses, so a burst of slow parses cannot starve DNS. Python threads cannot be
+# killed: a parse that misses its deadline finishes in the background (linear time, so at most
+# ~0.2 s per MB) while its pool slot stays busy; the pool never grows past PARSE_WORKERS and
+# requests queued behind it are cancelled by their own deadline before they start.
+PARSE_WORKERS = 4
+PARSE_EXECUTOR = ThreadPoolExecutor(max_workers=PARSE_WORKERS, thread_name_prefix="aidigest-parse")
+
+# Round 2 L1: int() refuses > 4300 decimal digits (ValueError inside html.unescape); any
+# charref this long is not a real character anyway. Linear: anchored on "&#", no backtracking.
+_LONG_CHARREF = re.compile(r"&#(?:[xX][0-9a-fA-F]{9,}|[0-9]{9,});?")
 
 # ASCII-only lower-casing keeps string length (and therefore indices) identical;
 # str.lower() can change length for some non-ASCII characters.
@@ -132,7 +146,7 @@ def clean_text(value: str) -> str:
     removed (M3)."""
     value = _strip_tags(_unwrap_cdata(value))
     for _ in range(MAX_ENTITY_ROUNDS):
-        decoded = html.unescape(value)
+        decoded = html.unescape(_LONG_CHARREF.sub("\ufffd", value))
         if decoded == value:
             break
         value = decoded
@@ -292,8 +306,9 @@ def parse_feed(xml: str, source_name: str) -> list[FeedItem]:
 
 async def run_parser(func, *args, timeout: float):
     """Run a CPU-bound parser in a worker thread under a deadline (keeps the loop responsive)."""
+    loop = asyncio.get_running_loop()
     try:
-        return await asyncio.wait_for(asyncio.to_thread(func, *args), timeout)
+        return await asyncio.wait_for(loop.run_in_executor(PARSE_EXECUTOR, func, *args), timeout)
     except TimeoutError as exc:
         raise UpstreamError(f"Parsing exceeded the {timeout:g}s deadline") from exc
 
