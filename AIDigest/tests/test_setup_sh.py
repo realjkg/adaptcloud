@@ -6,6 +6,8 @@ import stat
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 FAKE_HASH = "$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234"
 
@@ -139,3 +141,24 @@ def test_empty_aidigest_keys_from_env_example_are_filled_in_place(tmp_path):
     assert stat.S_IMODE(env_file.stat().st_mode) == 0o600
     proc2 = _run(tmp_path, ["--aidigest"], ANSWERS)
     assert proc2.returncode == 0 and env_file.read_text() == after
+
+
+
+# ── Round 3 M1: setup.sh refuses user names Caddy/Settings would reject ───────
+@pytest.mark.parametrize("user", ["ops admin", " ", 'o"ps', "{ops}", "ops'", "a" * 65, "aidigest-disabled"])
+def test_setup_rejects_unsafe_basic_auth_user(tmp_path, user):
+    env_file = _prepare(tmp_path)
+    before = env_file.read_bytes()
+    proc = _run(tmp_path, ["--aidigest"], user + "\n" + ANSWERS.split("\n", 1)[1])
+    assert proc.returncode != 0, proc.stdout + proc.stderr
+    assert env_file.read_bytes() == before
+    assert not list(tmp_path.glob(".env.aidigest.*")), "no temp file may be left behind"
+
+
+def test_setup_temp_file_removed_on_interrupt(tmp_path):
+    """Round 3 note: the 600-mode temp file used to fill empty keys is removed on INT/TERM."""
+    text_ = (REPO / "setup.sh").read_text()
+    assert "trap" in text_ and ".env.aidigest." in text_
+    fill = text_[text_.index("aidigest_fill_empty() {"):]
+    fill = fill[:fill.index("\n}\n")]
+    assert "trap " in fill and "INT" in fill and "TERM" in fill

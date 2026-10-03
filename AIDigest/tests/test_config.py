@@ -10,6 +10,7 @@ GOOD_PROD = dict(
     anthropic_api_key="sk-ant-api03-" + "x" * 40,
     aidigest_database_url="postgresql+asyncpg://aidigest_app:p@db.example.com/sagedb?ssl=require",
     aidigest_proxy_secret=PROXY_SECRET,
+    aidigest_basic_auth_user="ops",
 )
 
 
@@ -111,3 +112,37 @@ def test_unsafe_limits_rejected(override):
     """M2: the stale-takeover window must exceed the run budget; limits must be positive."""
     with pytest.raises(ValidationError):
         make_settings(**override)
+
+
+
+# ── Round 3 M1: values Caddy must carry safely are restricted at the source ───
+@pytest.mark.parametrize("secret", [
+    "correct horse battery staple long passphrase",     # spaces (the challenger's repro)
+    "0123456789abcdef0123456789abcdef\t",                # tab
+    "0123456789abcdef0123456789abcdef\n",                # newline
+    "0123456789abcdef\x000123456789abcdef",              # NUL
+    "0123456789abcdef0123456789abcdef\x7f",              # DEL
+    "0123456789abcdef0123456789abcdé",                   # non-ASCII
+])
+@pytest.mark.parametrize("production", ["true", "false"])
+def test_proxy_secret_rejects_whitespace_and_control_characters(secret, production):
+    with pytest.raises(ValidationError, match="AIDIGEST_PROXY_SECRET"):
+        make_settings(**{**GOOD_PROD, "production": production, "aidigest_proxy_secret": secret})
+
+
+@pytest.mark.parametrize("user", ["ops admin", " ", "ops\t", 'o"ps', "{ops}", "ops'", "a" * 65, "aidigest-disabled",
+                                  "ops\x00", "öps"])
+@pytest.mark.parametrize("production", ["true", "false"])
+def test_basic_auth_user_rejects_unsafe_values(user, production):
+    with pytest.raises(ValidationError, match="AIDIGEST_BASIC_AUTH_USER"):
+        make_settings(**{**GOOD_PROD, "production": production, "aidigest_basic_auth_user": user})
+
+
+def test_production_requires_basic_auth_user():
+    with pytest.raises(ValidationError, match="AIDIGEST_BASIC_AUTH_USER"):
+        make_settings(**{**GOOD_PROD, "aidigest_basic_auth_user": ""})
+
+
+@pytest.mark.parametrize("user", ["ops", "ops.admin", "ops_1@adapt.cloud", "a" * 64])
+def test_basic_auth_user_accepts_safe_values(user):
+    assert make_settings(**{**GOOD_PROD, "aidigest_basic_auth_user": user}).aidigest_basic_auth_user == user

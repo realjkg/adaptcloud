@@ -23,7 +23,7 @@ NET="aidigest-caddy-matrix-$$"
 FAILURES=0
 
 cleanup() {
-  docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
+  docker rm -f "caddy-matrix-$$" "ui-matrix-$$" >/dev/null 2>&1 || true
   docker network rm "$NET" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
@@ -34,6 +34,13 @@ KNOWN_HASH=$(printf '%s\n' "$PASSWORD" | docker run --rm -i "$IMAGE" caddy hash-
 # adds on_demand issuance so a client inside the network can complete TLS. Nothing else differs.
 sed 's/^  tls internal$/  tls internal {\n    on_demand\n  }/' "$CADDYFILE" > "$WORK/Caddyfile"
 docker network create "$NET" >/dev/null
+# Stand-in for the homeschool UI: every case must keep it reachable (Caddy must never stop).
+docker run -d --name "ui-matrix-$$" --network "$NET" --network-alias ui "$IMAGE" \
+  caddy respond --listen :80 "homeschool ui" >/dev/null
+
+dotenv_quote() {  # a value as a .env line value: single quotes, or double quotes if it contains one
+  if [[ "$1" == *"'"* ]]; then printf '"%s"' "$1"; else printf "'%s'" "$1"; fi
+}
 
 caddy_env() {  # $1 user  $2 hash  $3 proxy secret  -> env-file for caddy, as compose renders it
   cat > "$WORK/.env" <<EOF
@@ -43,23 +50,26 @@ MASTER_SECRET=x
 PARENT_PASSWORD=x
 CHILD_PIN=1234
 DATABASE_URL=x
-AIDIGEST_BASIC_AUTH_USER=$1
-AIDIGEST_BASIC_AUTH_HASH='$2'
-AIDIGEST_PROXY_SECRET=$3
+AIDIGEST_BASIC_AUTH_USER=$(dotenv_quote "$1")
+AIDIGEST_BASIC_AUTH_HASH=$(dotenv_quote "$2")
+AIDIGEST_PROXY_SECRET=$(dotenv_quote "$3")
 EOF
-  env -i PATH="$PATH" HOME="$HOME" docker compose -f "$COMPOSE" --env-file "$WORK/.env" config --format json 2>/dev/null \
-    | python3 -c '
+  env -i PATH="$PATH" HOME="$HOME" docker compose -f "$COMPOSE" --env-file "$WORK/.env" config --format json \
+    > "$WORK/compose.json" 2>"$WORK/compose.err" || return 1
+  python3 -c '
 import json, sys
 env = json.load(sys.stdin)["services"]["caddy"].get("environment") or {}
 for k, v in sorted(env.items()):
-    print(k + "=" + (v or "").replace("$$", "$"))' > "$WORK/caddy.env"
+    print(k + "=" + (v or "").replace("$$", "$"))' < "$WORK/compose.json" > "$WORK/caddy.env"
 }
 
-probe() {  # $1 user:password or ""  -> HTTP status from inside the network
-  local creds=$1 url="https://caddy/aidigest/ops/status"
-  [[ -n "$creds" ]] && url="https://${creds}@caddy/aidigest/ops/status"
-  docker run --rm --network "$NET" "$IMAGE" sh -c \
-    "wget -q -S --no-check-certificate -O /dev/null '$url' 2>&1 | awk '/HTTP\\//{print \$2; exit}'" || true
+probe() {  # $1 path  $2 user  $3 password (no user = no credentials) -> HTTP status from inside the network
+  local path=$1 header=""
+  if [[ -n "${2:-}" || -n "${3:-}" ]]; then
+    header="Authorization: Basic $(printf '%s:%s' "$2" "$3" | base64 | tr -d '\n')"
+  fi
+  docker run --rm --network "$NET" -e "H=$header" -e "URL=https://caddy$path" "$IMAGE" sh -c \
+    'if [ -n "$H" ]; then set -- --header "$H"; fi; wget -q -S --no-check-certificate -O /dev/null "$@" "$URL" 2>&1 | awk "/HTTP\\//{print \$2; exit}"' || true
 }
 
 expect() {  # $1 label  $2 expected  $3 actual
@@ -69,7 +79,9 @@ expect() {  # $1 label  $2 expected  $3 actual
 
 run_case() {  # $1 label  $2 user  $3 hash  $4 secret  $5 expected status for ops:$PASSWORD
   echo "== $1"
-  caddy_env "$2" "$3" "$4"
+  if ! caddy_env "$2" "$3" "$4"; then
+    expect "docker compose config" "rendered" "ERROR: $(tail -c 160 "$WORK/compose.err" | tr '\n' ' ')"; return
+  fi
   sed 's/=.*$/=<...>/' "$WORK/caddy.env" | sed 's/^/   caddy env: /'
   if docker run --rm --env-file "$WORK/caddy.env" -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" \
        caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>"$WORK/adapt.err"; then
@@ -82,10 +94,12 @@ run_case() {  # $1 label  $2 user  $3 hash  $4 secret  $5 expected status for op
   docker run -d --name "caddy-matrix-$$" --network "$NET" --network-alias caddy --env-file "$WORK/caddy.env" \
     -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" >/dev/null
   sleep 2
-  expect "no credentials" 401 "$(probe "")"
-  expect "ops:<right password>" "$5" "$(probe "ops:$PASSWORD")"
-  expect "aidigest-disabled:<right password>" 401 "$(probe "aidigest-disabled:$PASSWORD")"
-  expect "ops:<wrong password>" 401 "$(probe "ops:wrong-password-000")"
+  local user=${2:-ops}
+  expect "homeschool UI /" 200 "$(probe / "" "")"
+  expect "no credentials" 401 "$(probe /aidigest/ops/status "" "")"
+  expect "configured user:<right password>" "$5" "$(probe /aidigest/ops/status "$user" "$PASSWORD")"
+  expect "aidigest-disabled:<right password>" 401 "$(probe /aidigest/ops/status aidigest-disabled "$PASSWORD")"
+  expect "configured user:<wrong password>" 401 "$(probe /aidigest/ops/status "$user" wrong-password-000)"
   docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
 }
 
@@ -101,8 +115,9 @@ run_raw_case() {  # Caddy started outside compose with NO AIDigest variables: Ca
   docker run -d --name "caddy-matrix-$$" --network "$NET" --network-alias caddy \
     -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" >/dev/null
   sleep 2
-  expect "no credentials" 401 "$(probe "")"
-  expect "aidigest-disabled:<right password>" 401 "$(probe "aidigest-disabled:$PASSWORD")"
+  expect "homeschool UI /" 200 "$(probe / "" "")"
+  expect "no credentials" 401 "$(probe /aidigest/ops/status "" "")"
+  expect "aidigest-disabled:<right password>" 401 "$(probe /aidigest/ops/status aidigest-disabled "$PASSWORD")"
   docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
 }
 
@@ -112,6 +127,19 @@ run_case "user set,   hash empty"   "ops" ""            "$SECRET" 401
 run_case "user empty, hash set"     ""    "$KNOWN_HASH" "$SECRET" 401
 run_case "user set,   hash set"     "ops" "$KNOWN_HASH" "$SECRET" 502
 run_case "user+hash set, no secret" "ops" "$KNOWN_HASH" ""        401
+# Round 3 M1: hand-edited values the old Caddyfile split into extra tokens (Caddy exited).
+# Each must adapt, keep the UI up, and keep /aidigest/* at 401 unless complete and valid.
+run_case "user with a space"            "ops admin" "$KNOWN_HASH" "$SECRET" 401
+run_case "user is a single space"       " "         "$KNOWN_HASH" "$SECRET" 401
+run_case "user with a double quote"     'o"ps'      "$KNOWN_HASH" "$SECRET" 401
+run_case "user with a single quote"     "ops'"      "$KNOWN_HASH" "$SECRET" 401
+run_case "user with braces"             "{ops}"     "$KNOWN_HASH" "$SECRET" 401
+run_case "user with a backtick"         'o`ps'      "$KNOWN_HASH" "$SECRET" 401
+run_case "secret with spaces"           "ops" "$KNOWN_HASH" "correct horse battery staple long passphrase" 401
+run_case "secret with \" and braces"     "ops" "$KNOWN_HASH" 'abc"def{ghi}jkl0123456789abcdef0123' 502
+run_case "secret with ' and braces"     "ops" "$KNOWN_HASH" "abc'def{env.HOME}0123456789abcdef0123" 502
+run_case "hash is not a bcrypt hash"    "ops" "not a bcrypt hash at all" "$SECRET" 401
+run_case "hash with a double quote"     "ops" '$2a$10$"broken' "$SECRET" 401
 run_raw_case
 
 echo
