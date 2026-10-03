@@ -12,6 +12,9 @@ version: '3.9'
 #                       Format: postgresql+asyncpg://user:pass@host/db?ssl=require
 #                       Neon example:
 #                         postgresql+asyncpg://sage:pass@ep-xxx.us-east-2.aws.neon.tech/sagedb?ssl=require
+#   AIDIGEST_PROXY_SECRET     Caddy -> AIDigest shared secret (openssl rand -hex 32)
+#   AIDIGEST_BASIC_AUTH_USER  Basic-auth user for https://<host>/aidigest/*
+#   AIDIGEST_BASIC_AUTH_HASH  bcrypt hash of that user's password (caddy hash-password)
 #
 # Storage model:
 #   All persistent data (encryption keys, voice profiles, audit log) lives in
@@ -69,6 +72,32 @@ services:
     cap_add:
       - NET_BIND_SERVICE
 
+  # AIDigest — AI intelligence service (AIDigest/). Reachable only through Caddy at
+  # /aidigest/* (basic auth + proxy shared secret). Tables live in schema "aidigest".
+  aidigest:
+    build:
+      context: ./AIDigest
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:?AIDIGEST_PROXY_SECRET is required}
+      - AIDIGEST_MODEL=${AIDIGEST_MODEL:-claude-sonnet-5-5}
+      - AIDIGEST_DAILY_TIME=${AIDIGEST_DAILY_TIME:-12:30}
+      - PRODUCTION=true
+    read_only: true                    # stateless container — all state in Postgres
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - internal
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   # TLS termination — serves the entire pod over HTTPS (port 443)
   # Tablets and other LAN devices connect here. Run "make caddy-trust" once
   # per device to install the local root CA so there are no cert warnings.
@@ -80,10 +109,15 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
+    environment:
+      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:?AIDIGEST_BASIC_AUTH_USER is required}
+      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:?AIDIGEST_BASIC_AUTH_HASH is required}
+      - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:?AIDIGEST_PROXY_SECRET is required}
     networks:
       - internal
     depends_on:
       - ui
+      - aidigest
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

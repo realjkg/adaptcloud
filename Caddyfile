@@ -9,11 +9,33 @@
 :443 {
   tls internal
 
-  reverse_proxy ui:80 {
-    header_up Host              {host}
-    header_up X-Real-IP         {remote_host}
-    header_up X-Forwarded-For   {remote_host}
-    header_up X-Forwarded-Proto https
+  # AIDigest: basic auth at the edge. The service trusts a request only when it
+  # carries the proxy secret AND the user id Caddy sets here (header_up replaces
+  # any client-supplied value). See AIDigest/DESIGN.md.
+  redir /aidigest /aidigest/ 308
+  handle_path /aidigest/* {
+    request_body {
+      max_size 64KB
+    }
+    basic_auth {
+      {$AIDIGEST_BASIC_AUTH_USER} {$AIDIGEST_BASIC_AUTH_HASH}
+    }
+    reverse_proxy aidigest:8000 {
+      header_up X-AIDigest-User         {http.auth.user.id}
+      header_up X-AIDigest-Proxy-Secret {$AIDIGEST_PROXY_SECRET}
+    }
+  }
+
+  handle {
+    reverse_proxy ui:80 {
+      header_up Host              {host}
+      header_up X-Real-IP         {remote_host}
+      header_up X-Forwarded-For   {remote_host}
+      header_up X-Forwarded-Proto https
+      # Never forward AIDigest trust headers to other upstreams.
+      header_up -X-AIDigest-User
+      header_up -X-AIDigest-Proxy-Secret
+    }
   }
 }
 

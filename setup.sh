@@ -88,6 +88,25 @@ SECRET_KEY=$(openssl rand -hex 32)
 MASTER_SECRET=$(openssl rand -hex 32)
 success "SECRET_KEY and MASTER_SECRET generated (64 hex chars each)"
 
+# ── AIDigest login (Caddy basic auth for https://<host>/aidigest) ────────────
+blank
+info "+    AIDigest login (served at /aidigest behind Caddy basic auth)"
+read -rp "     AIDIGEST_BASIC_AUTH_USER [aidigest]: " AIDIGEST_BASIC_AUTH_USER
+AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-aidigest}
+[[ "$AIDIGEST_BASIC_AUTH_USER" =~ ^[A-Za-z0-9._@-]+$ ]] || error "User name may contain only letters, digits and . _ @ -"
+while true; do
+  read -rsp "     AIDigest password (12+ chars): " AIDIGEST_PASSWORD; echo
+  [[ ${#AIDIGEST_PASSWORD} -ge 12 ]] && break
+  warn "Must be at least 12 characters."
+done
+# Hash with Caddy itself; the password goes over stdin, never on a command line.
+AIDIGEST_BASIC_AUTH_HASH=$(printf '%s\n' "$AIDIGEST_PASSWORD" | docker run --rm -i caddy:2-alpine caddy hash-password) \
+  || error "Could not hash the AIDigest password with caddy hash-password."
+unset AIDIGEST_PASSWORD
+[[ "$AIDIGEST_BASIC_AUTH_HASH" == \$2* ]] || error "Unexpected output from caddy hash-password."
+AIDIGEST_PROXY_SECRET=$(openssl rand -hex 32)
+success "AIDigest password hashed (bcrypt) and AIDIGEST_PROXY_SECRET generated"
+
 # ── Detect LAN IP for tablet access ──────────────────────────────────────────
 LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 if [[ -n "$LAN_IP" ]]; then
@@ -114,6 +133,9 @@ DATABASE_URL=${DATABASE_URL}
 CORS_ORIGINS=${CORS_ORIGINS}
 DISABLE_API_DOCS=true
 PRODUCTION=true
+AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET}
+AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER}
+AIDIGEST_BASIC_AUTH_HASH='${AIDIGEST_BASIC_AUTH_HASH}'
 EOF
 chmod 600 .env
 success ".env written (mode 600 — only readable by you)"
@@ -156,6 +178,7 @@ echo "  Log in as parent with: PARENT_PASSWORD you just set"
 blank
 echo "  Useful commands:"
 echo "    make status    — check container health"
+echo "    make aidigest-status — verify AIDigest readiness (https://localhost/aidigest)"
 echo "    make logs      — tail live logs"
 echo "    make stop      — shut down"
 echo "    make help      — all available commands"
