@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
@@ -19,6 +20,17 @@ from tests.fakes import FakeAI, FakeFetcher, rss
 ROLE = "aidigest_app_test"
 
 
+def as_role(url: str, role: str) -> str:
+    """Same server and database, different login role (round 3 M2: no string surgery on the URL)."""
+    u = make_url(url)
+    return URL.create(u.drivername, username=role, host=u.host, port=u.port, database=u.database,
+                      query=u.query).render_as_string(hide_password=False)
+
+
+async def current_db(conn) -> str:
+    return (await conn.execute(text("SELECT current_database()"))).scalar()
+
+
 @pytest.fixture
 async def least_privilege_url(pg_url):
     admin = create_async_engine(pg_url, poolclass=NullPool, isolation_level="AUTOCOMMIT")
@@ -28,10 +40,10 @@ async def least_privilege_url(pg_url):
         await conn.execute(text(f"CREATE ROLE {ROLE} LOGIN"))
         # The documented one-time DBA step: the schema is created for (and owned by) the role.
         await conn.execute(text(f"CREATE SCHEMA aidigest AUTHORIZATION {ROLE}"))
-        await conn.execute(text(f"REVOKE CREATE ON DATABASE postgres FROM PUBLIC, {ROLE}"))
+        await conn.execute(text(f'REVOKE CREATE ON DATABASE "{await current_db(conn)}" FROM PUBLIC, {ROLE}'))
         await conn.execute(text("CREATE TABLE IF NOT EXISTS public.homeschool_secret (v text)"))
         await conn.execute(text("REVOKE ALL ON public.homeschool_secret FROM PUBLIC"))
-    yield pg_url.replace("postgres@", f"{ROLE}@", 1)
+    yield as_role(pg_url, ROLE)
     async with admin.connect() as conn:
         await conn.execute(text("DROP SCHEMA IF EXISTS aidigest CASCADE"))
         await conn.execute(text("DROP TABLE IF EXISTS public.homeschool_secret"))
@@ -88,12 +100,13 @@ async def test_documented_role_sql_works_for_non_superuser_admin(pg_url):
                 await conn.execute(text(f"DROP ROLE {role}"))
         # A typical managed-Postgres admin: CREATEROLE + CREATE on the database, not a superuser.
         await conn.execute(text("CREATE ROLE dba_admin LOGIN CREATEROLE"))
-        await conn.execute(text("GRANT CREATE ON DATABASE postgres TO dba_admin"))
+        dbname = await current_db(conn)
+        await conn.execute(text(f'GRANT CREATE ON DATABASE "{dbname}" TO dba_admin'))
         await conn.execute(text("CREATE TABLE IF NOT EXISTS public.homeschool_secret (v text)"))
         await conn.execute(text("REVOKE ALL ON public.homeschool_secret FROM PUBLIC"))
-    admin = create_async_engine(pg_url.replace("postgres@", "dba_admin@", 1), poolclass=NullPool,
+    admin = create_async_engine(as_role(pg_url, "dba_admin"), poolclass=NullPool,
                                 isolation_level="AUTOCOMMIT")
-    app_engine = create_async_engine(pg_url.replace("postgres@", "aidigest_app@", 1), poolclass=NullPool)
+    app_engine = create_async_engine(as_role(pg_url, "aidigest_app"), poolclass=NullPool)
     try:
         statements = documented_role_sql()
         assert statements, "README role SQL block not found"
@@ -102,7 +115,7 @@ async def test_documented_role_sql_works_for_non_superuser_admin(pg_url):
                 is False
             for stmt in statements:
                 stmt = (stmt.replace("<generate a strong password>", "pw-for-test")
-                        .replace("<dbname>", "postgres").replace("<admin>", "dba_admin"))
+                        .replace("<dbname>", f'"{dbname}"').replace("<admin>", "dba_admin"))
                 await conn.execute(text(stmt))
         await apply_schema(app_engine)
         assert (await readiness(app_engine))["ready"] is True
@@ -122,3 +135,9 @@ async def test_documented_role_sql_works_for_non_superuser_admin(pg_url):
                 await conn.execute(text(f"DROP OWNED BY {role}"))
                 await conn.execute(text(f"DROP ROLE {role}"))
         await su.dispose()
+
+
+def test_as_role_rebuilds_the_url():
+    # str.replace("postgres@", ...) would rewrite the password here instead of the user.
+    url = "postgresql+asyncpg://admin:xpostgres@127.0.0.1:29650/aidigest_it"
+    assert as_role(url, "aidigest_app") == "postgresql+asyncpg://aidigest_app@127.0.0.1:29650/aidigest_it"

@@ -26,6 +26,8 @@ PG_BIN = Path(os.environ.get("AIDIGEST_PG_BIN", "/usr/lib/postgresql/16/bin"))
 PG_DIR = Path(os.environ.get("AIDIGEST_PG_DIR", "/tmp/aidg_pg"))
 # Below the kernel ephemeral range (32768-60999), so an outbound client socket can never
 # hold the port, and outside 55432 / 555xx-556xx (owned by other agents).
+# Round 3 M2: the suite must pass against a database NOT named "postgres" as well.
+PG_DBNAME = os.environ.get("AIDIGEST_TEST_DBNAME", "postgres")
 PG_PORTS = ([int(os.environ["AIDIGEST_PG_PORT"])] if os.environ.get("AIDIGEST_PG_PORT")
             else list(range(29650, 29660)))
 
@@ -79,7 +81,10 @@ def pg_url():
         shutil.rmtree(PG_DIR, ignore_errors=True)
         raise RuntimeError(f"Could not start test Postgres on ports {PG_PORTS}: {log[-2000:]}")
     try:
-        url = f"postgresql+asyncpg://postgres@127.0.0.1:{port}/postgres"
+        if PG_DBNAME != "postgres":
+            _as_postgres([str(PG_BIN / "createdb"), "-h", str(PG_DIR), "-p", str(port), "-U", "postgres",
+                          PG_DBNAME])
+        url = f"postgresql+asyncpg://postgres@127.0.0.1:{port}/{PG_DBNAME}"
         yield url
     finally:
         try:
