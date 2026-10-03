@@ -27,9 +27,10 @@ from typing import Awaitable, Callable
 
 import httpx
 
+from aidigest import __version__
 from aidigest.errors import UnsafeURLError, UpstreamError
 
-USER_AGENT = "AdaptCloud-AIDigest/0.4 (+https://adaptcloud.io)"
+USER_AGENT = f"AdaptCloud-AIDigest/{__version__} (+https://adaptcloud.io)"
 ACCEPT = "text/html,text/plain,application/json,application/rss+xml,application/atom+xml,application/xml"
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 BLOCKED_HOSTS = {"localhost", "metadata", "metadata.google.internal", "instance-data", "kubernetes"}
@@ -42,6 +43,8 @@ NON_PUBLIC_V6 = tuple(ipaddress.ip_network(n) for n in (
     "100::/64",         # discard-only
     "2001:db8::/32",    # documentation
 ))
+NON_TEXT_CODECS = {"idna", "punycode", "undefined"}
+YIELD_EVERY_CHUNKS = 256   # hand the event loop back periodically even if the transport never suspends
 SUPPORTED_ENCODINGS = {"gzip": 16 + zlib.MAX_WBITS, "x-gzip": 16 + zlib.MAX_WBITS, "deflate": zlib.MAX_WBITS}
 
 Resolver = Callable[[str], Awaitable[list[str]]]
@@ -99,15 +102,24 @@ def validate_url(raw: str) -> httpx.URL:
     return url
 
 
+def effective_address(ip: ipaddress.IPv4Address | ipaddress.IPv6Address):
+    """An IPv4-mapped address (::ffff:a.b.c.d) is judged purely as its IPv4: the stdlib flags for
+    the mapped range differ between releases (e.g. is_reserved is True on 3.12.3, False on 3.11)."""
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    return ip
+
+
 def policy_blocks(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Explicit deny rules that do not depend on the stdlib's is_global tables (defence in
     depth: those tables have changed between Python releases). True = never connect."""
+    ip = effective_address(ip)
     if ip.is_reserved or ip.is_multicast:
         return True
     if isinstance(ip, ipaddress.IPv6Address):
         if any(ip in net for net in NON_PUBLIC_V6):
             return True
-        embedded = ip.ipv4_mapped or ip.sixtofour or (ip.teredo[1] if ip.teredo else None)
+        embedded = ip.sixtofour or (ip.teredo[1] if ip.teredo else None)
         if embedded is not None and not is_public_address(str(embedded)):
             return True
     return False
@@ -115,7 +127,7 @@ def policy_blocks(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
 
 def is_public_address(value: str) -> bool:
     try:
-        ip = ipaddress.ip_address(value.split("%", 1)[0])
+        ip = effective_address(ipaddress.ip_address(value.split("%", 1)[0]))
     except ValueError:
         return False
     if isinstance(ip, ipaddress.IPv6Address) and ip in NAT64:
@@ -202,7 +214,7 @@ class GuardedFetcher:
                     url=str(url),
                     status=response.status_code,
                     content_type=response.headers.get("content-type", ""),
-                    text=body.decode(_codec(response.charset_encoding), errors="replace"),
+                    text=decode_text(body, response.charset_encoding),
                 )
             raise UpstreamError("Too many redirects")
 
@@ -226,10 +238,13 @@ class GuardedFetcher:
             if len(response.content) > self.max_bytes:
                 raise UpstreamError("Source too large")
             return response.content
-        received = 0
+        # M1 (round 2): O(1) work per wire chunk - running totals, never re-summing the chunk list.
+        received = decoded = 0
         chunks: list[bytes] = []
         try:
-            async for raw in response.aiter_raw():  # raw wire bytes: we decode under the cap ourselves
+            async for count, raw in _enumerate_async(response.aiter_raw()):
+                if count % YIELD_EVERY_CHUNKS == YIELD_EVERY_CHUNKS - 1:
+                    await asyncio.sleep(0)
                 received += len(raw)
                 if received > self.max_bytes:
                     raise UpstreamError("Source too large")
@@ -238,10 +253,12 @@ class GuardedFetcher:
                     continue
                 data = raw
                 while data:  # M5: incremental decode, never more than the remaining budget + 1
-                    out = decoder.decompress(data, self._room(chunks) + 1)
-                    chunks.append(out)
-                    if sum(map(len, chunks)) > self.max_bytes:
-                        raise UpstreamError("Source too large (decoded)")
+                    out = decoder.decompress(data, self.max_bytes - decoded + 1)
+                    if out:
+                        decoded += len(out)
+                        if decoded > self.max_bytes:
+                            raise UpstreamError("Source too large (decoded)")
+                        chunks.append(out)
                     data = decoder.unconsumed_tail
         except httpx.HTTPError as exc:  # M4: e.g. ReadTimeout mid-body
             raise UpstreamError(f"Body read failed: {type(exc).__name__}") from exc
@@ -249,8 +266,12 @@ class GuardedFetcher:
             raise UpstreamError("Corrupt compressed body") from exc
         return b"".join(chunks)
 
-    def _room(self, chunks: list[bytes]) -> int:
-        return max(0, self.max_bytes - sum(map(len, chunks)))
+
+async def _enumerate_async(iterator):
+    count = 0
+    async for item in iterator:
+        yield count, item
+        count += 1
 
 
 def _codec(name: str | None) -> str:
@@ -261,3 +282,15 @@ def _codec(name: str | None) -> str:
         return codecs.lookup(name).name
     except LookupError:
         return "utf-8"
+
+
+def decode_text(body: bytes, charset: str | None) -> str:
+    """Decode with a real text codec only (round 2 L1): bytes-to-bytes and str-to-str codecs
+    (base64, rot13, zlib, ...) and IDNA/punycode are refused as 502, never a 500."""
+    info = codecs.lookup(_codec(charset))
+    if not getattr(info, "_is_text_encoding", True) or info.name in NON_TEXT_CODECS:
+        raise UpstreamError(f"Unsupported charset {str(charset)[:40]!r}")
+    try:
+        return body.decode(info.name, errors="replace")
+    except (UnicodeError, ValueError, TypeError) as exc:
+        raise UpstreamError(f"Could not decode the body as charset {str(charset)[:40]!r}") from exc

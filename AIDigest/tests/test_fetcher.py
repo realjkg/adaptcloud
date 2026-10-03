@@ -453,7 +453,8 @@ async def test_corrupt_gzip_is_upstream_error():
      "::7f00:1", "::8.8.8.8",                    # IPv4-compatible ::/96
      "::ffff:0:7f00:1",                          # IPv4-translated
      "64:ff9b:1::a9fe:a9fe", "100::1", "2001:db8::1",
-     "::ffff:127.0.0.1", "::ffff:169.254.169.254",       # IPv4-mapped private
+     # IPv4-mapped addresses are judged as plain IPv4 by is_public_address (round 2 M3), see
+     # test_ipv4_mapped_decided_by_embedded_ipv4.
      "2002:7f00:1::1", "2002:a9fe:a9fe::1",              # 6to4 of private
      "2001:0:4136:e378:8000:63bf:80ff:fffe",             # Teredo, client 127.0.0.1
      "240.0.0.1", "224.0.0.1", "ff02::1"],
