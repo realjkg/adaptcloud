@@ -12,9 +12,15 @@ version: '3.9'
 #                       Format: postgresql+asyncpg://user:pass@host/db?ssl=require
 #                       Neon example:
 #                         postgresql+asyncpg://sage:pass@ep-xxx.us-east-2.aws.neon.tech/sagedb?ssl=require
+#
+# Optional AIDigest (profile "aidigest"; enable with COMPOSE_PROFILES=aidigest or
+# "make aidigest-start"). Its variables are NOT required for the base stack:
+#   AIDIGEST_DATABASE_URL     least-privilege role that owns schema "aidigest"
 #   AIDIGEST_PROXY_SECRET     Caddy -> AIDigest shared secret (openssl rand -hex 32)
 #   AIDIGEST_BASIC_AUTH_USER  Basic-auth user for https://<host>/aidigest/*
 #   AIDIGEST_BASIC_AUTH_HASH  bcrypt hash of that user's password (caddy hash-password)
+# Missing values fail closed: Caddy has no basic-auth account (every request 401)
+# and the aidigest container refuses to start (PRODUCTION=true validation).
 #
 # Storage model:
 #   All persistent data (encryption keys, voice profiles, audit log) lives in
@@ -72,18 +78,21 @@ services:
     cap_add:
       - NET_BIND_SERVICE
 
-  # AIDigest — AI intelligence service (AIDigest/). Reachable only through Caddy at
-  # /aidigest/* (basic auth + proxy shared secret). Tables live in schema "aidigest".
+  # AIDigest — AI intelligence service (AIDigest/). Opt-in profile; reachable only
+  # through Caddy at /aidigest/* (basic auth + proxy shared secret). Compose evaluates
+  # ":?" even for inactive profiles, so the values default to empty here and the
+  # service itself refuses to start without them (fail closed).
   aidigest:
+    profiles: ["aidigest"]
     build:
       context: ./AIDigest
       dockerfile: Dockerfile
     expose:
       - "8000"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
-      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
-      - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:?AIDIGEST_PROXY_SECRET is required}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AIDIGEST_DATABASE_URL=${AIDIGEST_DATABASE_URL:-}
+      - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:-}
       - AIDIGEST_MODEL=${AIDIGEST_MODEL:-claude-sonnet-5-5}
       - AIDIGEST_DAILY_TIME=${AIDIGEST_DAILY_TIME:-12:30}
       - PRODUCTION=true
@@ -109,15 +118,14 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
-    environment:
-      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:?AIDIGEST_BASIC_AUTH_USER is required}
-      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:?AIDIGEST_BASIC_AUTH_HASH is required}
-      - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:?AIDIGEST_PROXY_SECRET is required}
+    environment:                       # empty when AIDigest is not configured -> /aidigest/* is 401
+      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-}
+      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:-}
+      - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:-}
     networks:
       - internal
     depends_on:
       - ui
-      - aidigest
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

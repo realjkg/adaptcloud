@@ -10,7 +10,8 @@ RUN useradd --no-create-home --shell /bin/false aidigest
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Exact versions, hash-checked (requirements.txt is pip-compile --generate-hashes output).
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # Application code stays root-owned and read-only for the runtime user.
 COPY aidigest ./aidigest

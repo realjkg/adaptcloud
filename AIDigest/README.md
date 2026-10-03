@@ -17,26 +17,70 @@ Caddy identity -> strict validation -> readiness gate -> deterministic mode -> <
 
 ## Configuration
 
-All values live in the root `.env` (never committed). `setup.sh` generates the AIDigest values; `.env.example` lists the names.
+AIDigest is **optional**: it runs under the docker-compose profile `aidigest`, so the base
+homeschool stack starts with or without any AIDigest value. All values live in the root `.env`
+(never committed); `.env.example` lists the names.
 
 | Variable | Used by | Purpose |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | aidigest | Claude API key (shared with the tutor API) |
-| `DATABASE_URL` | aidigest | `postgresql+asyncpg://...`; AIDigest uses only schema `aidigest`. The DB user needs `CREATE` on the database the first time the schema is created |
+| `AIDIGEST_DATABASE_URL` | aidigest | `postgresql+asyncpg://aidigest_app:...`, a dedicated least-privilege role (below), **not** the tutor's `DATABASE_URL` |
 | `AIDIGEST_PROXY_SECRET` | aidigest, caddy | Shared secret Caddy sends to the service (`openssl rand -hex 32`, at least 32 characters) |
 | `AIDIGEST_BASIC_AUTH_USER` | caddy | Basic-auth user name for `/aidigest/*` |
-| `AIDIGEST_BASIC_AUTH_HASH` | caddy | bcrypt hash of that user's password (`caddy hash-password`); keep it single-quoted in `.env` because it contains `$` |
+| `AIDIGEST_BASIC_AUTH_HASH` | caddy | bcrypt hash (cost 10) of that user's password; keep it single-quoted in `.env` because it contains `$` |
+| `COMPOSE_PROFILES` | compose | `aidigest` makes `make start` / `docker compose up` include the service |
 | `AIDIGEST_MODEL` | aidigest | Optional; default `claude-sonnet-5-5` |
 | `AIDIGEST_DAILY_TIME` | aidigest | Optional; `HH:MM` UTC, default `12:30` (7:30 AM CDT / 6:30 AM CST) |
 
-With `PRODUCTION=true` (set by docker-compose), the service refuses to start if the API key, the database URL or the proxy secret is missing, a placeholder, or weak.
+That is five required values (`ANTHROPIC_API_KEY` plus the four `AIDIGEST_*` above) and
+`COMPOSE_PROFILES=aidigest`. `make setup-aidigest` adds all of them except the API key.
+
+With `PRODUCTION=true` (set by docker-compose), the service refuses to start if the API key, the
+database URL or the proxy secret is missing, a placeholder, or weak. If the Caddy values are
+missing, Caddy has no basic-auth account and every `/aidigest/*` request gets 401.
+
+Bounds (all optional, safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST_AI_MAX_TOKENS`
+(16000), `AIDIGEST_AI_MAX_CONCURRENCY` (2), `AIDIGEST_TASK_HOURLY_LIMIT` (20 per user, then 429),
+`AIDIGEST_TASK_BUDGET_SECONDS` (600), `AIDIGEST_DAILY_BUDGET_SECONDS` (900),
+`AIDIGEST_DAILY_LEASE_SECONDS` (1200, must exceed the budget), `AIDIGEST_DAILY_HEARTBEAT_SECONDS`
+(60), `AIDIGEST_DAILY_MAX_ATTEMPTS` (3 per UTC day, then 429), `AIDIGEST_FETCH_TOTAL_SECONDS` (30),
+`AIDIGEST_FETCH_MAX_BYTES` (1000000), `AIDIGEST_PARSE_TIMEOUT_SECONDS` (10).
+
+### Least-privilege database role (one-time, as a DBA)
+
+AIDigest connects as its own role that owns **only** schema `aidigest`. It needs no
+database-level `CREATE` (startup skips `CREATE SCHEMA` when the schema exists) and has no access
+to the homeschool tables in `public`:
+
+```sql
+CREATE ROLE aidigest_app LOGIN PASSWORD '<generate a strong password>';
+GRANT CONNECT ON DATABASE <dbname> TO aidigest_app;
+CREATE SCHEMA IF NOT EXISTS aidigest AUTHORIZATION aidigest_app;
+-- Nothing else: no CREATE on the database, no grants on schema public.
+```
+
+On managed Postgres (Neon, Supabase, ...) create the role in the provider console if `CREATE
+ROLE` is not available to you, then run the `CREATE SCHEMA ... AUTHORIZATION` line.
+
+## Upgrading an existing install (read this first)
+
+An existing `.env` keeps working unchanged: without the AIDigest values the `aidigest` profile is
+simply not started and Caddy answers `/aidigest/*` with 401. To add AIDigest:
+
+1. Create the database role above.
+2. `make setup-aidigest`: it **appends** the AIDigest keys and `COMPOSE_PROFILES=aidigest` to
+   `.env`, never edits an existing key and is safe to re-run. Do **not** use `make setup` → overwrite
+   on a live install: it regenerates `MASTER_SECRET`, which makes encrypted student data
+   unreadable (it now requires typing `OVERWRITE`).
+3. `make aidigest-start`, then `make aidigest-status` (must report `"ready": true`).
 
 ## First use (order matters)
 
-1. Configure auth first: run `make setup` (or add the four `AIDIGEST_*` values and `DATABASE_URL` to `.env` by hand). Compose refuses to start Caddy or AIDigest without them.
-2. `make start`.
+1. Configure the database role and auth first (`make setup-aidigest`, or a fresh `make setup` and
+   answer `y` to "Also set up AIDigest").
+2. `make aidigest-start` (or `make start` once `COMPOSE_PROFILES=aidigest` is in `.env`).
 3. `make aidigest-status` must report `"ready": true` (all of articles, knowledge, tasks and runs present). Do not use the endpoints until it does.
-4. Optionally run the first digest now with `make aidigest-run-daily`; otherwise it runs at the next scheduled time.
+4. Optionally run the first digest now with `make aidigest-run-daily`; otherwise it runs at the next scheduled time (or immediately, once, if the service starts after today's slot).
 
 ## Endpoints
 
@@ -44,11 +88,11 @@ All endpoints are served under `https://<host>/aidigest` and require Caddy basic
 
 - GET /health
 - GET /ops/status
-- POST /ops/run-daily (operator trigger: 409 if today's run already happened, 503 if not ready)
+- POST /ops/run-daily (operator trigger: 409 if today's run already happened or is running, 429 after the day's attempt cap, 503 if not ready)
 - GET /digest
 - GET /digest.json
 - GET /knowledge?q=finops
-- POST /agent/tasks
+- POST /agent/tasks (429 with Retry-After after the per-user hourly cap)
 - GET /agent/tasks/{id}
 
 Example task body (strictly validated; unknown fields are rejected):
@@ -73,7 +117,9 @@ curl -sk -u "$AIDIGEST_BASIC_AUTH_USER" -H 'content-type: application/json' \
 
 ```bash
 make aidigest-status      # /aidigest/ops/status through Caddy (prompts for the basic-auth password)
-make aidigest-run-daily   # operator trigger for today's DAILY run
+make aidigest-run-daily   # operator trigger for today's DAILY run (429 after 3 failed attempts)
+make aidigest-start       # start the aidigest profile
+make setup-aidigest       # append AIDigest settings to an existing .env
 make logs-aidigest        # service logs
 ```
 
@@ -82,7 +128,7 @@ make logs-aidigest        # service logs
 ```bash
 cd AIDigest
 python -m venv .venv && . .venv/bin/activate
-pip install -r requirements-dev.txt
+pip install --require-hashes -r requirements-dev.txt   # exact, hash-pinned (pip-compile output)
 python -m pytest -q
 ```
 
