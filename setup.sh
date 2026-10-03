@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Sage Homeschool Tutor — first-run setup wizard
-# Usage: bash setup.sh   (or: make setup)
+# Usage: bash setup.sh              (or: make setup)           full first-run setup
+#        bash setup.sh --aidigest   (or: make setup-aidigest)  add AIDigest to an existing .env
+#                                   (append-only: existing keys are never modified)
 set -euo pipefail
 
 BOLD='\033[1m'
@@ -16,6 +18,87 @@ warn()    { echo -e "${YELLOW}⚠  $*${RESET}"; }
 error()   { echo -e "${RED}✗  $*${RESET}"; exit 1; }
 blank()   { echo ""; }
 
+MODE=full
+case "${1:-}" in
+  "")         ;;
+  --aidigest) MODE=aidigest ;;
+  *)          echo "Usage: bash setup.sh [--aidigest]" >&2; exit 2 ;;
+esac
+
+# ── AIDigest helpers ──────────────────────────────────────────────────────────
+# bcrypt cost 10 (not Caddy's default 14): every failed basic-auth attempt costs a bcrypt
+# verification on the shared Caddy, so a lower cost bounds that CPU; a long password
+# (16+ chars) keeps offline guessing impractical. See AIDigest/DESIGN.md (L3).
+# AIDIGEST_HASH_CMD may be overridden (e.g. offline hashing, tests); it reads the password on stdin.
+AIDIGEST_HASH_CMD=${AIDIGEST_HASH_CMD:-docker run --rm -i caddy:2-alpine caddy hash-password --algorithm bcrypt --bcrypt-cost 10}
+
+aidigest_collect() {
+  blank
+  info "AIDigest (served at https://<host>/aidigest behind Caddy basic auth)"
+  IFS= read -rp "     AIDIGEST_BASIC_AUTH_USER [aidigest]: " AIDIGEST_BASIC_AUTH_USER || true
+  AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-aidigest}
+  [[ "$AIDIGEST_BASIC_AUTH_USER" =~ ^[A-Za-z0-9._@-]+$ ]] || error "User name may contain only letters, digits and . _ @ -"
+  while true; do
+    IFS= read -rsp "     AIDigest password (16+ chars): " AIDIGEST_PASSWORD || error "No password given."; echo
+    [[ ${#AIDIGEST_PASSWORD} -ge 16 ]] && break
+    warn "Must be at least 16 characters."
+  done
+  # Hashed by Caddy itself; the password goes over stdin, never on a command line.
+  AIDIGEST_BASIC_AUTH_HASH=$(printf '%s\n' "$AIDIGEST_PASSWORD" | bash -c "$AIDIGEST_HASH_CMD") \
+    || error "Could not hash the AIDigest password with caddy hash-password."
+  unset AIDIGEST_PASSWORD
+  AIDIGEST_BASIC_AUTH_HASH=$(printf '%s' "$AIDIGEST_BASIC_AUTH_HASH" | tr -d '\r\n')
+  [[ "$AIDIGEST_BASIC_AUTH_HASH" == \$2* ]] || error "Unexpected output from caddy hash-password."
+  echo "     AIDigest uses its OWN least-privilege Postgres role (see AIDigest/README.md)."
+  echo "     Format: postgresql+asyncpg://aidigest_app:pass@host/dbname?ssl=require"
+  while true; do
+    IFS= read -rp "     AIDIGEST_DATABASE_URL: " AIDIGEST_DATABASE_URL || error "No AIDIGEST_DATABASE_URL given."
+    [[ "$AIDIGEST_DATABASE_URL" == postgresql+asyncpg://* ]] && break
+    warn "Must start with postgresql+asyncpg://"
+  done
+  AIDIGEST_PROXY_SECRET=$(openssl rand -hex 32)
+  success "AIDigest password hashed (bcrypt cost 10) and AIDIGEST_PROXY_SECRET generated"
+}
+
+# Append-only: a key that already exists in the file is left exactly as it is.
+aidigest_append() {
+  local file=$1 line key header_done=0
+  for line in "AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET}" \
+              "AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER}" \
+              "AIDIGEST_BASIC_AUTH_HASH='${AIDIGEST_BASIC_AUTH_HASH}'" \
+              "AIDIGEST_DATABASE_URL=${AIDIGEST_DATABASE_URL}" \
+              "COMPOSE_PROFILES=aidigest"; do
+    key=${line%%=*}
+    if grep -q "^${key}=" "$file"; then
+      if [[ "$key" == COMPOSE_PROFILES ]] && ! grep -Eq '^COMPOSE_PROFILES=(.*,)?aidigest(,.*)?$' "$file"; then
+        warn "COMPOSE_PROFILES is already set in $file; add 'aidigest' to it by hand (setup.sh never edits existing keys)."
+      elif [[ "$key" != COMPOSE_PROFILES ]]; then
+        warn "Keeping existing ${key} (not modified)."
+      fi
+      continue
+    fi
+    if [[ $header_done -eq 0 ]]; then
+      if [[ -s "$file" && -n "$(tail -c1 "$file")" ]]; then printf '\n' >> "$file"; fi
+      printf '\n# AIDigest (added by setup.sh on %s)\n' "$(date -u +"%Y-%m-%d %H:%M UTC")" >> "$file"
+      header_done=1
+    fi
+    printf '%s\n' "$line" >> "$file"
+  done
+}
+
+aidigest_only() {
+  [[ -f .env ]] || error ".env not found. Run 'make setup' first."
+  command -v openssl >/dev/null 2>&1 || error "openssl is not installed."
+  aidigest_collect
+  aidigest_append .env
+  blank
+  success "AIDigest settings added to .env (existing keys untouched)."
+  echo "  Next: make aidigest-start   then   make aidigest-status"
+  exit 0
+}
+
+if [[ "$MODE" == aidigest ]]; then aidigest_only; fi
+
 # ── Banner ────────────────────────────────────────────────────────────────────
 blank
 echo -e "${BOLD}╔══════════════════════════════════════════╗${RESET}"
@@ -23,21 +106,33 @@ echo -e "${BOLD}║      Sage Homeschool Tutor — Setup       ║${RESET}"
 echo -e "${BOLD}╚══════════════════════════════════════════╝${RESET}"
 blank
 
+# ── Existing .env (checked first: it needs no prerequisites) ──────────────────
+if [[ -f .env ]]; then
+  warn ".env already exists."
+  echo "   [a] add AIDigest settings only (append-only; existing keys are never changed)"
+  echo "   [o] overwrite everything and start fresh"
+  echo "   [N] keep it as it is (default)"
+  IFS= read -rp "   Choice [a/o/N]: " CHOICE || CHOICE=""
+  case "${CHOICE,,}" in
+    a) aidigest_only ;;
+    o)
+      warn "Overwriting regenerates SECRET_KEY and MASTER_SECRET. A new MASTER_SECRET makes every"
+      warn "encrypted student record (voice profiles, configs, audit log) PERMANENTLY unreadable."
+      IFS= read -rp "   Type OVERWRITE to continue: " CONFIRM || CONFIRM=""
+      [[ "$CONFIRM" == "OVERWRITE" ]] || error "Not confirmed; .env left unchanged."
+      cp .env .env.backup
+      success "Existing .env backed up to .env.backup"
+      ;;
+    *) info "Keeping existing .env. Run 'make start' to launch."; exit 0 ;;
+  esac
+fi
+
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 info "Checking prerequisites..."
 command -v docker >/dev/null 2>&1     || error "Docker is not installed. Visit https://docs.docker.com/get-docker/"
 command -v openssl >/dev/null 2>&1    || error "openssl is not installed."
 docker compose version >/dev/null 2>&1 || error "Docker Compose v2 is required. Update Docker Desktop or install the plugin."
 success "Docker and Compose found"
-
-# ── Existing .env ─────────────────────────────────────────────────────────────
-if [[ -f .env ]]; then
-  warn ".env already exists."
-  read -rp "   Overwrite it and start fresh? [y/N] " OVERWRITE
-  [[ "${OVERWRITE,,}" == "y" ]] || { info "Keeping existing .env. Run 'make start' to launch."; exit 0; }
-  cp .env .env.backup
-  success "Existing .env backed up to .env.backup"
-fi
 
 blank
 echo -e "${BOLD}Let's collect the required values.${RESET}"
@@ -68,7 +163,7 @@ done
 blank
 info "3/5  Parent password (admin login)"
 while true; do
-  read -rsp "     PARENT_PASSWORD: " PARENT_PASSWORD; echo
+  IFS= read -rsp "     PARENT_PASSWORD: " PARENT_PASSWORD; echo
   [[ ${#PARENT_PASSWORD} -ge 8 ]] && break
   warn "Must be at least 8 characters."
 done
@@ -87,25 +182,6 @@ info "5/5  Generating cryptographic secrets..."
 SECRET_KEY=$(openssl rand -hex 32)
 MASTER_SECRET=$(openssl rand -hex 32)
 success "SECRET_KEY and MASTER_SECRET generated (64 hex chars each)"
-
-# ── AIDigest login (Caddy basic auth for https://<host>/aidigest) ────────────
-blank
-info "+    AIDigest login (served at /aidigest behind Caddy basic auth)"
-read -rp "     AIDIGEST_BASIC_AUTH_USER [aidigest]: " AIDIGEST_BASIC_AUTH_USER
-AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-aidigest}
-[[ "$AIDIGEST_BASIC_AUTH_USER" =~ ^[A-Za-z0-9._@-]+$ ]] || error "User name may contain only letters, digits and . _ @ -"
-while true; do
-  read -rsp "     AIDigest password (12+ chars): " AIDIGEST_PASSWORD; echo
-  [[ ${#AIDIGEST_PASSWORD} -ge 12 ]] && break
-  warn "Must be at least 12 characters."
-done
-# Hash with Caddy itself; the password goes over stdin, never on a command line.
-AIDIGEST_BASIC_AUTH_HASH=$(printf '%s\n' "$AIDIGEST_PASSWORD" | docker run --rm -i caddy:2-alpine caddy hash-password) \
-  || error "Could not hash the AIDigest password with caddy hash-password."
-unset AIDIGEST_PASSWORD
-[[ "$AIDIGEST_BASIC_AUTH_HASH" == \$2* ]] || error "Unexpected output from caddy hash-password."
-AIDIGEST_PROXY_SECRET=$(openssl rand -hex 32)
-success "AIDigest password hashed (bcrypt) and AIDIGEST_PROXY_SECRET generated"
 
 # ── Detect LAN IP for tablet access ──────────────────────────────────────────
 LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
@@ -133,12 +209,17 @@ DATABASE_URL=${DATABASE_URL}
 CORS_ORIGINS=${CORS_ORIGINS}
 DISABLE_API_DOCS=true
 PRODUCTION=true
-AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET}
-AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER}
-AIDIGEST_BASIC_AUTH_HASH='${AIDIGEST_BASIC_AUTH_HASH}'
 EOF
 chmod 600 .env
 success ".env written (mode 600 — only readable by you)"
+
+# ── Optional: AIDigest ────────────────────────────────────────────────────────
+blank
+IFS= read -rp "Also set up AIDigest (https://<host>/aidigest)? [y/N] " WANT_AIDIGEST || WANT_AIDIGEST=""
+if [[ "${WANT_AIDIGEST,,}" == "y" ]]; then
+  aidigest_collect
+  aidigest_append .env
+fi
 
 # ── Start services ────────────────────────────────────────────────────────────
 blank
