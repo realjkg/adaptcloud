@@ -47,16 +47,22 @@ ADVERSARIAL = {
 
 @pytest.mark.parametrize("name", list(ADVERSARIAL))
 def test_adversarial_input_parses_within_budget(name):
+    """Hard budget (child killed) AND near-linear scaling: str.find is memchr-fast, so a
+    quadratic rescan of 1 MB can still finish in a few seconds - the 4x size step exposes it
+    (linear ~4x, quadratic ~16x)."""
     code = textwrap.dedent(f"""
         import time
         from aidigest.feeds import clean_text, parse_feed
-        N = {N}
-        data = {ADVERSARIAL[name]}
-        assert len(data) >= N * 0.9
-        t = time.monotonic()
-        parse_feed(data, "src")
-        clean_text(data)
-        print(round(time.monotonic() - t, 3))
+        def run(N):
+            data = {ADVERSARIAL[name]}
+            assert len(data) >= N * 0.9
+            t = time.monotonic()
+            parse_feed(data, "src")
+            clean_text(data)
+            return time.monotonic() - t
+        quarter = run({N // 4})
+        full = run({N})
+        print(f"{{quarter:.4f}} {{full:.4f}}")
     """)
     try:
         proc = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True,
@@ -64,6 +70,8 @@ def test_adversarial_input_parses_within_budget(name):
     except subprocess.TimeoutExpired:
         pytest.fail(f"{name}: parsing 1 MB exceeded {BUDGET_SECONDS}s (child killed) - non-linear parser")
     assert proc.returncode == 0, proc.stderr[-2000:]
+    quarter, full = map(float, proc.stdout.split())
+    assert full <= max(1.0, 8 * quarter), f"{name}: {quarter:.3f}s at N/4 -> {full:.3f}s at N (super-linear)"
 
 
 def test_clean_text_behaviour_preserved():

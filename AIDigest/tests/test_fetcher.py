@@ -319,7 +319,7 @@ async def test_trickling_body_hits_total_deadline():
     import time
 
     async def trickle():
-        for _ in range(1000):
+        for _ in range(50):          # 5 s in total; the deadline must stop it at 0.5 s
             yield b"x"
             await asyncio.sleep(0.1)
 
