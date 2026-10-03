@@ -3,7 +3,8 @@
 Branch `feat/ai-digest-initial` (PR #60), base `f96765d`. Recorded 2026-10-03.
 
 Sections 1-9 record the initial implementation (`351e7b2`). **Section 10 records challenger
-round 1 and supersedes their gate results** (460 tests, 91/91 mutations killed).
+round 1; section 11 records challenger round 2 and supersedes all earlier gate results**
+(497 tests on Python 3.11.15 and 3.12.3, 113/113 mutations killed, Caddy matrix green).
 
 Toolchain: Python 3.11.15 (container image: python:3.12-slim), pytest 9.1.1,
 pytest-asyncio 1.4.0, FastAPI 0.142.2, SQLAlchemy 2.1.3, asyncpg 0.31.0,
@@ -585,3 +586,227 @@ All detect-secrets hits are the false positives triaged in section 5, plus two m
 - **Trickling server (M1):** the test uses an httpx MockTransport whose body yields one byte per 100 ms. That exercises the same `asyncio.wait_for` total deadline a socket-level slowloris would hit.
 - **TLS on unknown SNI:** the e2e Caddyfile again differed only by `tls internal { on_demand }`, because of the pre-existing missing certificate for unknown SNI noted in section 7.
 - **Equivalent mutants found and fixed:** the partial run of the 90-mutation version showed `ssrf-no-embedded-v4-check` surviving. On Python 3.11 and 3.12, `ipaddress.is_global` already rejects 6to4, Teredo and IPv4-mapped ranges, so the explicit checks are a second layer. That layer is now `policy_blocks()`, which has its own direct tests (including the reserved-but-"global" `4000::1`), and each of its rules is killed individually.
+
+
+## 11. Challenger round 2 (review of `59f2c34`: 0 High, 3 Medium, 8 Low)
+
+This section supersedes sections 1-10 for gate results.
+
+| SHA | What |
+|---|---|
+| `7ff25c9` | failing tests for round 2 (red), `scripts/caddy_matrix.sh` |
+| `0b4e06f` | O(1) work per wire chunk + periodic loop yield; text-codec-only decoding; IPv4-mapped by its IPv4; version 0.4.0 in the user agent (M1, L1, M3, L8) |
+| `2700210` | dedicated bounded parser executor; huge charref guard (L6, L1) |
+| `64fa77f` | lease times from the DB clock; all-feeds-failed is a failed run (L7, L2) |
+| `70d0abc` | Caddy always adapts; any missing/partial AIDigest config is 401 (M2) |
+| `dc5538c` | setup.sh fills empty keys in place; README role SQL for PG16 non-superuser admins + PG<=14 note (L3, L4) |
+| `66346bd` | 113-mutation check (22 new); codec checks layered so each has its own test |
+| this commit | DESIGN.md section 11, README fail-closed text, this evidence |
+
+### 11.1 Red (`7ff25c9`)
+
+```
+Python 3.11.15: 27 failed, 470 passed
+Python 3.12.3:  30 failed, 467 passed   (the 3 extra: IPv4-mapped cases)
+scripts/caddy_matrix.sh: 3 failure(s)
+  user set, hash empty  -> caddy adapt ERROR: basic_auth: username and password cannot be empty or missing
+  user empty, hash set  -> caddy adapt ERROR: (same)
+  user+hash set, no proxy secret -> ops:<right password> got 502 (Caddy let it through)
+```
+
+### 11.2 Green: both Python versions, no skips
+
+```
+$ /tmp/adv/bin/python -m pytest -q -rs -p no:cacheprovider      # Python 3.11.15
+497 passed in 52.24s
+$ /tmp/adv312/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.12.3
+497 passed in 53.01s
+```
+
+The `py312` venv was built from the hash-pinned `requirements-dev.txt` (`pip install --require-hashes`) on the system Python 3.12.3.
+
+### 11.3 M1 measurements
+
+```
+child process, one byte per wire chunk (gzip: hex text, ~2:1):
+gzip     N/4 = 57,496 wire bytes in 0.090 s    N = 228,285 wire bytes in 0.374 s   (challenger: 200k chunks = 575 s)
+identity N/4 = 50,000 wire bytes in 0.058 s    N = 200,000 wire bytes in 0.212 s
+without the periodic yield, a never-suspending 1M-chunk stream stalled the loop for 1.08 s; with it the test's max gap is < 0.25 s
+```
+
+### 11.4 M2: `scripts/caddy_matrix.sh` (real Caddy v2.11.6, environment resolved by `docker compose config`)
+
+```
+== user empty, hash empty
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         401
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== user set,   hash empty
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         401
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== user empty, hash set
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         401
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== user set,   hash set
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         502
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== user+hash set, no secret
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         401
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== outside compose, no AIDIGEST_* variables at all
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    aidigest-disabled:<right password>           401
+
+caddy matrix: all expectations met
+```
+
+401 = Caddy denied; 502 = authentication passed (the matrix runs Caddy without an aidigest upstream). As
+before, the probe copy of the Caddyfile adds only `tls internal { on_demand }`.
+
+### 11.5 Base stack with a pre-PR `.env` (new defaults)
+
+```
+$ docker compose --env-file pre-PR.env config --services
+api
+ui
+caddy
+$ docker compose --env-file pre-PR.env config -q; echo $?
+0
+$ (pre-PR.env) caddy environment as rendered
+{'AIDIGEST_BASIC_AUTH_HASH': '$$2a$$10$$UA...', 'AIDIGEST_BASIC_AUTH_USER': 'aidigest-dis...', 'AIDIGEST_PROXY_SECRET': ''} depends_on: ['ui']
+```
+
+### 11.6 Mutation check: 113 mutations (45 + 46 + 22 new)
+
+```
+$ MUTATION_PY312=/tmp/adv312/bin/python $PY scripts/mutation_check.py
+baseline: PASS (497 passed in 38.91s)
+113/113 mutations killed, 0 survived.
+```
+
+Round-2 rows (the full 113-row table is printed by the script):
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 92 | `r2-m1-quadratic-decoded-total` | O(1) per chunk: running decoded total (gzip path) | killed | 1 failed, 365 passed in 52.53s |
+| 93 | `r2-m1-no-periodic-yield` | read loop yields to the event loop periodically | killed | 1 failed, 368 passed in 24.64s |
+| 94 | `r2-m2-no-unconfigured-guard` | /aidigest/* is 401 unless fully configured (Caddy) | killed | caddy matrix: 2 failure(s) |
+| 95 | `r2-m2-no-user-sentinel` | compose maps an empty user to a non-empty sentinel | killed | caddy matrix: 2 failure(s) |
+| 96 | `r2-m2-no-hash-sentinel` | compose maps an empty hash to a non-empty sentinel | killed | caddy matrix: 2 failure(s) |
+| 97 | `r2-m2-guard-ignores-secret` | /aidigest/* is 401 without a proxy secret (Caddy) | killed | caddy matrix: 1 failure(s) |
+| 98 | `r2-m3-no-mapped-unwrap` | IPv4-mapped judged by its IPv4 (observable on 3.12.3) | killed | 1 failed, 363 passed in 22.39s |
+| 99 | `r2-l1-non-text-codec-allowed` | only text codecs decode bodies | killed | 1 failed, 369 passed in 26.07s |
+| 100 | `r2-l1-decode-errors-unmapped` | decode errors are 502 | killed | 1 failed, 371 passed in 24.47s |
+| 101 | `r2-l1-huge-charref` | huge numeric charrefs neutralised before html.unescape | killed | 1 failed, 406 passed in 26.94s |
+| 102 | `r2-l2-all-feeds-failed-completes` | all feeds failing is a failed (retryable) run | killed | 1 failed, 183 passed in 13.68s |
+| 103 | `r2-l3-empty-keys-not-filled` | setup.sh fills empty AIDigest keys | killed | 1 failed, 429 passed in 32.27s |
+| 104 | `r2-l4-readme-no-member-grant` | README role SQL works for a PG16 non-superuser admin | killed | 1 failed, 233 passed in 20.42s |
+| 105 | `r2-l5-max-retries` | Claude client max_retries=1 | killed | 1 failed, 23 passed in 1.50s |
+| 106 | `r2-l5-items-per-feed` | <= 25 items per feed | killed | 1 failed, 239 passed in 20.39s |
+| 107 | `r2-l5-description-cap` | <= 1800-char descriptions | killed | 1 failed, 240 passed in 22.89s |
+| 108 | `r2-l5-run-key-local-date` | run_key uses the UTC date | killed | 1 failed, 231 passed in 21.21s |
+| 109 | `r2-l5-no-claim-lock` | claims serialised by the per-day advisory lock | killed | 1 failed, 230 passed in 24.34s |
+| 110 | `r2-l5-heartbeat-never-runs` | the heartbeat extends the lease | killed | 1 failed, 229 passed in 26.16s |
+| 111 | `r2-l6-default-executor` | parsers use the dedicated bounded executor | killed | 1 failed, 241 passed in 22.48s |
+| 112 | `r2-l7-replica-clock-lease` | lease timestamps from the DB clock | killed | 1 failed, 29 passed in 3.78s |
+| 113 | `r2-l8-hardcoded-user-agent` | one version string | killed | 1 failed, 40 passed in 5.22s |
+
+Runners: the `r2-m2-*` mutations run `scripts/caddy_matrix.sh` against the mutated Caddyfile/compose file
+instead of pytest. `r2-m3-no-mapped-unwrap` runs under Python 3.12.3, because on 3.11 the stdlib flags make
+the unwrap unobservable.
+
+A first pass over the 22 round-2 mutations left two survivors, fixed before the full run:
+- `r2-m1-no-periodic-yield`: 200k chunks stalled the loop for only 0.19 s, under the 0.25 s bar. The test now streams 1M chunks (1.08 s stall without the yield).
+- `r2-l1-decode-errors-unmapped`: every tested charset was refused by the text-codec check first. The redundant idna/punycode/undefined deny-list was removed; those codecs fail inside `decode` and now exercise the try/except alone.
+
+`URL control characters` (challenger L5): an equivalent mutant. httpx's URL parser itself rejects NUL, CR/LF,
+TAB and DEL in host and path (checked), so the explicit check cannot change behaviour. It stays as defence in
+depth, and `test_validate_url_rejects_control_characters` covers the behaviour.
+
+### 11.7 Lint, compile, dependency audit
+
+```
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts && echo compile-ok
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && echo syntax-ok
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+```
+
+### 11.8 Secret scan
+
+```
+$ detect-secrets scan <50 files changed since f96765d>
+findings: 19
+  .env.example Basic Auth Credentials line 33
+  .env.example Basic Auth Credentials line 36
+  AIDigest/aidigest/auth.py Secret Keyword line 13
+  AIDigest/aidigest/config.py Basic Auth Credentials line 14
+  AIDigest/aidigest/config.py Basic Auth Credentials line 38
+  AIDigest/scripts/caddy_matrix.sh Secret Keyword line 20
+  AIDigest/tests/fakes.py Secret Keyword line 8
+  AIDigest/tests/fakes.py Secret Keyword line 16
+  AIDigest/tests/test_auth.py Secret Keyword line 45
+  AIDigest/tests/test_auth.py Secret Keyword line 96
+  AIDigest/tests/test_config.py Secret Keyword line 10
+  AIDigest/tests/test_config.py Secret Keyword line 33
+  AIDigest/tests/test_config.py Secret Keyword line 34
+  AIDigest/tests/test_config.py Secret Keyword line 36
+  AIDigest/tests/test_config.py Secret Keyword line 37
+  AIDigest/tests/test_config.py Basic Auth Credentials line 39
+  AIDigest/tests/test_fetcher.py Basic Auth Credentials line 41
+  AIDigest/tests/test_setup_sh.py Basic Auth Credentials line 20
+  setup.sh Basic Auth Credentials line 53
+$ regex scan of added lines, excluding pip-compile "--hash=sha256:" pins
++5409:+FAKE_HASH = "$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234"
++5415:+SECRET_KEY=1111111111111111111111111111111111111111111111111111111111111111
++5416:+MASTER_SECRET=2222222222222222222222222222222222222222222222222222222222222222
++SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
++      [("../docker-compose.yml", "${AIDIGEST_BASIC_AUTH_HASH:-$$2a$$10$$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}", "${AIDIGEST_BASIC_AU
++FAKE_HASH = "$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234"
++SECRET_KEY=1111111111111111111111111111111111111111111111111111111111111111
++MASTER_SECRET=2222222222222222222222222222222222222222222222222222222222222222
++      @aidigest_unconfigured expression `{env.AIDIGEST_BASIC_AUTH_USER} in ["", "aidigest-disabled"] || {env.AIDIGEST_BASIC_AUTH_HASH} in ["", "$2a$1
++        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled} {$AIDIGEST_BASIC_AUTH_HASH:$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
++      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:-$$2a$$10$$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
+```
+
+New since section 10:
+- **The committed sentinel bcrypt hash** (Caddyfile, docker-compose.yml with `$$`, the mutation definition): it is the hash of 48 random bytes that were piped straight into `caddy hash-password` and never stored, so no password matches it. It is a placeholder that keeps `basic_auth` syntactically valid; the guard route answers 401 before `basic_auth` whenever it is in effect.
+- **`scripts/caddy_matrix.sh`:** a throwaway password and proxy secret, used only for an ephemeral local Caddy.
+
+Everything else is the fixture and placeholder triage of sections 5 and 10.
+
+### 11.9 End-to-end (rebuilt image 0.4.0, compose profile, least-privilege role, real Caddy)
+
+```
+startup: AIDigest readiness: ready=True missing=[]
+startup: Catch-up DAILY failed -> UpstreamError: All feeds failed: ... ConnectError ...   (no egress in the sandbox; L2)
+1 no credentials                                -> 401
+2 sentinel user aidigest-disabled + right pw    -> 401
+3 valid auth + forged X-AIDigest-User: admin    -> 200 authenticated_as=ops version=0.4.0       (L8)
+4.1 run-daily (all feeds fail)                  -> 502 All feeds failed ...                      (retryable)
+4.2 run-daily (all feeds fail)                  -> 502
+4.3 run-daily                                   -> 429 attempts_exhausted (3 failed attempts today)
+runs: failed|schedule, failed|operator, failed|operator; lease_until - created_at = 1200 s (DB clock, UTC)
+```

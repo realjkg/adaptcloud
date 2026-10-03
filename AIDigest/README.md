@@ -36,8 +36,12 @@ That is five required values (`ANTHROPIC_API_KEY` plus the four `AIDIGEST_*` abo
 `COMPOSE_PROFILES=aidigest`. `make setup-aidigest` adds all of them except the API key.
 
 With `PRODUCTION=true` (set by docker-compose), the service refuses to start if the API key, the
-database URL or the proxy secret is missing, a placeholder, or weak. If the Caddy values are
-missing, Caddy has no basic-auth account and every `/aidigest/*` request gets 401.
+database URL or the proxy secret is missing, a placeholder, or weak. If any of the Caddy values
+(`AIDIGEST_BASIC_AUTH_USER`, `AIDIGEST_BASIC_AUTH_HASH`, `AIDIGEST_PROXY_SECRET`) is missing or
+empty - alone or in any combination - Caddy still starts (non-empty sentinel defaults: user
+`aidigest-disabled`, a bcrypt hash of a discarded random value) and answers every `/aidigest/*`
+request with 401 before basic auth runs. `scripts/caddy_matrix.sh` checks every combination
+against the real Caddy.
 
 Bounds (all optional, safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST_AI_MAX_TOKENS`
 (16000), `AIDIGEST_AI_MAX_CONCURRENCY` (2), `AIDIGEST_TASK_HOURLY_LIMIT` (20 per user, then 429),
@@ -100,7 +104,7 @@ All endpoints are served under `https://<host>/aidigest` and require Caddy basic
 
 - GET /health
 - GET /ops/status
-- POST /ops/run-daily (operator trigger: 409 if today's run already happened or is running, 429 after the day's attempt cap, 503 if not ready)
+- POST /ops/run-daily (operator trigger: 409 if today's run already happened or is running, 429 after the day's attempt cap, 502 if every feed failed - retryable, 503 if not ready)
 - GET /digest
 - GET /digest.json
 - GET /knowledge?q=finops
