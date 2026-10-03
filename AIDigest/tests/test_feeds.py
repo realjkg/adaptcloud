@@ -45,3 +45,43 @@ async def test_collect_feeds_dedupes_and_reports_errors():
     items, errors = await collect_feeds(fetcher)
     assert [i.url for i in items] == ["https://ex.com/same"]
     assert len(errors) == len(SOURCES) - 2
+
+
+# ── Round 2 L5: per-feed bounds ───────────────────────────────────────────────
+def test_at_most_25_items_per_feed():
+    xml = rss([{"title": f"Agent {i}", "url": f"https://ex.com/{i}"} for i in range(30)])
+    assert len(parse_feed(xml, "s")) == 25
+
+
+def test_description_capped_at_1800_chars():
+    xml = rss([{"title": "Agent", "url": "https://ex.com/a", "description": "word " * 1000}])
+    assert len(parse_feed(xml, "s")[0].description) == 1800
+
+
+# ── Round 2 L6: dedicated, bounded parser executor ────────────────────────────
+async def test_parsing_uses_dedicated_bounded_executor():
+    import threading
+    import time
+
+    import aidigest.feeds as feeds
+    from aidigest.errors import UpstreamError
+
+    names = []
+
+    def record(*_):
+        names.append(threading.current_thread().name)
+        return []
+
+    await feeds.run_parser(record, "x", timeout=5)
+    assert names and names[0].startswith("aidigest-parse")
+
+    def slow(*_):
+        time.sleep(0.3)
+
+    for _ in range(12):                      # repeated timeouts cannot grow the pool
+        try:
+            await feeds.run_parser(slow, timeout=0.01)
+        except UpstreamError:
+            pass
+    assert feeds.PARSE_EXECUTOR._max_workers == feeds.PARSE_WORKERS <= 4
+    assert len(feeds.PARSE_EXECUTOR._threads) <= feeds.PARSE_WORKERS

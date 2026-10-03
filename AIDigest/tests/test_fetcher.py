@@ -480,3 +480,140 @@ def test_reserved_but_stdlib_global_address_is_rejected():
 
     assert ipaddress.ip_address("4000::1").is_global  # the stdlib alone would allow it
     assert not is_public_address("4000::1")
+
+
+# ═════════════════════════ challenger round 2 ═════════════════════════════════
+ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
+
+_CHUNK_CHILD = """
+import asyncio, gzip, os, sys, time, httpx
+from aidigest.fetcher import GuardedFetcher
+
+async def resolve(host):
+    return ["93.184.216.34"]
+
+def make(body, encoding):
+    async def gen():
+        for i in range(len(body)):
+            yield body[i:i + 1]          # one byte per wire chunk
+    headers = {{"content-encoding": encoding}} if encoding else {{}}
+    return GuardedFetcher(resolver=resolve, max_bytes=2_000_000, timeout=60, total_timeout=600,
+                          transport=httpx.MockTransport(lambda r: httpx.Response(200, content=gen(), headers=headers)))
+
+def plain(n):
+    return os.urandom(n // 2).hex().encode()[:n]   # ~2:1 compressible text
+
+async def run(n, encoding):
+    raw = plain(2 * n) if encoding else plain(n)       # hex text gzips ~2:1 -> ~n wire bytes either way
+    body = gzip.compress(raw) if encoding else raw
+    t = time.monotonic()
+    result = await make(body, encoding).fetch("https://a.example/")
+    assert result.text.encode() == raw
+    return time.monotonic() - t, len(body)
+
+async def main():
+    enc = sys.argv[1] or None
+    q, nq = await run({n} // 4, enc)
+    f, nf = await run({n}, enc)
+    print(f"{{q:.4f}} {{f:.4f}} {{nq}} {{nf}}")
+
+asyncio.run(main())
+"""
+
+
+@pytest.mark.parametrize("encoding", ["gzip", ""])
+def test_200k_one_byte_chunks_are_linear(encoding):
+    """M1 (round 2): per-chunk work must be O(1); 200k one-byte wire chunks, child hard-killed at 30 s,
+    and linear growth from N/4 to N (quadratic would be ~16x)."""
+    import subprocess
+    import sys
+
+    n = 200_000
+    try:
+        proc = subprocess.run([sys.executable, "-c", _CHUNK_CHILD.format(n=n), encoding], cwd=ROOT,
+                              capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        pytest.fail(f"{encoding or 'identity'}: 200k one-byte chunks exceeded 30 s (child killed)")
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    quarter, full, n_quarter, n_full = proc.stdout.split()
+    assert int(n_full) > 150_000, n_full
+    assert float(full) <= max(2.0, 8 * float(quarter)), f"{quarter}s at N/4 -> {full}s at N (super-linear)"
+
+
+async def _max_loop_gap(coro) -> float:
+    import asyncio
+    import time
+
+    stop = asyncio.Event()
+
+    async def ticker():
+        worst, last = 0.0, time.monotonic()
+        while not stop.is_set():
+            await asyncio.sleep(0.005)
+            now = time.monotonic()
+            worst, last = max(worst, now - last), now
+        return worst
+
+    tick = asyncio.create_task(ticker())
+    await asyncio.sleep(0.02)
+    try:
+        await coro
+    finally:
+        stop.set()
+    return await tick
+
+
+async def test_gzip_in_16_byte_chunks_keeps_the_loop_responsive():
+    import asyncio
+    import gzip
+    import os
+
+    body = gzip.compress(os.urandom(300_000).hex().encode())   # ~600 KB decoded, ~330 KB on the wire
+
+    async def gen():
+        for i in range(0, len(body), 16):
+            yield body[i:i + 16]
+            await asyncio.sleep(0)                               # like a socket delivering small reads
+
+    f = fetcher(lambda req: httpx.Response(200, content=gen(), headers={"content-encoding": "gzip"}),
+                {"a.example": [PUBLIC_V4]}, max_bytes=2_000_000, total_timeout=60)
+    gap = await _max_loop_gap(f.fetch("https://a.example/"))
+    assert gap < 0.25, f"event loop stalled {gap:.2f}s"
+
+
+async def test_non_yielding_stream_still_yields_the_loop_periodically():
+    """A transport that never suspends (already-buffered data) must not monopolise the loop."""
+    async def gen():
+        for _ in range(200_000):
+            yield b"a"
+
+    f = fetcher(lambda req: httpx.Response(200, content=gen()), {"a.example": [PUBLIC_V4]},
+                max_bytes=2_000_000, total_timeout=60)
+    gap = await _max_loop_gap(f.fetch("https://a.example/"))
+    assert gap < 0.25, f"event loop stalled {gap:.2f}s"
+
+
+# ── L1 (round 2): non-text codecs and pathological charrefs ───────────────────
+@pytest.mark.parametrize("charset", ["base64", "rot13", "idna", "hex", "zlib", "uu", "bz2", "quopri", "punycode"])
+async def test_non_text_charset_is_upstream_error(charset):
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(b"hello \xff world"),
+                                           headers={"content-type": f"text/html; charset={charset}"}),
+                {"a.example": [PUBLIC_V4]})
+    with pytest.raises(UpstreamError, match="charset"):
+        await f.fetch("https://a.example/")
+
+
+# ── M3 (round 2): IPv4-mapped addresses are judged by their IPv4 alone ────────
+@pytest.mark.parametrize("ip, public", [("::ffff:8.8.8.8", True), ("::ffff:93.184.216.34", True),
+                                        ("::ffff:127.0.0.1", False), ("::ffff:10.0.0.1", False),
+                                        ("::ffff:169.254.169.254", False), ("::ffff:240.0.0.1", False)])
+def test_ipv4_mapped_decided_by_embedded_ipv4(ip, public):
+    assert is_public_address(ip) is public
+
+
+# ── L8 (round 2): one version string ──────────────────────────────────────────
+def test_user_agent_carries_package_version():
+    import aidigest
+    from aidigest.fetcher import USER_AGENT
+
+    assert USER_AGENT == f"AdaptCloud-AIDigest/{aidigest.__version__} (+https://adaptcloud.io)"

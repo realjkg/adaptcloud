@@ -173,3 +173,12 @@ async def test_run_daily_attempts_exhausted_is_429(settings, engine, fake_fetche
     assert r.status_code == 429
     assert r.json()["status"] == "attempts_exhausted"
     assert len(ai.calls) == 1
+
+
+async def test_version_is_consistent(client):
+    import aidigest
+    from aidigest.fetcher import USER_AGENT
+
+    version = (await client.get("/ops/status")).json()["version"]
+    assert version == aidigest.__version__
+    assert f"/{version} " in USER_AGENT

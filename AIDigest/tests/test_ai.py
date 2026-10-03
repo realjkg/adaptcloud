@@ -109,6 +109,9 @@ def test_build_anthropic_ai_uses_settings():
 
     ai = build_anthropic_ai(make_settings(aidigest_ai_effort="high"))
     assert ai.model == "claude-sonnet-5-5" and ai.max_tokens == 16_000 and ai.effort == "high"
+    # Round 2 L5: worst case is 2 x timeout, which must fit inside the DAILY/TASK budgets.
+    assert ai._client.max_retries == 1
+    assert ai._client.timeout == 240
 
 
 async def test_bounded_ai_limits_concurrency():

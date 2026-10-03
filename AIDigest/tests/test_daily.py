@@ -64,13 +64,31 @@ async def test_daily_happy_path_one_ai_call(engine):
     assert row == "completed:3:2"
 
 
+def empty_feeds():
+    """At least one source answers (with no items); the others fail - a normal partial outage."""
+    return FakeFetcher({SOURCES[0].url: rss([])})
+
+
 async def test_daily_without_candidates_makes_no_ai_call(engine):
     ai = FakeAI()
-    result = await run_daily(engine, ai, FakeFetcher(), trigger="schedule", now=NOW)
+    result = await run_daily(engine, ai, empty_feeds(), trigger="schedule", now=NOW)
     assert result["status"] == "completed"
     assert result["candidates"] == 0
     assert ai.calls == []
-    assert len(result["source_errors"]) == len(SOURCES)
+    assert len(result["source_errors"]) == len(SOURCES) - 1
+
+
+async def test_daily_all_feeds_failing_is_a_retryable_failure(engine):
+    """Round 2 L2: a boot before egress works must not burn the day as 'completed'."""
+    from aidigest.errors import UpstreamError
+
+    ai = FakeAI()
+    with pytest.raises(UpstreamError, match="All feeds failed"):
+        await run_daily(engine, ai, FakeFetcher(), trigger="schedule", now=NOW)
+    assert ai.calls == []
+    assert await scalar(engine, "SELECT status FROM aidigest.runs") == "failed"
+    result = await run_daily(engine, ai, empty_feeds(), trigger="operator", now=NOW)
+    assert result["status"] == "completed"
 
 
 async def test_daily_prompt_isolates_evidence(engine):
@@ -254,7 +272,7 @@ async def test_daily_schema_not_ready_without_runs_table_does_not_crash(engine):
 async def test_schema_not_ready_does_not_block_a_later_run_that_day(engine):
     async with engine.begin() as conn:
         await conn.execute(text("DROP TABLE aidigest.articles"))
-    assert (await run_daily(engine, FakeAI(), FakeFetcher(), trigger="schedule", now=NOW))["status"] == \
+    assert (await run_daily(engine, FakeAI(), empty_feeds(), trigger="schedule", now=NOW))["status"] == \
         "schema_not_ready"
     from aidigest.db import apply_schema
     await apply_schema(engine)
@@ -321,19 +339,20 @@ async def test_failed_run_can_be_retried_same_day(engine):
 
 
 async def test_abandoned_running_row_is_taken_over_but_fresh_one_is_not(engine):
-    async def insert_running(age):
+    """Leases are judged by the database clock (round 2 L7), so 'expired' is set in the DB."""
+    async def insert_running(lease_offset: str):
         async with engine.begin() as conn:
             await conn.execute(text(
-                "INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, created_at) "
-                "VALUES (gen_random_uuid()::text, 'daily', 'daily:2026-10-03', 'schedule', 'running', :ts)"),
-                {"ts": NOW - age})
+                "INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, owner, lease_until, created_at) "
+                "VALUES (gen_random_uuid()::text, 'daily', 'daily:2026-10-03', 'schedule', 'running', 'crashed', "
+                f"now() + interval '{lease_offset}', :ts)"), {"ts": NOW})
 
-    await insert_running(timedelta(minutes=10))
-    assert (await run_daily(engine, FakeAI(), FakeFetcher(), trigger="operator", now=NOW))["status"] == "duplicate"
+    await insert_running("10 minutes")
+    assert (await run_daily(engine, FakeAI(), empty_feeds(), trigger="operator", now=NOW))["status"] == "duplicate"
     async with engine.begin() as conn:
         await conn.execute(text("DELETE FROM aidigest.runs"))
-    await insert_running(timedelta(hours=3))
-    result = await run_daily(engine, FakeAI(), FakeFetcher(), trigger="operator", now=NOW)
+    await insert_running("-1 second")
+    result = await run_daily(engine, FakeAI(), empty_feeds(), trigger="operator", now=NOW)
     assert result["status"] == "completed"
     assert await scalar(engine, "SELECT error FROM aidigest.runs WHERE status='failed'") == "abandoned"
 
@@ -341,7 +360,7 @@ async def test_abandoned_running_row_is_taken_over_but_fresh_one_is_not(engine):
 async def test_next_day_runs_again(engine):
     for day in range(2):
         ai = FakeAI()
-        result = await run_daily(engine, ai, FakeFetcher(), trigger="schedule", now=NOW + timedelta(days=day))
+        result = await run_daily(engine, ai, empty_feeds(), trigger="schedule", now=NOW + timedelta(days=day))
         assert result["status"] == "completed"
 
 
@@ -350,6 +369,12 @@ from aidigest.daily import DailyConfig, refresh_lease  # noqa: E402
 from aidigest.errors import DeadlineError  # noqa: E402
 
 CFG = DailyConfig(budget_seconds=30, lease_seconds=60, heartbeat_seconds=3600, max_attempts=3, parse_timeout=10)
+
+
+async def _expire_leases(engine):
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "UPDATE aidigest.runs SET lease_until = now() - interval '1 second' WHERE status='running'"))
 
 
 async def _wait_for_running(engine, n=1):
@@ -374,8 +399,8 @@ async def test_stale_takeover_blocked_before_ai_resumes_without_ai_or_store(engi
     try:
         ai_b = FakeAI()
         ai_b.queue_json([selection("https://news.example/1")])
-        later = NOW + timedelta(seconds=CFG.lease_seconds + 1)
-        result_b = await run_daily(other, ai_b, feed_fetcher(items(2)), trigger="operator", now=later, config=CFG)
+        await _expire_leases(engine)   # A's lease runs out (DB clock) while A is blocked
+        result_b = await run_daily(other, ai_b, feed_fetcher(items(2)), trigger="operator", now=NOW, config=CFG)
     finally:
         await other.dispose()
     assert result_b["status"] == "completed" and result_b["accepted"] == 1
@@ -409,8 +434,8 @@ async def test_stale_takeover_during_ai_call_discards_a_results(engine, pg_url):
     try:
         ai_b = FakeAI()
         ai_b.queue_json([selection("https://news.example/1")])
-        later = NOW + timedelta(seconds=CFG.lease_seconds + 1)
-        assert (await run_daily(other, ai_b, feed_fetcher(items(2)), trigger="operator", now=later,
+        await _expire_leases(engine)
+        assert (await run_daily(other, ai_b, feed_fetcher(items(2)), trigger="operator", now=NOW,
                                 config=CFG))["status"] == "completed"
     finally:
         await other.dispose()
@@ -425,24 +450,23 @@ async def test_refresh_lease_requires_owner_and_running(engine):
     async with engine.begin() as conn:
         await conn.execute(text(
             "INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, owner, lease_until, created_at) "
-            "VALUES ('r1','daily','daily:2026-10-03','schedule','running','tok-a', :lease, :now)"),
-            {"lease": NOW + timedelta(seconds=60), "now": NOW})
-    new_lease = NOW + timedelta(seconds=600)
-    assert await refresh_lease(engine, "r1", "tok-b", new_lease) is False
-    assert await refresh_lease(engine, "r1", "tok-a", new_lease) is True
-    assert await scalar(engine, "SELECT lease_until FROM aidigest.runs WHERE id='r1'") == new_lease
+            "VALUES ('r1','daily','daily:2026-10-03','schedule','running','tok-a', now() + interval '60 seconds', "
+            ":now)"), {"now": NOW})
+    assert await refresh_lease(engine, "r1", "tok-b", 600) is False
+    assert await refresh_lease(engine, "r1", "tok-a", 600) is True
+    remaining = await scalar(engine, "SELECT extract(epoch FROM lease_until - now()) FROM aidigest.runs WHERE id='r1'")
+    assert 590 < float(remaining) <= 600
     async with engine.begin() as conn:
         await conn.execute(text("UPDATE aidigest.runs SET status='failed' WHERE id='r1'"))
-    assert await refresh_lease(engine, "r1", "tok-a", new_lease + timedelta(seconds=1)) is False
+    assert await refresh_lease(engine, "r1", "tok-a", 600) is False
 
 
 async def test_fresh_lease_is_not_taken_over(engine):
     gate = asyncio.Event()
-    task_a = asyncio.create_task(run_daily(engine, FakeAI(), FakeFetcher({}, gate=gate), trigger="schedule",
-                                           now=NOW, config=CFG))
+    task_a = asyncio.create_task(run_daily(engine, FakeAI(), FakeFetcher({SOURCES[0].url: rss([])}, gate=gate),
+                                           trigger="schedule", now=NOW, config=CFG))
     await _wait_for_running(engine)
-    within = NOW + timedelta(seconds=CFG.lease_seconds - 1)
-    assert (await run_daily(engine, FakeAI(), FakeFetcher(), trigger="operator", now=within,
+    assert (await run_daily(engine, FakeAI(), empty_feeds(), trigger="operator", now=NOW,
                             config=CFG))["status"] == "duplicate"
     gate.set()
     assert (await asyncio.wait_for(task_a, 10))["status"] == "completed"
@@ -541,3 +565,57 @@ async def test_daily_double_encoded_entities_are_decoded_then_escaped(engine):
     assert user.count("</evidence>") == 1
     payload = json.loads(user[user.index("<evidence>") + 10:user.index("</evidence>")])
     assert "</evidence>" in payload[0]["title"]
+
+
+
+# ═════════════════════════ challenger round 2 ═════════════════════════════════
+async def test_lease_uses_database_clock_not_replica_clock(engine):
+    """L7: a replica whose clock is a year off still writes a lease relative to the DB's now()."""
+    gate = asyncio.Event()
+    skewed = datetime(2025, 10, 3, 12, 30, tzinfo=timezone.utc)
+    task = asyncio.create_task(run_daily(engine, FakeAI(), FakeFetcher({SOURCES[0].url: rss([])}, gate=gate),
+                                         trigger="schedule", now=skewed, config=CFG))
+    await _wait_for_running(engine)
+    remaining = await scalar(engine, "SELECT extract(epoch FROM lease_until - now()) FROM aidigest.runs")
+    assert CFG.lease_seconds - 30 < float(remaining) <= CFG.lease_seconds
+    gate.set()
+    await asyncio.wait_for(task, 10)
+
+
+async def test_heartbeat_extends_the_lease(engine):
+    """L5 survivor: the heartbeat must actually run and push lease_until forward."""
+    gate = asyncio.Event()
+    cfg = DailyConfig(budget_seconds=30, lease_seconds=60, heartbeat_seconds=0.05)
+    task = asyncio.create_task(run_daily(engine, FakeAI(), FakeFetcher({SOURCES[0].url: rss([])}, gate=gate),
+                                         trigger="schedule", now=NOW, config=cfg))
+    await _wait_for_running(engine)
+    async with engine.begin() as conn:  # shorten the lease; a live heartbeat restores it
+        await conn.execute(text("UPDATE aidigest.runs SET lease_until = now() + interval '5 seconds'"))
+    await asyncio.sleep(0.4)
+    remaining = await scalar(engine, "SELECT extract(epoch FROM lease_until - now()) FROM aidigest.runs")
+    gate.set()
+    await asyncio.wait_for(task, 10)
+    assert float(remaining) > 50
+
+
+async def test_claim_is_serialised_by_the_per_day_advisory_lock(engine, pg_url):
+    """L5 survivor: claiming holds pg_advisory_xact_lock(hashtext(run_key))."""
+    holder = create_async_engine(pg_url, poolclass=NullPool)
+    try:
+        async with holder.connect() as conn:
+            await conn.execute(text("SELECT pg_advisory_lock(hashtext('daily:2026-10-03'))"))
+            task = asyncio.create_task(run_daily(engine, FakeAI(), empty_feeds(), trigger="operator", now=NOW))
+            await asyncio.sleep(0.5)
+            assert not task.done()
+            assert await scalar(engine, "SELECT count(*) FROM aidigest.runs") == 0
+            await conn.execute(text("SELECT pg_advisory_unlock(hashtext('daily:2026-10-03'))"))
+            assert (await asyncio.wait_for(task, 10))["status"] == "completed"
+    finally:
+        await holder.dispose()
+
+
+async def test_run_key_uses_the_utc_date(engine):
+    """L5 survivor: 23:30 in UTC-5 on Oct 3 is Oct 4 in UTC."""
+    local = datetime(2026, 10, 3, 23, 30, tzinfo=timezone(timedelta(hours=-5)))
+    result = await run_daily(engine, FakeAI(), empty_feeds(), trigger="operator", now=local)
+    assert result["run_key"] == "daily:2026-10-04"

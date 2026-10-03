@@ -468,3 +468,30 @@ async def test_m4_idn_host(settings, engine, fake_ai):
     assert r.status_code == 200, r.text
     assert seen[0].headers["host"] == "xn--bcher-kva.example"
     assert seen[0].extensions["sni_hostname"] == "xn--bcher-kva.example"
+
+
+# ═════════════════════════ challenger round 2 ═════════════════════════════════
+@pytest.mark.parametrize("charset", ["base64", "rot13", "idna"])
+async def test_non_text_charset_is_502_through_tasks(settings, engine, fake_ai, charset):
+    import httpx
+
+    fetcher = _guarded(lambda req: httpx.Response(200, content=b"hello world",
+                                                  headers={"content-type": f"text/html; charset={charset}"}),
+                       {"a.example": ["93.184.216.34"]})
+    r = await _post_with_fetcher(settings, engine, fake_ai, fetcher, "https://a.example/x")
+    assert r.status_code == 502, r.text
+    assert (await task_row(engine))["status"] == "failed"
+    assert fake_ai.calls == []
+
+
+@pytest.mark.parametrize("ref", ["&#" + "1" * 5000 + ";", "&#x" + "f" * 5000 + ";", "&amp;#" + "9" * 5000 + ";"])
+async def test_huge_charref_in_page_is_handled(settings, engine, fake_ai, ref):
+    import httpx
+
+    fetcher = _guarded(lambda req: httpx.Response(200, text=f"<p>before {ref} after</p>"),
+                       {"a.example": ["93.184.216.34"]})
+    fake_ai.queue_json(answer())
+    r = await _post_with_fetcher(settings, engine, fake_ai, fetcher, "https://a.example/x")
+    assert r.status_code == 200, r.text
+    text_ = evidence_of(fake_ai.calls[0])[0]["text"]
+    assert text_.startswith("before") and text_.endswith("after")

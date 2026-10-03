@@ -112,3 +112,30 @@ def test_aidigest_path_requires_existing_env(tmp_path):
     proc = _run(tmp_path, ["--aidigest"], ANSWERS)
     assert proc.returncode != 0
     assert not (tmp_path / ".env").exists()
+
+
+def test_empty_aidigest_keys_from_env_example_are_filled_in_place(tmp_path):
+    """Round 2 L3: a .env copied from .env.example has empty AIDIGEST_* keys. They are filled in
+    place; every non-AIDigest line stays byte-identical and nothing is duplicated."""
+    example = (REPO / ".env.example").read_text()
+    env_file = _prepare(tmp_path, example)
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    after = env_file.read_text()
+    before_lines, after_lines = example.splitlines(), after.splitlines()
+    aidigest_keys = ("AIDIGEST_PROXY_SECRET=", "AIDIGEST_BASIC_AUTH_USER=", "AIDIGEST_BASIC_AUTH_HASH=",
+                     "AIDIGEST_DATABASE_URL=")
+    for i, line in enumerate(before_lines):
+        if line.startswith(aidigest_keys):
+            continue
+        assert after_lines[i] == line, f"line {i + 1} changed: {line!r} -> {after_lines[i]!r}"
+    for key in aidigest_keys:
+        values = [ln for ln in after_lines if ln.startswith(key)]
+        assert len(values) == 1, (key, values)
+        assert values[0] not in (key, key + "''", key + '""'), values[0]
+    assert "AIDIGEST_BASIC_AUTH_USER=opsuser" in after_lines
+    assert f"AIDIGEST_BASIC_AUTH_HASH='{FAKE_HASH}'" in after_lines
+    assert "COMPOSE_PROFILES=aidigest" in after_lines
+    assert stat.S_IMODE(env_file.stat().st_mode) == 0o600
+    proc2 = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc2.returncode == 0 and env_file.read_text() == after
