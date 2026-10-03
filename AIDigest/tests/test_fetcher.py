@@ -380,6 +380,14 @@ def test_idn_spoofs_of_local_names_rejected(url):
 
 
 # ── M5: compression cannot bypass the byte cap ───────────────────────────────
+def streamed(data: bytes, chunk: int = 65536):
+    """A body that arrives over the wire in chunks (what real transports deliver)."""
+    async def gen():
+        for i in range(0, len(data), chunk):
+            yield data[i:i + chunk]
+    return gen()
+
+
 def _gzip_bomb(decoded_bytes: int) -> bytes:
     import zlib
 
@@ -402,7 +410,7 @@ async def test_gzip_bomb_is_capped_on_decoded_bytes_with_bounded_memory():
 
     bomb = _gzip_bomb(200 << 20)  # 200 MB of zeros, ~200 KB on the wire
     assert len(bomb) < 1_000_000
-    f = fetcher(lambda req: httpx.Response(200, content=bomb, headers={"content-encoding": "gzip"}),
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(bomb), headers={"content-encoding": "gzip"}),
                 {"a.example": [PUBLIC_V4]}, max_bytes=1_000_000)
     tracemalloc.start()
     try:
@@ -417,21 +425,22 @@ async def test_gzip_bomb_is_capped_on_decoded_bytes_with_bounded_memory():
 async def test_small_gzip_body_is_decoded():
     import gzip
 
-    f = fetcher(lambda req: httpx.Response(200, content=gzip.compress(b"hello gzip"),
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(gzip.compress(b"hello gzip")),
                                            headers={"content-encoding": "gzip"}), {"a.example": [PUBLIC_V4]})
     assert (await f.fetch("https://a.example/")).text == "hello gzip"
 
 
 @pytest.mark.parametrize("encoding", ["br", "zstd", "gzip, br", "compress"])
 async def test_unsupported_content_encoding_rejected(encoding):
-    f = fetcher(lambda req: httpx.Response(200, content=b"xx", headers={"content-encoding": encoding}),
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(b"xx"), headers={"content-encoding": encoding}),
                 {"a.example": [PUBLIC_V4]})
     with pytest.raises(UpstreamError, match="encoding"):
         await f.fetch("https://a.example/")
 
 
 async def test_corrupt_gzip_is_upstream_error():
-    f = fetcher(lambda req: httpx.Response(200, content=b"not gzip at all", headers={"content-encoding": "gzip"}),
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(b"not gzip at all"),
+                                           headers={"content-encoding": "gzip"}),
                 {"a.example": [PUBLIC_V4]})
     with pytest.raises(UpstreamError):
         await f.fetch("https://a.example/")
