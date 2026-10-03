@@ -68,3 +68,21 @@ async def test_lifespan_starts_and_stops_scheduler(settings, engine, fake_ai, fa
 
 async def test_lifespan_without_scheduler(app):
     assert app.state.scheduler_task is None
+
+
+# ── L4: catch-up after a restart past the slot ───────────────────────────────
+@pytest.mark.parametrize("hour, minute, expect_immediate", [(13, 0, True), (12, 30, True), (12, 0, False)])
+async def test_scheduler_catches_up_once_on_startup(hour, minute, expect_immediate):
+    events = []
+    clock = iter([datetime(2026, 10, 3, hour, minute, tzinfo=UTC)] * 3)
+
+    async def fake_sleep(seconds):
+        events.append("sleep")
+        raise asyncio.CancelledError
+
+    async def job():
+        events.append("job")
+
+    with pytest.raises(asyncio.CancelledError):
+        await scheduler_loop(job, 12, 30, now=lambda: next(clock), sleep=fake_sleep, catch_up=True)
+    assert events == (["job", "sleep"] if expect_immediate else ["sleep"])

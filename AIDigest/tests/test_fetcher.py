@@ -276,3 +276,162 @@ async def test_body_exactly_at_cap_is_allowed():
     f = fetcher(lambda req: httpx.Response(200, content=b"a" * 1000), {"a.example": [PUBLIC_V4]}, max_bytes=1000)
     result = await f.fetch("https://a.example/")
     assert len(result.text) == 1000
+
+
+# ── L2: reserved and IPv4-embedding IPv6 ranges ──────────────────────────────
+@pytest.mark.parametrize(
+    "ip",
+    ["::7f00:1", "::a9fe:a9fe", "::ffff:0:7f00:1", "::ffff:0:a9fe:a9fe", "64:ff9b:1::a9fe:a9fe", "100::1",
+     "240.0.0.1", "2001:db8::1", "::8.8.8.8", "::ffff:0:8.8.8.8"],
+)
+def test_reserved_and_ipv4_embedding_ranges_are_not_public(ip):
+    assert not is_public_address(ip)
+
+
+# ── M3: control characters in URLs ───────────────────────────────────────────
+@pytest.mark.parametrize("url", ["https://a\x00b.example/", "https://example.com/a\x00b", "https://example.com/\r\nX: y"])
+def test_validate_url_rejects_control_characters(url):
+    with pytest.raises(UnsafeURLError):
+        validate_url(url)
+
+
+# ── L1: never use environment proxies (they would bypass IP pinning) ─────────
+async def test_client_ignores_environment_proxies(monkeypatch):
+    import aidigest.fetcher as fetcher_mod
+
+    seen = {}
+    real = fetcher_mod.httpx.AsyncClient
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(fetcher_mod.httpx, "AsyncClient", spy)
+    f = fetcher(lambda req: httpx.Response(200, text="ok"), {"a.example": [PUBLIC_V4]})
+    await f.fetch("https://a.example/")
+    assert seen.get("trust_env") is False
+    assert seen.get("follow_redirects") is False
+
+
+# ── M1: total deadline per fetch (slowloris) ─────────────────────────────────
+async def test_trickling_body_hits_total_deadline():
+    import asyncio
+    import time
+
+    async def trickle():
+        for _ in range(1000):
+            yield b"x"
+            await asyncio.sleep(0.1)
+
+    f = fetcher(lambda req: httpx.Response(200, content=trickle()), {"a.example": [PUBLIC_V4]},
+                total_timeout=0.5)
+    t = time.monotonic()
+    with pytest.raises(UpstreamError, match="deadline"):
+        await f.fetch("https://a.example/")
+    assert time.monotonic() - t < 1.5
+
+
+async def test_slow_dns_hits_total_deadline():
+    import asyncio
+
+    async def slow_resolve(host):
+        await asyncio.sleep(5)
+        return [PUBLIC_V4]
+
+    f = GuardedFetcher(resolver=slow_resolve, transport=httpx.MockTransport(lambda r: httpx.Response(200)),
+                       timeout=5, total_timeout=0.3)
+    with pytest.raises(UpstreamError, match="deadline"):
+        await f.fetch("https://a.example/")
+
+
+# ── M4: mid-body timeout, unknown charset, IDN hosts ─────────────────────────
+async def test_read_timeout_mid_body_is_upstream_error():
+    async def body():
+        yield b"partial"
+        raise httpx.ReadTimeout("read timed out")
+
+    f = fetcher(lambda req: httpx.Response(200, content=body()), {"a.example": [PUBLIC_V4]})
+    with pytest.raises(UpstreamError):
+        await f.fetch("https://a.example/")
+
+
+async def test_unknown_charset_falls_back_to_utf8():
+    f = fetcher(lambda req: httpx.Response(200, content="café".encode(),
+                                           headers={"content-type": "text/html; charset=x-bogus-9"}),
+                {"a.example": [PUBLIC_V4]})
+    assert (await f.fetch("https://a.example/")).text == "café"
+
+
+async def test_idn_host_uses_idna_for_dns_host_header_and_sni():
+    seen = []
+    f = fetcher(lambda req: seen.append(req) or httpx.Response(200, text="ok"),
+                {"xn--bcher-kva.example": [PUBLIC_V4]})
+    await f.fetch("https://bücher.example/x")
+    assert f.resolver.calls == ["xn--bcher-kva.example"]
+    assert seen[0].headers["host"] == "xn--bcher-kva.example"
+    assert seen[0].extensions["sni_hostname"] == "xn--bcher-kva.example"
+
+
+@pytest.mark.parametrize("url", ["https://ｌｏｃａｌｈｏｓｔ/",
+                                 "https://xn--localhost-.localhost/"])
+def test_idn_spoofs_of_local_names_rejected(url):
+    with pytest.raises(UnsafeURLError):
+        validate_url(url)
+
+
+# ── M5: compression cannot bypass the byte cap ───────────────────────────────
+def _gzip_bomb(decoded_bytes: int) -> bytes:
+    import zlib
+
+    comp = zlib.compressobj(9, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
+    chunk = b"\0" * (1 << 20)
+    out = [comp.compress(chunk) for _ in range(decoded_bytes >> 20)]
+    out.append(comp.flush())
+    return b"".join(out)
+
+
+async def test_requests_identity_encoding():
+    seen = []
+    f = fetcher(lambda req: seen.append(req) or httpx.Response(200, text="ok"), {"a.example": [PUBLIC_V4]})
+    await f.fetch("https://a.example/")
+    assert seen[0].headers["accept-encoding"] == "identity"
+
+
+async def test_gzip_bomb_is_capped_on_decoded_bytes_with_bounded_memory():
+    import tracemalloc
+
+    bomb = _gzip_bomb(200 << 20)  # 200 MB of zeros, ~200 KB on the wire
+    assert len(bomb) < 1_000_000
+    f = fetcher(lambda req: httpx.Response(200, content=bomb, headers={"content-encoding": "gzip"}),
+                {"a.example": [PUBLIC_V4]}, max_bytes=1_000_000)
+    tracemalloc.start()
+    try:
+        with pytest.raises(UpstreamError, match="too large"):
+            await f.fetch("https://a.example/")
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 12_000_000, f"peak {peak} bytes while decoding a gzip bomb"
+
+
+async def test_small_gzip_body_is_decoded():
+    import gzip
+
+    f = fetcher(lambda req: httpx.Response(200, content=gzip.compress(b"hello gzip"),
+                                           headers={"content-encoding": "gzip"}), {"a.example": [PUBLIC_V4]})
+    assert (await f.fetch("https://a.example/")).text == "hello gzip"
+
+
+@pytest.mark.parametrize("encoding", ["br", "zstd", "gzip, br", "compress"])
+async def test_unsupported_content_encoding_rejected(encoding):
+    f = fetcher(lambda req: httpx.Response(200, content=b"xx", headers={"content-encoding": encoding}),
+                {"a.example": [PUBLIC_V4]})
+    with pytest.raises(UpstreamError, match="encoding"):
+        await f.fetch("https://a.example/")
+
+
+async def test_corrupt_gzip_is_upstream_error():
+    f = fetcher(lambda req: httpx.Response(200, content=b"not gzip at all", headers={"content-encoding": "gzip"}),
+                {"a.example": [PUBLIC_V4]})
+    with pytest.raises(UpstreamError):
+        await f.fetch("https://a.example/")

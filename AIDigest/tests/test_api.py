@@ -143,3 +143,33 @@ async def test_knowledge_query(client, engine):
 async def test_root_lists_endpoints(client):
     r = await client.get("/")
     assert "POST /agent/tasks" in r.json()["endpoints"]
+
+
+# ═════════════════════════ challenger round 1 ═════════════════════════════════
+async def test_knowledge_query_with_nul_is_400(client):
+    r = await client.get("/knowledge?q=ab%00cd")
+    assert r.status_code == 400
+
+
+async def test_digest_has_restrictive_csp(client):
+    r = await client.get("/digest")
+    csp = r.headers["content-security-policy"]
+    assert "default-src 'none'" in csp and "script-src" not in csp
+
+
+async def test_run_daily_attempts_exhausted_is_429(settings, engine, fake_fetcher):
+    from aidigest.app import create_app
+    from aidigest.errors import AIError
+    from tests.fakes import FakeAI
+
+    fake_fetcher.pages[SOURCES[0].url] = rss(FEED)
+    ai = FakeAI([AIError("down")])
+    app = create_app(settings.model_copy(update={"aidigest_daily_max_attempts": 1}), engine=engine, ai=ai,
+                     fetcher=fake_fetcher)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", headers=AUTH) as c:
+            assert (await c.post("/ops/run-daily")).status_code == 502
+            r = await c.post("/ops/run-daily")
+    assert r.status_code == 429
+    assert r.json()["status"] == "attempts_exhausted"
+    assert len(ai.calls) == 1

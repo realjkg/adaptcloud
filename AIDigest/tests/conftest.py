@@ -113,7 +113,7 @@ def fake_fetcher():
 
 @pytest.fixture
 def settings(pg_url):
-    return make_settings(database_url=pg_url)
+    return make_settings(aidigest_database_url=pg_url)
 
 
 @pytest.fixture

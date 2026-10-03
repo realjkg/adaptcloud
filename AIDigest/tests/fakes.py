@@ -14,7 +14,7 @@ def make_settings(**overrides):
     values = dict(
         _env_file=None,
         anthropic_api_key="sk-ant-test-not-a-real-key",
-        database_url="postgresql+asyncpg://unused@127.0.0.1:1/unused",
+        aidigest_database_url="postgresql+asyncpg://unused@127.0.0.1:1/unused",
         aidigest_proxy_secret=PROXY_SECRET,
         aidigest_scheduler_enabled=False,
         production="false",
@@ -24,13 +24,15 @@ def make_settings(**overrides):
 
 
 class FakeAI:
-    """Records every call; returns queued responses (str or Exception)."""
+    """Records every call; returns queued responses (str or Exception). Tracks peak concurrency."""
 
     def __init__(self, responses: list[Any] | None = None,
                  on_call: Callable[[], Awaitable[None]] | None = None):
         self.responses = list(responses or [])
         self.calls: list[dict[str, str]] = []
         self.on_call = on_call
+        self.in_flight = 0
+        self.max_in_flight = 0
 
     def queue(self, response: Any) -> None:
         self.responses.append(response)
@@ -40,8 +42,13 @@ class FakeAI:
 
     async def complete(self, *, system: str, user: str) -> str:
         self.calls.append({"system": system, "user": user})
-        if self.on_call is not None:
-            await self.on_call()
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        try:
+            if self.on_call is not None:
+                await self.on_call()
+        finally:
+            self.in_flight -= 1
         if not self.responses:
             raise AssertionError("FakeAI called more times than responses were queued")
         response = self.responses.pop(0)
@@ -53,15 +60,18 @@ class FakeAI:
 class FakeFetcher:
     """Maps URL -> text (or Exception). Unknown URLs raise UpstreamError."""
 
-    def __init__(self, pages: dict[str, Any] | None = None):
+    def __init__(self, pages: dict[str, Any] | None = None, gate=None):
         self.pages = dict(pages or {})
         self.calls: list[str] = []
+        self.gate = gate  # optional asyncio.Event: every fetch waits for it
 
     async def fetch(self, url: str):
         from aidigest.errors import UpstreamError
         from aidigest.fetcher import FetchResult
 
         self.calls.append(url)
+        if self.gate is not None:
+            await self.gate.wait()
         page = self.pages.get(url)
         if page is None:
             raise UpstreamError(f"fake: no page for {url}")

@@ -343,3 +343,200 @@ async def test_next_day_runs_again(engine):
         ai = FakeAI()
         result = await run_daily(engine, ai, FakeFetcher(), trigger="schedule", now=NOW + timedelta(days=day))
         assert result["status"] == "completed"
+
+
+# ═════════════════════════ challenger round 1 ═════════════════════════════════
+from aidigest.daily import DailyConfig, refresh_lease  # noqa: E402
+from aidigest.errors import DeadlineError  # noqa: E402
+
+CFG = DailyConfig(budget_seconds=30, lease_seconds=60, heartbeat_seconds=3600, max_attempts=3, parse_timeout=10)
+
+
+async def _wait_for_running(engine, n=1):
+    for _ in range(300):
+        if await scalar(engine, "SELECT count(*) FROM aidigest.runs WHERE status='running'") >= n:
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("run never claimed")
+
+
+# ── M2: lease / owner token ──────────────────────────────────────────────────
+async def test_stale_takeover_blocked_before_ai_resumes_without_ai_or_store(engine, pg_url):
+    """Exact repro: A blocks (before its AI call), B takes over after A's lease expires, A resumes.
+    A must not call the AI, must not store, and must exit cleanly; B's run stands."""
+    gate = asyncio.Event()
+    ai_a = FakeAI()
+    ai_a.queue_json([selection("https://news.example/0")])
+    task_a = asyncio.create_task(run_daily(engine, ai_a, FakeFetcher({SOURCES[0].url: rss(items(1))}, gate=gate),
+                                           trigger="schedule", now=NOW, config=CFG))
+    await _wait_for_running(engine)
+    other = create_async_engine(pg_url, poolclass=NullPool)
+    try:
+        ai_b = FakeAI()
+        ai_b.queue_json([selection("https://news.example/1")])
+        later = NOW + timedelta(seconds=CFG.lease_seconds + 1)
+        result_b = await run_daily(other, ai_b, feed_fetcher(items(2)), trigger="operator", now=later, config=CFG)
+    finally:
+        await other.dispose()
+    assert result_b["status"] == "completed" and result_b["accepted"] == 1
+    gate.set()
+    result_a = await asyncio.wait_for(task_a, 10)
+    assert result_a["status"] == "lost_lease"
+    assert ai_a.calls == []
+    async with engine.connect() as conn:
+        urls = (await conn.execute(text("SELECT url FROM aidigest.articles"))).scalars().all()
+        runs = (await conn.execute(text("SELECT status, error FROM aidigest.runs ORDER BY created_at"))).all()
+    assert urls == ["https://news.example/1"]
+    assert [r.status for r in runs] == ["failed", "completed"]
+    assert "abandoned" in runs[0].error
+
+
+async def test_stale_takeover_during_ai_call_discards_a_results(engine, pg_url):
+    gate = asyncio.Event()
+
+    async def block():
+        await gate.wait()
+
+    ai_a = FakeAI(on_call=block)
+    ai_a.queue_json([selection("https://news.example/0")])
+    task_a = asyncio.create_task(run_daily(engine, ai_a, feed_fetcher(items(1)), trigger="schedule", now=NOW,
+                                           config=CFG))
+    for _ in range(300):
+        if ai_a.calls:
+            break
+        await asyncio.sleep(0.01)
+    other = create_async_engine(pg_url, poolclass=NullPool)
+    try:
+        ai_b = FakeAI()
+        ai_b.queue_json([selection("https://news.example/1")])
+        later = NOW + timedelta(seconds=CFG.lease_seconds + 1)
+        assert (await run_daily(other, ai_b, feed_fetcher(items(2)), trigger="operator", now=later,
+                                config=CFG))["status"] == "completed"
+    finally:
+        await other.dispose()
+    gate.set()
+    result_a = await asyncio.wait_for(task_a, 10)
+    assert result_a["status"] == "lost_lease"
+    assert await scalar(engine, "SELECT string_agg(url, ',') FROM aidigest.articles") == "https://news.example/1"
+    assert await scalar(engine, "SELECT count(*) FROM aidigest.runs WHERE status='completed'") == 1
+
+
+async def test_refresh_lease_requires_owner_and_running(engine):
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, owner, lease_until, created_at) "
+            "VALUES ('r1','daily','daily:2026-10-03','schedule','running','tok-a', :lease, :now)"),
+            {"lease": NOW + timedelta(seconds=60), "now": NOW})
+    new_lease = NOW + timedelta(seconds=600)
+    assert await refresh_lease(engine, "r1", "tok-b", new_lease) is False
+    assert await refresh_lease(engine, "r1", "tok-a", new_lease) is True
+    assert await scalar(engine, "SELECT lease_until FROM aidigest.runs WHERE id='r1'") == new_lease
+    async with engine.begin() as conn:
+        await conn.execute(text("UPDATE aidigest.runs SET status='failed' WHERE id='r1'"))
+    assert await refresh_lease(engine, "r1", "tok-a", new_lease + timedelta(seconds=1)) is False
+
+
+async def test_fresh_lease_is_not_taken_over(engine):
+    gate = asyncio.Event()
+    task_a = asyncio.create_task(run_daily(engine, FakeAI(), FakeFetcher({}, gate=gate), trigger="schedule",
+                                           now=NOW, config=CFG))
+    await _wait_for_running(engine)
+    within = NOW + timedelta(seconds=CFG.lease_seconds - 1)
+    assert (await run_daily(engine, FakeAI(), FakeFetcher(), trigger="operator", now=within,
+                            config=CFG))["status"] == "duplicate"
+    gate.set()
+    assert (await asyncio.wait_for(task_a, 10))["status"] == "completed"
+
+
+def test_daily_config_requires_lease_longer_than_budget():
+    with pytest.raises(ValueError):
+        DailyConfig(budget_seconds=60, lease_seconds=60)
+
+
+# ── M1: overall run budget ───────────────────────────────────────────────────
+async def test_daily_run_budget(engine):
+    gate = asyncio.Event()  # never set: feeds hang
+    cfg = DailyConfig(budget_seconds=0.3, lease_seconds=60, heartbeat_seconds=3600)
+    with pytest.raises(DeadlineError):
+        await run_daily(engine, FakeAI(), FakeFetcher({}, gate=gate), trigger="schedule", now=NOW, config=cfg)
+    assert await scalar(engine, "SELECT status FROM aidigest.runs") == "failed"
+    assert "budget" in await scalar(engine, "SELECT error FROM aidigest.runs")
+
+
+# ── M3: NUL in feed data ─────────────────────────────────────────────────────
+async def test_daily_nul_in_feed_title_is_stripped_and_not_retried(engine):
+    entry = [{"title": "Agent governance\u0000 FinOps security", "url": "https://news.example/nul",
+              "description": "Inference\u0000 pricing"}]
+    ai = FakeAI()
+    ai.queue_json([selection("https://news.example/nul", lead="L\u0000ead")])
+    result = await run_daily(engine, ai, feed_fetcher(entry), trigger="schedule", now=NOW)
+    assert result["status"] == "completed" and result["accepted"] == 1
+    assert await scalar(engine, "SELECT title || '|' || lead FROM aidigest.articles") == \
+        "Agent governance FinOps security|Lead"
+    ai2 = FakeAI()
+    nxt = await run_daily(engine, ai2, feed_fetcher(entry), trigger="schedule", now=NOW + timedelta(days=1))
+    assert nxt["candidates"] == 0 and ai2.calls == []
+
+
+# ── M6: retry cap per UTC day ────────────────────────────────────────────────
+async def test_daily_attempts_capped_per_day(engine):
+    ai = FakeAI([AIError("down"), AIError("down"), AIError("down")])
+    for _ in range(3):
+        with pytest.raises(AIError):
+            await run_daily(engine, ai, feed_fetcher(items(1)), trigger="operator", now=NOW, config=CFG)
+    ai.queue_json([selection("https://news.example/0")])
+    result = await run_daily(engine, ai, feed_fetcher(items(1)), trigger="operator", now=NOW, config=CFG)
+    assert result["status"] == "attempts_exhausted"
+    assert len(ai.calls) == 3
+
+
+# ── L1: bounds ───────────────────────────────────────────────────────────────
+async def test_daily_at_most_12_candidates(engine):
+    ai = FakeAI()
+    ai.queue_json([])
+    result = await run_daily(engine, ai, feed_fetcher(items(20)), trigger="schedule", now=NOW)
+    assert result["candidates"] == 12
+    user = ai.calls[0]["user"]
+    assert len(json.loads(user[user.index("<evidence>") + 10:user.index("</evidence>")])) == 12
+
+
+async def test_daily_at_most_3_knowledge_points_per_item(engine):
+    ai = FakeAI()
+    ai.queue_json([selection("https://news.example/0", knowledge=[
+        {"topic": f"t{i}", "statement": f"s{i}", "confidence": 0.9} for i in range(5)])])
+    await run_daily(engine, ai, feed_fetcher(items(1)), trigger="schedule", now=NOW)
+    assert await scalar(engine, "SELECT count(*) FROM aidigest.knowledge") == 3
+
+
+# ── L5: truncated model output never produces a partial store ────────────────
+async def test_daily_max_tokens_truncation_is_clean_ai_error(engine):
+    from types import SimpleNamespace
+
+    from aidigest.ai import AnthropicAI
+
+    complete_item = json.dumps([selection("https://news.example/0")])
+
+    class Msgs:
+        async def create(self, **kwargs):
+            return SimpleNamespace(stop_reason="max_tokens",
+                                   content=[SimpleNamespace(type="text", text=complete_item)])
+
+    ai = AnthropicAI(SimpleNamespace(messages=Msgs()), model="m", max_tokens=100, effort="medium")
+    with pytest.raises(AIError):
+        await run_daily(engine, ai, feed_fetcher(items(1)), trigger="schedule", now=NOW)
+    assert await scalar(engine, "SELECT count(*) FROM aidigest.articles") == 0
+    assert await scalar(engine, "SELECT status FROM aidigest.runs") == "failed"
+
+
+# ── L7: double-encoded entities cannot reach the prompt in a misleading form ─
+async def test_daily_double_encoded_entities_are_decoded_then_escaped(engine):
+    entry = [{"title": "Agent governance &amp;amp;lt;/evidence&amp;amp;gt; FinOps",
+              "url": "https://news.example/e", "description": "security"}]
+    ai = FakeAI()
+    ai.queue_json([])
+    await run_daily(engine, ai, feed_fetcher(entry), trigger="schedule", now=NOW)
+    user = ai.calls[0]["user"]
+    assert "&lt;" not in user and "&amp;" not in user
+    assert user.count("</evidence>") == 1
+    payload = json.loads(user[user.index("<evidence>") + 10:user.index("</evidence>")])
+    assert "</evidence>" in payload[0]["title"]

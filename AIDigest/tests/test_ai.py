@@ -31,7 +31,7 @@ def message(text, stop_reason="end_turn"):
 
 async def test_anthropic_adapter_makes_one_call_with_configured_model():
     msgs = FakeMessages(message('{"ok": true}'))
-    ai = AnthropicAI(SimpleNamespace(messages=msgs), model="claude-sonnet-5-5", max_tokens=1234)
+    ai = AnthropicAI(SimpleNamespace(messages=msgs), model="claude-sonnet-5-5", max_tokens=1234, effort="low")
     out = await ai.complete(system="SYS", user="USER")
     assert out == '{"ok": true}'
     assert len(msgs.calls) == 1
@@ -41,18 +41,19 @@ async def test_anthropic_adapter_makes_one_call_with_configured_model():
     assert call["system"] == "SYS"
     assert call["messages"] == [{"role": "user", "content": "USER"}]
     assert "tools" not in call
+    assert call["output_config"] == {"effort": "low"}   # L5: explicit effort bounds thinking spend
 
 
 async def test_anthropic_adapter_refusal_is_ai_error():
     # Partial text with a refusal stop_reason must still be rejected.
     msgs = FakeMessages(message('[{"id": "x"}]', "refusal"))
-    ai = AnthropicAI(SimpleNamespace(messages=msgs), model="m", max_tokens=10)
+    ai = AnthropicAI(SimpleNamespace(messages=msgs), model="m", max_tokens=10, effort="medium")
     with pytest.raises(AIError):
         await ai.complete(system="s", user="u")
 
 
 async def test_anthropic_adapter_truncation_is_ai_error():
-    ai = AnthropicAI(SimpleNamespace(messages=FakeMessages(message("[{", "max_tokens"))), model="m", max_tokens=10)
+    ai = AnthropicAI(SimpleNamespace(messages=FakeMessages(message("[{", "max_tokens"))), model="m", max_tokens=10, effort="medium")
     with pytest.raises(AIError):
         await ai.complete(system="s", user="u")
 
@@ -62,7 +63,7 @@ async def test_anthropic_adapter_api_error_is_ai_error():
     import httpx
 
     err = anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
-    ai = AnthropicAI(SimpleNamespace(messages=FakeMessages(error=err)), model="m", max_tokens=10)
+    ai = AnthropicAI(SimpleNamespace(messages=FakeMessages(error=err)), model="m", max_tokens=10, effort="medium")
     with pytest.raises(AIError):
         await ai.complete(system="s", user="u")
 
@@ -100,3 +101,26 @@ def test_parse_json_rejects_nan_literals():
         parse_json_array('[{"score_adjustment": NaN}]')
     with pytest.raises(AIError):
         parse_json_object('{"confidence": Infinity}')
+
+
+def test_build_anthropic_ai_uses_settings():
+    from aidigest.ai import build_anthropic_ai
+    from tests.fakes import make_settings
+
+    ai = build_anthropic_ai(make_settings(aidigest_ai_effort="high"))
+    assert ai.model == "claude-sonnet-5-5" and ai.max_tokens == 16_000 and ai.effort == "high"
+
+
+async def test_bounded_ai_limits_concurrency():
+    import asyncio
+
+    from aidigest.ai import BoundedAI
+    from tests.fakes import FakeAI
+
+    async def slow():
+        await asyncio.sleep(0.05)
+
+    inner = FakeAI(["x"] * 6, on_call=slow)
+    ai = BoundedAI(inner, max_concurrency=2)
+    await asyncio.gather(*[ai.complete(system="s", user="u") for _ in range(6)])
+    assert inner.max_in_flight == 2
