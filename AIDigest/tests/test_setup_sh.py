@@ -101,8 +101,9 @@ def test_overwrite_requires_typed_confirmation(tmp_path):
     env_file = _prepare(tmp_path)
     before = env_file.read_bytes()
     proc = _run(tmp_path, [], "o\nyes\n")
-    assert proc.returncode != 0 or env_file.read_bytes() == before
+    assert proc.returncode != 0
     assert env_file.read_bytes() == before
+    assert not (tmp_path / ".env.backup").exists(), "nothing may happen without the typed confirmation"
     assert "MASTER_SECRET" in proc.stdout + proc.stderr
 
 

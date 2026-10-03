@@ -444,3 +444,39 @@ async def test_corrupt_gzip_is_upstream_error():
                 {"a.example": [PUBLIC_V4]})
     with pytest.raises(UpstreamError):
         await f.fetch("https://a.example/")
+
+
+# ── L2: the explicit policy layer, tested independently of ipaddress.is_global ─
+@pytest.mark.parametrize(
+    "ip",
+    ["4000::1",                                  # reserved only (stdlib calls it global)
+     "::7f00:1", "::8.8.8.8",                    # IPv4-compatible ::/96
+     "::ffff:0:7f00:1",                          # IPv4-translated
+     "64:ff9b:1::a9fe:a9fe", "100::1", "2001:db8::1",
+     "::ffff:127.0.0.1", "::ffff:169.254.169.254",       # IPv4-mapped private
+     "2002:7f00:1::1", "2002:a9fe:a9fe::1",              # 6to4 of private
+     "2001:0:4136:e378:8000:63bf:80ff:fffe",             # Teredo, client 127.0.0.1
+     "240.0.0.1", "224.0.0.1", "ff02::1"],
+)
+def test_policy_layer_blocks_without_relying_on_stdlib_tables(ip):
+    import ipaddress
+
+    from aidigest.fetcher import policy_blocks
+
+    assert policy_blocks(ipaddress.ip_address(ip))
+
+
+@pytest.mark.parametrize("ip", [PUBLIC_V4, "8.8.8.8", PUBLIC_V6, "2002:808:808::1", "::ffff:8.8.8.8"])
+def test_policy_layer_allows_public_and_public_embedded(ip):
+    import ipaddress
+
+    from aidigest.fetcher import policy_blocks
+
+    assert not policy_blocks(ipaddress.ip_address(ip))
+
+
+def test_reserved_but_stdlib_global_address_is_rejected():
+    import ipaddress
+
+    assert ipaddress.ip_address("4000::1").is_global  # the stdlib alone would allow it
+    assert not is_public_address("4000::1")

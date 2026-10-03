@@ -104,8 +104,8 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/daily.py", 'if "source_url" in point and point["source_url"] != cand.url:', "if False:")]),
     M("task-knowledge-low-confidence", "knowledge confidence >= 0.75 (TASK)",
       [("aidigest/tasks.py", "if confidence is None or confidence < MIN_CONFIDENCE or confidence > 1:", "if confidence is None:")]),
-    M("task-knowledge-unobserved-source", "knowledge source URL actually observed (TASK)",
-      [("aidigest/tasks.py", "if not isinstance(source_url, str) or source_url not in observed:",
+    M("task-knowledge-unobserved-source", "knowledge source URL actually fetched in this TASK (L7)",
+      [("aidigest/tasks.py", "if not isinstance(source_url, str) or source_url not in fetched:",
         "if not isinstance(source_url, str):")]),
     M("task-citations-unfiltered", "citations limited to observed URLs",
       [("aidigest/tasks.py", "if isinstance(url, str) and url in observed and url not in citations:",
@@ -127,7 +127,7 @@ MUTATIONS: list[Mutation] = [
        ("aidigest/errors.py", "class AIError(AIDigestError):\n    status_code = 502",
         "class AIError(AIDigestError):\n    status_code = 400")]),
     M("errors-not-recorded", "failures recorded on the task row (finding 8)",
-      [("aidigest/tasks.py", '            await _finish_task(engine, task_id, "failed", error=f"{mapped.status_code}: {detail}"[:1500])',
+      [("aidigest/tasks.py", '            await _finish_task(engine, task_id, "failed",\n                               error=f"{mapped.status_code}: {detail}".replace("\\x00", "")[:1500])',
         "            pass")]),
     M("task-no-readiness-gate", "TASK gated on readiness (finding 9)",
       [("aidigest/tasks.py", '    if not state["ready"]:\n        raise NotReadyError', '    if False:\n        raise NotReadyError')]),
@@ -145,22 +145,149 @@ MUTATIONS: list[Mutation] = [
         'return "" if value is None else str(value)')]),
     M("digest-non-https-links", "digest links only https:// URLs",
       [("aidigest/digest.py", 'if url.startswith("https://") else _esc(url)', "if True else _esc(url)")]),
+    # ═══════════════ challenger round 1 ═══════════════
+    # H1: linear parsing, off the event loop, under a deadline
+    M("h1-quadratic-tag-scan", "linear tag stripping (no rescans after a missing '>')",
+      [("aidigest/feeds.py", "                out.append(value[j:])\n                break\n",
+        "                out.append(\"<\")\n                i = j + 1\n                continue\n")]),
+    M("h1-quadratic-element-scan", "linear item/entry scan (stop at a missing close tag)",
+      [("aidigest/feeds.py", "        k = lower.find(close_tok, after)\n        if k < 0:\n            break\n",
+        "        k = lower.find(close_tok, after)\n        if k < 0:\n            i = after\n            continue\n")]),
+    M("h1-feed-parse-on-loop", "feed parsing runs in a worker thread",
+      [("aidigest/feeds.py", "return await run_parser(parse_feed, result.text, source.name, timeout=parse_timeout)",
+        "return parse_feed(result.text, source.name)")]),
+    M("h1-page-clean-on-loop", "TASK page cleaning runs in a worker thread",
+      [("aidigest/tasks.py", "cleaned = await run_parser(clean_text, page.text, timeout=parse_timeout)",
+        "cleaned = clean_text(page.text)")]),
+    M("h1-no-parse-deadline", "parsing is bounded by a deadline",
+      [("aidigest/feeds.py", "return await asyncio.wait_for(asyncio.to_thread(func, *args), timeout)",
+        "return await asyncio.to_thread(func, *args)")]),
+    # M1: deadlines
+    M("m1-no-fetch-deadline", "total deadline per fetch (slowloris)",
+      [("aidigest/fetcher.py", "return await asyncio.wait_for(self._fetch(url), self.total_timeout)",
+        "return await self._fetch(url)")]),
+    M("m1-no-daily-budget", "DAILY run budget",
+      [("aidigest/daily.py", "        return await asyncio.wait_for(\n            _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg), cfg.budget_seconds)",
+        "        return await _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg)")]),
+    M("m1-no-task-budget", "TASK budget",
+      [("aidigest/tasks.py", "result = await asyncio.wait_for(_execute_task(engine, ai, fetcher, req, mode, now, cfg), cfg.budget_seconds)",
+        "result = await _execute_task(engine, ai, fetcher, req, mode, now, cfg)")]),
+    # M2: lease / owner token
+    M("m2-no-owner-check-before-ai", "ownership re-checked before the AI call",
+      [("aidigest/daily.py", "        await _assert_owner(engine, run_id, owner)  # never spend an AI call on a run we no longer own",
+        "        pass")]),
+    M("m2-store-without-owner", "store+complete requires owner and running",
+      [("aidigest/daily.py", "        if mine is None:\n            raise LostLease(run_id)", "        if False:\n            raise LostLease(run_id)")]),
+    M("m2-takeover-ignores-lease", "only an expired lease may be taken over",
+      [("aidigest/daily.py", '"AND (lease_until < :now OR (lease_until IS NULL AND created_at < :cutoff))"', '"AND true"')]),
+    M("m2-refresh-without-owner", "heartbeat only extends our own running lease",
+      [("aidigest/daily.py", "\"UPDATE aidigest.runs SET lease_until=:lease WHERE id=:id AND owner=:owner AND status='running'\"",
+        "\"UPDATE aidigest.runs SET lease_until=:lease WHERE id=:id\"")]),
+    M("m2-lease-not-longer-than-budget", "lease must exceed the run budget (DailyConfig)",
+      [("aidigest/daily.py", "        if self.lease_seconds <= self.budget_seconds:\n", "        if False:\n")]),
+    M("m2-settings-lease-check", "lease must exceed the run budget (Settings)",
+      [("aidigest/config.py", "if self.aidigest_daily_lease_seconds <= self.aidigest_daily_budget_seconds:", "if False:")]),
+    # M3: NUL
+    M("m3-clean-text-keeps-nul", "NUL stripped from feed/page text",
+      [("aidigest/feeds.py", '    value = value.replace("\\x00", "")\n    return " ".join(value.split())', '    return " ".join(value.split())')]),
+    M("m3-model-output-keeps-nul", "NUL stripped from model output",
+      [("aidigest/ai.py", 'return value.replace("\\x00", "").strip()[:limit]', "return value.strip()[:limit]")]),
+    M("m3-task-allows-nul", "NUL in task text is a 422",
+      [("aidigest/tasks.py", '        if "\\x00" in value:\n            raise ValueError', "        if False:\n            raise ValueError")]),
+    M("m3-q-allows-nul", "NUL in ?q= is a 400",
+      [("aidigest/app.py", 'if "\\x00" in q:', "if False:")]),
+    # M4
+    M("m4-unicode-host", "IDNA host for DNS, Host and SNI",
+      [("aidigest/fetcher.py", 'return url.raw_host.decode("ascii").lower().rstrip(".")', 'return url.host.lower().rstrip(".")')]),
+    M("m4-body-errors-unmapped", "mid-body transport errors are 502",
+      [("aidigest/fetcher.py", "except httpx.HTTPError as exc:  # M4: e.g. ReadTimeout mid-body", "except ZeroDivisionError as exc:")]),
+    M("m4-no-charset-fallback", "unknown charset falls back to UTF-8",
+      [("aidigest/fetcher.py", "    except LookupError:\n        return \"utf-8\"", "    except ZeroDivisionError:\n        return \"utf-8\"")]),
+    # M5
+    M("m5-accepts-compression", "Accept-Encoding: identity",
+      [("aidigest/fetcher.py", '"Accept-Encoding": "identity"', '"Accept-Encoding": "gzip"')]),
+    M("m5-unbounded-decompress", "decompression bounded by the remaining byte budget",
+      [("aidigest/fetcher.py", "out = decoder.decompress(data, self._room(chunks) + 1)", "out = decoder.decompress(data)")]),
+    M("m5-unsupported-encoding-accepted", "unknown content encodings refused",
+      [("aidigest/fetcher.py", '            raise UpstreamError(f"Unsupported content encoding {encoding[:40]!r}")', "            decoder = None")]),
+    # M6
+    M("m6-unbounded-ai-concurrency", "global AI concurrency cap",
+      [("aidigest/app.py", "max_concurrency=settings.aidigest_ai_max_concurrency)", "max_concurrency=1000)")]),
+    M("m6-no-hourly-cap", "per-user hourly TASK cap",
+      [("aidigest/tasks.py", "            if recent >= hourly_limit:", "            if False:")]),
+    M("m6-hourly-cap-not-atomic", "count-then-insert serialised per user",
+      [("aidigest/tasks.py", '            await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": "task:" + requested_by})',
+        "            pass")]),
+    M("m6-no-daily-attempt-cap", "DAILY attempts capped per UTC day",
+      [("aidigest/daily.py", "        if attempts >= cfg.max_attempts:", "        if False:")]),
+    # M7 (setup.sh lives one level above AIDigest/)
+    M("m7-setup-rewrites-existing-keys", "setup --aidigest never duplicates/changes existing keys",
+      [("../setup.sh", '    if grep -q "^${key}=" "$file"; then', "    if false; then")]),
+    M("m7-setup-overwrite-unconfirmed", "overwrite requires typing OVERWRITE",
+      [("../setup.sh", '[[ "$CONFIRM" == "OVERWRITE" ]] || error', '[[ -n "$CONFIRM" ]] || error')]),
+    # M8
+    M("m8-always-create-schema", "CREATE SCHEMA skipped when the schema exists",
+      [("aidigest/db.py", 'if exists and statement.upper().startswith("CREATE SCHEMA"):', "if False:")]),
+    # L1
+    M("l1-trust-env-proxies", "environment proxies ignored",
+      [("aidigest/fetcher.py", "follow_redirects=False, trust_env=False", "follow_redirects=False, trust_env=True")]),
+    M("l1-no-url-text-cap", "fetched page text capped",
+      [("aidigest/tasks.py", '"text": cleaned[:MAX_URL_TEXT]})', '"text": cleaned})')]),
+    M("l1-no-digest-csp", "/digest Content-Security-Policy",
+      [("aidigest/app.py", 'headers={**NO_STORE, "content-security-policy": DIGEST_CSP})', "headers=NO_STORE)")]),
+    M("l1-unbounded-candidates", "<= 12 DAILY candidates",
+      [("aidigest/daily.py", "return [i for i in ranked if i.url not in known][:MAX_CANDIDATES]",
+        "return [i for i in ranked if i.url not in known]")]),
+    M("l1-unbounded-knowledge-per-item", "<= 3 knowledge points per item",
+      [("aidigest/daily.py", '"knowledge": knowledge[:MAX_KNOWLEDGE_PER_ITEM],', '"knowledge": knowledge,')]),
+    M("l1-default-redirects", "default redirect limit 2",
+      [("aidigest/config.py", "aidigest_fetch_max_redirects: int = 2", "aidigest_fetch_max_redirects: int = 5")]),
+    M("l1-default-max-bytes", "default byte cap 1 MB",
+      [("aidigest/config.py", "aidigest_fetch_max_bytes: int = 1_000_000", "aidigest_fetch_max_bytes: int = 10_000_000")]),
+    M("l1-default-max-tokens", "default max_tokens 16k",
+      [("aidigest/config.py", "aidigest_ai_max_tokens: int = 16_000", "aidigest_ai_max_tokens: int = 64_000")]),
+    # L2
+    M("l2-reserved-allowed", "reserved addresses are not public",
+      [("aidigest/fetcher.py", "    if ip.is_reserved or ip.is_multicast:\n        return True", "    if ip.is_multicast:\n        return True")]),
+    M("l2-ipv4-embedding-v6-allowed", "IPv4-compatible/-translated/local NAT64 ranges rejected",
+      [("aidigest/fetcher.py", "        if any(ip in net for net in NON_PUBLIC_V6):\n            return True",
+        "        if False:\n            return True")]),
+    M("l2-policy-layer-skipped", "explicit policy layer applied on top of is_global",
+      [("aidigest/fetcher.py", "return bool(ip.is_global) and not policy_blocks(ip)", "return bool(ip.is_global)")]),
+    # L4
+    M("l4-no-catch-up", "scheduler catch-up after start past the slot",
+      [("aidigest/scheduler.py", "    if catch_up:\n", "    if False:\n")]),
+    # L5
+    M("l5-no-explicit-effort", "explicit effort on the Claude call",
+      [("aidigest/ai.py", '                output_config={"effort": self.effort},\n', "")]),
+    M("l5-truncation-accepted", "max_tokens stop is an AI failure",
+      [("aidigest/ai.py", 'if response.stop_reason == "max_tokens":', "if False:")]),
+    # L7
+    M("l7-single-entity-pass", "entities decoded to a fixed point",
+      [("aidigest/feeds.py", "for _ in range(MAX_ENTITY_ROUNDS):", "for _ in range(1):")]),
 ]
 
 
 def run_suite(workdir: Path) -> tuple[bool, str, float]:
     start = time.monotonic()
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider"],
-        cwd=workdir, capture_output=True, text=True, timeout=900,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider"],
+            cwd=workdir, capture_output=True, text=True, timeout=900,
+        )
+    except subprocess.TimeoutExpired:
+        return False, "suite timed out (900 s)", time.monotonic() - start
     tail = (proc.stdout.strip().splitlines() or [""])[-1]
     return proc.returncode == 0, tail, time.monotonic() - start
 
 
-def copy_tree(dest: Path) -> None:
-    shutil.copytree(ROOT, dest, ignore=shutil.ignore_patterns(
+def copy_tree(dest: Path) -> Path:
+    """<dest>/AIDigest plus <dest>/setup.sh (tests find setup.sh one level above AIDigest/)."""
+    app = dest / "AIDigest"
+    shutil.copytree(ROOT, app, ignore=shutil.ignore_patterns(
         "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv", "scripts"))
+    shutil.copy2(ROOT.parent / "setup.sh", dest / "setup.sh")
+    return app
 
 
 def main() -> int:
@@ -171,8 +298,7 @@ def main() -> int:
     selected = [m for m in MUTATIONS if not args.only or args.only in m.name]
 
     with tempfile.TemporaryDirectory(prefix="aidigest-mut-") as tmp:
-        base = Path(tmp) / "baseline"
-        copy_tree(base)
+        base = copy_tree(Path(tmp) / "baseline")
         ok, tail, secs = run_suite(base)
         print(f"baseline: {'PASS' if ok else 'FAIL'} ({tail}) {secs:.0f}s", flush=True)
         if not ok:
@@ -181,8 +307,7 @@ def main() -> int:
 
         rows, survived = [], 0
         for m in selected:
-            work = Path(tmp) / m.name
-            copy_tree(work)
+            work = copy_tree(Path(tmp) / m.name)
             for rel, old, new in m.edits:
                 path = work / rel
                 src = path.read_text()
@@ -196,7 +321,7 @@ def main() -> int:
             survived += green
             rows.append((m.name, m.control, verdict, tail))
             print(f"{verdict:<8} {m.name:<38} {tail} ({secs:.0f}s)", flush=True)
-            shutil.rmtree(work, ignore_errors=True)
+            shutil.rmtree(work.parent, ignore_errors=True)
 
     lines = ["| # | Mutation | Control reverted | Result | Suite tail |", "|---|---|---|---|---|"]
     lines += [f"| {i} | `{n}` | {c} | {v} | {t} |" for i, (n, c, v, t) in enumerate(rows, 1)]

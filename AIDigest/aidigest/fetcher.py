@@ -99,22 +99,29 @@ def validate_url(raw: str) -> httpx.URL:
     return url
 
 
+def policy_blocks(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Explicit deny rules that do not depend on the stdlib's is_global tables (defence in
+    depth: those tables have changed between Python releases). True = never connect."""
+    if ip.is_reserved or ip.is_multicast:
+        return True
+    if isinstance(ip, ipaddress.IPv6Address):
+        if any(ip in net for net in NON_PUBLIC_V6):
+            return True
+        embedded = ip.ipv4_mapped or ip.sixtofour or (ip.teredo[1] if ip.teredo else None)
+        if embedded is not None and not is_public_address(str(embedded)):
+            return True
+    return False
+
+
 def is_public_address(value: str) -> bool:
     try:
         ip = ipaddress.ip_address(value.split("%", 1)[0])
     except ValueError:
         return False
-    if isinstance(ip, ipaddress.IPv6Address):
-        if ip in NAT64:  # well-known NAT64: judge by the embedded IPv4 address
-            return is_public_address(str(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)))
-        if any(ip in net for net in NON_PUBLIC_V6):
-            return False
-        embedded = ip.ipv4_mapped or ip.sixtofour
-        if ip.teredo:
-            embedded = ip.teredo[1]
-        if embedded is not None and not is_public_address(str(embedded)):
-            return False
-    return bool(ip.is_global) and not ip.is_multicast and not ip.is_reserved
+    if isinstance(ip, ipaddress.IPv6Address) and ip in NAT64:
+        # Well-known NAT64 (DNS64 networks): judge by the embedded IPv4 address.
+        return is_public_address(str(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)))
+    return bool(ip.is_global) and not policy_blocks(ip)
 
 
 async def system_resolver(host: str) -> list[str]:
