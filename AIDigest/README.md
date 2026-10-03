@@ -86,6 +86,6 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-The tests never call Claude or the internet: the Anthropic client and the fetcher are injected fakes. DB tests need a real Postgres. By default they initdb a throwaway cluster from `/usr/lib/postgresql/16/bin` under `/tmp/aidg_pg` on port 57650, then stop and delete it. Set `AIDIGEST_TEST_DATABASE_URL` to use an existing database instead (the tests drop and recreate schema `aidigest` in it). If Postgres is unavailable the tests fail; skipped tests count as failures.
+The tests never call Claude or the internet: the Anthropic client and the fetcher are injected fakes. DB tests need a real Postgres. By default they initdb a throwaway cluster from `/usr/lib/postgresql/16/bin` under `/tmp/aidg_pg` on the first free port in 29650-29659 (below the ephemeral port range), then stop and delete it. Set `AIDIGEST_TEST_DATABASE_URL` to use an existing database instead (the tests drop and recreate schema `aidigest` in it). If Postgres is unavailable the tests fail; skipped tests count as failures.
 
 `scripts/mutation_check.py` reverts each security control in turn and confirms that a test fails.

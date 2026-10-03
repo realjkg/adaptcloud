@@ -135,13 +135,13 @@ Statuses: tasks `running|completed|failed`; runs
 |---|---|---|---|
 | 1 | Bootstrap never verifies /ops/status | Schema applied at startup; `/ops/status` checks all four tables; README orders auth setup before first use; `make aidigest-status` calls `/aidigest/ops/status` through Caddy with basic auth | `test_api.py::test_startup_applies_schema_and_status_ready`, `::test_ops_status_reports_missing_tables` |
 | 2 | DAILY does not isolate feed metadata | Delimited, escaped `<evidence>` block + system rule; ids and URLs validated against candidates | `test_daily.py::test_daily_prompt_isolates_evidence`, `::test_daily_rejects_unknown_ids_and_foreign_urls` |
-| 3 | `Number(...)` NaN survives clamps | `finite_number()` accepts only finite int/float (no bool, no strings); item rejected otherwise (score adjustment, confidence) | `test_ai.py::test_finite_number`, `test_daily.py::test_daily_rejects_non_finite_numbers`, `test_tasks.py::test_task_knowledge_requires_finite_confidence` |
-| 4 | `accepted` counts no-op inserts | Dedupe ids; `INSERT ... ON CONFLICT DO NOTHING RETURNING id`; count returned rows | `test_daily.py::test_daily_accepted_counts_actual_inserts` |
-| 5 | Size cap after buffering | Streamed read with byte cap; Content-Length pre-check | `test_fetcher.py::test_streaming_cap_*` |
+| 3 | `Number(...)` NaN survives clamps | `finite_number()` accepts only finite int/float (no bool, no strings); item rejected otherwise (score adjustment, confidence) | `test_ai.py::test_finite_number_*`, `test_daily.py::test_daily_rejects_non_finite_score_adjustment`, `::test_daily_rejects_non_finite_confidence`, `test_tasks.py::test_task_knowledge_requires_finite_confidence_and_observed_source` |
+| 4 | `accepted` counts no-op inserts | Dedupe ids; `INSERT ... ON CONFLICT DO NOTHING RETURNING id`; count returned rows | `test_daily.py::test_daily_accepted_counts_actual_inserts_with_duplicate_ids`, `::test_daily_accepted_excludes_conflicting_rows` |
+| 5 | Size cap after buffering | Streamed read with byte cap; Content-Length pre-check | `test_fetcher.py::test_size_cap_rejects_declared_content_length_before_reading`, `::test_streaming_cap_*` |
 | 6 | Explicit URLs truncated | Evidence assembled explicit-URLs-first, then knowledge, digest, feeds; cap applied after | `test_tasks.py::test_explicit_urls_reserved_when_tables_populated` |
 | 7 | Body not runtime-validated | Strict pydantic `TaskRequest` (`extra=forbid`, `mode` Literal enum, `urls` <=3 HTTPS strings, `task` 4..4000 non-blank, `persist_knowledge` StrictBool) -> 422 | `test_tasks.py::test_task_body_validation` |
-| 8 | All failures 400 | `AIDigestError` taxonomy: 400 input, 502 upstream/AI, 503 DB/readiness; task row records status `failed` + error | `test_tasks.py::test_task_error_mapping_*` |
-| 9 | TASK does not gate on readiness | `readiness()` before inserting the task -> 503, no row | `test_tasks.py::test_task_returns_503_when_not_ready` |
+| 8 | All failures 400 | `AIDigestError` taxonomy: 400 input, 502 upstream/AI, 503 DB/readiness; task row records status `failed` + error | `test_tasks.py::test_task_error_mapping_*`, `::test_task_unexpected_error_is_500_and_recorded` |
+| 9 | TASK does not gate on readiness | `readiness()` before inserting the task -> 503, no row | `test_tasks.py::test_task_returns_503_when_not_ready`, `::test_task_returns_503_when_tasks_table_missing` |
 | 10 | Scheduled run does not gate on readiness | `run_daily` checks readiness first for every trigger; records `schema_not_ready`, no AI call | `test_daily.py::test_daily_schema_not_ready`, `test_scheduler.py::test_scheduled_job_gates_on_readiness` |
 
 ## 8. Guardrails carried over
