@@ -115,21 +115,29 @@ run_case() {  # $1 label  $2 user  $3 hash  $4 secret  $5 expected status for op
   docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
 }
 
-run_raw_case() {  # Caddy started outside compose with NO AIDigest variables: Caddyfile defaults apply
-  echo "== outside compose, no AIDIGEST_* variables at all"
-  if docker run --rm -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" \
+run_raw_case() {  # $1 label [$2 user $3 hash $4 secret]: Caddy started OUTSIDE compose, plain `caddy run`
+  # (no entrypoint in front), so the Caddyfile alone must cope: heredoc tokens + guard.
+  echo "== outside compose: $1"
+  : > "$WORK/raw.env"
+  if [[ $# -gt 1 ]]; then
+    printf 'AIDIGEST_BASIC_AUTH_USER=%s\nAIDIGEST_BASIC_AUTH_HASH=%s\nAIDIGEST_PROXY_SECRET=%s\n' "$2" "$3" "$4" > "$WORK/raw.env"
+  fi
+  if docker run --rm --env-file "$WORK/raw.env" -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" \
        caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>"$WORK/adapt.err"; then
     expect "caddy adapt" "adapted" "adapted"
   else
     expect "caddy adapt" "adapted" "ERROR: $(tail -c 160 "$WORK/adapt.err" | tr '\n' ' ')"; return
   fi
   docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
-  docker run -d --name "caddy-matrix-$$" --network "$NET" --network-alias caddy \
+  docker run -d --name "caddy-matrix-$$" --network "$NET" --network-alias caddy --env-file "$WORK/raw.env" \
     -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" >/dev/null
   sleep 2
   expect "homeschool UI /" 200 "$(probe / "" "")"
   expect "no credentials" 401 "$(probe /aidigest/ops/status "" "")"
   expect "aidigest-disabled:<right password>" 401 "$(probe /aidigest/ops/status aidigest-disabled "$PASSWORD")"
+  if [[ $# -gt 1 ]]; then
+    expect "configured user:<right password>" 401 "$(probe /aidigest/ops/status "$2" "$PASSWORD")"
+  fi
   docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
 }
 
@@ -153,7 +161,11 @@ run_case "secret with ' and braces"     "ops" "$KNOWN_HASH" "abc'def{env.HOME}01
 run_case "hash is not a bcrypt hash"    "ops" "not a bcrypt hash at all" "$SECRET" 401
 run_case "hash with a double quote"     "ops" '$2a$10$"broken' "$SECRET" 401
 run_case "hash with spaces"             "ops" '$2a$10$ broken hash value' "$SECRET" 401
-run_raw_case
+run_raw_case "no AIDIGEST_* variables at all"
+run_raw_case "user with a space"        "ops admin" "$KNOWN_HASH" "$SECRET"
+run_raw_case "user with a double quote" 'o"ps'      "$KNOWN_HASH" "$SECRET"
+run_raw_case "user with braces"         "{ops}"     "$KNOWN_HASH" "$SECRET"
+run_raw_case "secret with spaces"       "ops"       "$KNOWN_HASH" "correct horse battery staple long passphrase"
 
 echo
 if [[ $FAILURES -eq 0 ]]; then echo "caddy matrix: all expectations met"; else echo "caddy matrix: $FAILURES failure(s)"; exit 1; fi

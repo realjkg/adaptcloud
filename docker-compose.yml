@@ -123,11 +123,12 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy-entrypoint.sh:/usr/local/bin/caddy-entrypoint.sh:ro
       - caddy_data:/data
-    # Unconfigured AIDigest -> non-empty sentinels (Caddy must always adapt) and /aidigest/* is 401.
-    # The sentinel hash is bcrypt of a discarded random value; see the Caddyfile.
+    # Plain values (may be empty or malformed): caddy-entrypoint.sh (the "command" below)
+    # replaces anything Caddy could not load with the "not configured" sentinels, and the
+    # Caddyfile guard then answers /aidigest/* with 401.
     environment:
-      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-aidigest-disabled}
-      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:-$$2a$$10$$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
+      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-}
+      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:-}
       - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:-}
     networks:
       - internal

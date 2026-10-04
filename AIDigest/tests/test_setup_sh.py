@@ -156,9 +156,25 @@ def test_setup_rejects_unsafe_basic_auth_user(tmp_path, user):
 
 
 def test_setup_temp_file_removed_on_interrupt(tmp_path):
-    """Round 3 note: the 600-mode temp file used to fill empty keys is removed on INT/TERM."""
+    """Round 3 note: the 600-mode temp copy made while filling empty keys is removed on SIGTERM,
+    and .env is left untouched (it is only rewritten after the copy is complete)."""
+    import signal
+    import time
+
     text_ = (REPO / "setup.sh").read_text()
-    assert "trap" in text_ and ".aidigest.XXXXXX" in text_
-    fill = text_[text_.index("aidigest_fill_empty() {"):]
-    fill = fill[:fill.index("\n}\n")]
-    assert "trap " in fill and "INT" in fill and "TERM" in fill
+    start = text_.index("aidigest_fill_empty() {")
+    func = text_[start:text_.index("\n}\n", start) + 3]
+    env_file = tmp_path / ".env"
+    content = "".join(f"FILLER_{i}=value-{i}\n" for i in range(150_000)) + "AIDIGEST_PROXY_SECRET=\n"
+    env_file.write_text(content)
+    script = func + '\naidigest_fill_empty "$1" AIDIGEST_PROXY_SECRET "AIDIGEST_PROXY_SECRET=new"\n'
+    proc = subprocess.Popen(["bash", "-c", script, "fill", str(env_file)], cwd=tmp_path)
+    for _ in range(200):                                  # wait until the temp copy exists
+        if list(tmp_path.glob(".env.aidigest.*")):
+            break
+        time.sleep(0.01)
+    assert list(tmp_path.glob(".env.aidigest.*")), "temp file never appeared"
+    proc.send_signal(signal.SIGTERM)
+    assert proc.wait(timeout=20) == 130
+    assert not list(tmp_path.glob(".env.aidigest.*")), "temp file with secrets left behind"
+    assert env_file.read_text() == content

@@ -278,14 +278,14 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/fetcher.py", "                    await asyncio.sleep(0)\n", "                    pass\n")]),
     M("r2-m2-no-unconfigured-guard", "/aidigest/* is 401 unless fully configured (Caddy)",
       [("../Caddyfile", "      respond @aidigest_unconfigured 401\n", "")], runner="caddy"),
-    M("r2-m2-no-user-sentinel", "compose maps an empty user to a non-empty sentinel",
-      [("../docker-compose.yml", "${AIDIGEST_BASIC_AUTH_USER:-aidigest-disabled}", "${AIDIGEST_BASIC_AUTH_USER:-}")],
+    M("r2-m2-entrypoint-keeps-bad-user", "entrypoint replaces a missing/malformed user (Caddy must start)",
+      [("../caddy-entrypoint.sh", 'if ! valid_user "${AIDIGEST_BASIC_AUTH_USER:-}"; then', "if false; then")],
       runner="caddy"),
-    M("r2-m2-no-hash-sentinel", "compose maps an empty hash to a non-empty sentinel",
-      [("../docker-compose.yml", "${AIDIGEST_BASIC_AUTH_HASH:-$$2a$$10$$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}", "${AIDIGEST_BASIC_AUTH_HASH:-}")],
-      runner="caddy"),
+    M("r2-m2-compose-skips-entrypoint", "compose starts Caddy through caddy-entrypoint.sh",
+      [("../docker-compose.yml", '    command: ["/bin/sh", "/usr/local/bin/caddy-entrypoint.sh"]\n', "")], runner="caddy"),
     M("r2-m2-guard-ignores-secret", "/aidigest/* is 401 without a proxy secret (Caddy)",
-      [("../Caddyfile", ' || {env.AIDIGEST_PROXY_SECRET} == ""`', "`")], runner="caddy"),
+      [("../Caddyfile", ' || !({env.AIDIGEST_PROXY_SECRET}.matches(r"^[!-~]+$") && size({env.AIDIGEST_PROXY_SECRET}) >= 32)`', "`")],
+      runner="caddy"),
     M("r2-m3-no-mapped-unwrap", "IPv4-mapped judged by its IPv4 (observable on 3.12.3)",
       [("aidigest/fetcher.py", "    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:\n        return ip.ipv4_mapped\n    return ip",
         "    return ip")], python="py312"),
@@ -323,6 +323,35 @@ MUTATIONS: list[Mutation] = [
     M("r2-l8-hardcoded-user-agent", "one version string",
       [("aidigest/fetcher.py", 'USER_AGENT = f"AdaptCloud-AIDigest/{__version__} (+https://adaptcloud.io)"',
         'USER_AGENT = "AdaptCloud-AIDigest/0.4 (+https://adaptcloud.io)"')]),
+    # ═══════════════ challenger round 3 ═══════════════
+    M("r3-m1-user-hash-not-heredoc", "user/hash are heredoc tokens (spaces/quotes cannot split them)",
+      [("../Caddyfile", "        <<AIDIGEST_VALUE_END\n        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled}\n        AIDIGEST_VALUE_END <<AIDIGEST_VALUE_END\n",
+        "        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled} <<AIDIGEST_VALUE_END\n")], runner="caddy"),
+    M("r3-m1-secret-substituted-into-caddyfile", "proxy secret read at request time, not substituted",
+      [("../Caddyfile", 'header_up X-AIDigest-Proxy-Secret "{env.AIDIGEST_PROXY_SECRET}"',
+        "header_up X-AIDigest-Proxy-Secret {$AIDIGEST_PROXY_SECRET}")], runner="caddy"),
+    M("r3-m1-guard-no-user-format", "guard requires a well-formed user",
+      [("../Caddyfile", '{env.AIDIGEST_BASIC_AUTH_USER}.matches(r"^[A-Za-z0-9._@-]+$") && ', "")], runner="caddy"),
+    M("r3-m1-guard-no-secret-format", "guard requires a printable, whitespace-free secret",
+      [("../Caddyfile", '{env.AIDIGEST_PROXY_SECRET}.matches(r"^[!-~]+$") && ', "")], runner="caddy"),
+    M("r3-m1-entrypoint-keeps-bad-hash", "entrypoint replaces a malformed hash (Caddy must start)",
+      [("../caddy-entrypoint.sh", 'if ! valid_hash "${AIDIGEST_BASIC_AUTH_HASH:-}"; then', "if false; then")],
+      runner="caddy"),
+    M("r3-m1-settings-secret-chars", "Settings rejects whitespace/control in the proxy secret",
+      [("aidigest/config.py", "        if not SAFE_SECRET.fullmatch(value):", "        if False:")]),
+    M("r3-m1-settings-user-chars", "Settings rejects unsafe basic-auth user names",
+      [("aidigest/config.py", "        if value and (not SAFE_USER.fullmatch(value) or value == SENTINEL_USER):",
+        "        if False:")]),
+    M("r3-m1-settings-user-required", "production requires the basic-auth user",
+      [("aidigest/config.py", "        if not self.aidigest_basic_auth_user:\n", "        if False:\n")]),
+    M("r3-m1-setup-user-length", "setup.sh limits the user name to 64 characters",
+      [("../setup.sh", "=~ ^[A-Za-z0-9._@-]{1,64}$ ]]", "=~ ^[A-Za-z0-9._@-]+$ ]]")]),
+    M("r3-m1-setup-reserved-user", "setup.sh refuses the placeholder user name",
+      [("../setup.sh", '  [[ "$AIDIGEST_BASIC_AUTH_USER" != aidigest-disabled ]] || error', "  true || error")]),
+    M("r3-note-no-temp-trap", "setup.sh removes its temp file on INT/TERM",
+      [("../setup.sh", "  trap 'rm -f \"$tmp\"; exit 130' INT TERM     # never leave a copy of the secrets behind\n", "")]),
+    M("r3-m2-readme-hardcoded-db", "README role SQL grants CONNECT on <dbname> (needs a non-postgres test DB)",
+      [("README.md", "GRANT CONNECT ON DATABASE <dbname> TO aidigest_app;", "GRANT CONNECT ON DATABASE postgres TO aidigest_app;")]),
 ]
 
 
@@ -330,13 +359,11 @@ def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, fl
     start = time.monotonic()
     if m is not None and m.runner == "caddy":
         cmd = ["bash", str(ROOT / "scripts" / "caddy_matrix.sh"), str(workdir.parent / "Caddyfile"),
-               str(workdir.parent / "docker-compose.yml")]
+               str(workdir.parent / "docker-compose.yml"), str(workdir.parent / "caddy-entrypoint.sh")]
     else:
         python = sys.executable
         if m is not None and m.python == "py312":
-            python = os.environ.get("MUTATION_PY312", "")
-            if not python:
-                return True, "MUTATION_PY312 not set - mutation NOT evaluated", 0.0
+            python = py312_interpreter()  # raises: such a mutation is never reported as evaluated
         cmd = [python, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider"]
     try:
         proc = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True, timeout=900)
@@ -346,12 +373,29 @@ def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, fl
     return proc.returncode == 0, tail, time.monotonic() - start
 
 
+def py312_interpreter() -> str:
+    """The interpreter for python="py312" mutations. Missing or unusable is a hard error (exit 2),
+    never a silent pass: a mutation that is not evaluated must not look killed or survived."""
+    python = os.environ.get("MUTATION_PY312", "")
+    if not python:
+        raise SystemExit("MUTATION_PY312 is not set; it must point to a Python 3.12.x interpreter with "
+                         "requirements-dev.txt installed (needed for the py312 mutations)")
+    try:
+        out = subprocess.run([python, "-c", "import sys, pytest; print(sys.version.split()[0])"],
+                             capture_output=True, text=True, timeout=60, check=True).stdout.strip()
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SystemExit(f"MUTATION_PY312={python!r} is not usable: {exc}") from exc
+    if not out.startswith("3.12."):
+        raise SystemExit(f"MUTATION_PY312={python!r} is Python {out}, expected 3.12.x")
+    return python
+
+
 def copy_tree(dest: Path) -> Path:
     """<dest>/AIDigest plus <dest>/setup.sh (tests find setup.sh one level above AIDigest/)."""
     app = dest / "AIDigest"
     shutil.copytree(ROOT, app, ignore=shutil.ignore_patterns(
         "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv", "scripts"))
-    for name in ("setup.sh", "Caddyfile", "docker-compose.yml", ".env.example"):
+    for name in ("setup.sh", "Caddyfile", "docker-compose.yml", ".env.example", "caddy-entrypoint.sh"):
         shutil.copy2(ROOT.parent / name, dest / name)
     return app
 
@@ -362,6 +406,9 @@ def main() -> int:
     parser.add_argument("--out")
     args = parser.parse_args()
     selected = [m for m in MUTATIONS if not args.only or args.only in m.name]
+    if any(m.python == "py312" for m in selected):
+        print(f"py312 interpreter: {py312_interpreter()}", flush=True)   # fails loudly before any work
+    print(f"test database name: {os.environ.get('AIDIGEST_TEST_DBNAME', 'postgres')}", flush=True)
 
     with tempfile.TemporaryDirectory(prefix="aidigest-mut-") as tmp:
         base = copy_tree(Path(tmp) / "baseline")
