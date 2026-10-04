@@ -143,3 +143,54 @@ class _HangingConnection:
 
     def __getattr__(self, name):
         return getattr(self.conn, name)
+
+
+class HangAfterCommitEngine:
+    """Wraps a real AsyncEngine: a transaction that executed a statement containing `needle` COMMITS
+    on the server and then never reports back (the deadline hits during COMMIT, after the server
+    already committed). The caller cannot know the row exists."""
+
+    def __init__(self, engine, needle: str):
+        self.engine = engine
+        self.needle = needle
+        self.committed: list[str] = []
+
+    def begin(self):
+        return _CommitThenHang(self, self.engine.begin())
+
+    def connect(self):
+        return self.engine.connect()
+
+    def __getattr__(self, name):
+        return getattr(self.engine, name)
+
+
+class _CommitThenHang:
+    def __init__(self, owner: HangAfterCommitEngine, context):
+        self.owner = owner
+        self.context = context
+        self.matched = False
+
+    async def __aenter__(self):
+        conn = await self.context.__aenter__()
+        outer = self
+
+        class _Conn:
+            async def execute(self, statement, *args, **kwargs):
+                if outer.owner.needle in str(statement):
+                    outer.matched = True
+                return await conn.execute(statement, *args, **kwargs)
+
+            def __getattr__(self, name):
+                return getattr(conn, name)
+
+        return _Conn()
+
+    async def __aexit__(self, *exc):
+        import asyncio
+
+        result = await self.context.__aexit__(*exc)   # the real COMMIT (or rollback)
+        if self.matched and exc[0] is None:
+            self.owner.committed.append(self.owner.needle)
+            await asyncio.Event().wait()                # ... and the answer never arrives
+        return result

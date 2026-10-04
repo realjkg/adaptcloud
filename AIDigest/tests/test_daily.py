@@ -701,3 +701,23 @@ def test_daily_and_task_use_only_budgeted_transactions():
         src = (pkg / name).read_text()
         assert "engine.begin()" not in src and "engine.connect()" not in src, name
         assert "db_tx(" in src, name
+
+
+# ═══════════ Review of ae012a0, L7: a deadline during the claim COMMIT leaves no stranded row ═══════════
+async def test_deadline_during_the_claim_commit_frees_the_day(engine):
+    """The claim COMMITTED on the server but the answer never arrived: within the reserved slice the
+    run row (keyed on our own id + owner token) is marked failed, so the day is not blocked until the
+    lease expires; the next run that day claims it."""
+    from tests.fakes import HangAfterCommitEngine
+    hanging = HangAfterCommitEngine(engine, "INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, owner")
+    outcome, elapsed = await _timed(run_daily(hanging, FakeAI(), feed_fetcher(items(3)), trigger="schedule",
+                                              now=NOW, config=_budget_cfg()))
+    assert hanging.committed, "the claim never committed: the test does not test anything"
+    assert isinstance(outcome, DeadlineError), outcome
+    assert elapsed < BUDGET + SLACK, elapsed
+    assert await scalar(engine, "SELECT count(*) FROM aidigest.runs WHERE status='running'") == 0
+    assert "abandoned" in await scalar(engine, "SELECT error FROM aidigest.runs")
+    ai = FakeAI()
+    ai.queue_json([selection("https://news.example/0")])
+    again = await run_daily(engine, ai, feed_fetcher(items(3)), trigger="operator", now=NOW, config=CFG)
+    assert again["status"] == "completed", again

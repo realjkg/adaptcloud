@@ -18,7 +18,8 @@ from tests.fakes import FakeFetcher, rss
 
 ROOT = Path(__file__).resolve().parent.parent
 N = 1_000_000          # the fetcher's default byte cap
-BUDGET_SECONDS = 6.0   # linear parsing of 1 MB takes well under a second; quadratic takes minutes
+BUDGET_SECONDS = 6.0   # CPU seconds for one parse; linear parsing of 1 MB takes well under a second
+WALL_CLOCK_KILL = 120  # hang guard only (the CPU budget above is the real limit)
 
 ADVERSARIAL = {
     "lt-run": "'<' * N",
@@ -52,26 +53,35 @@ def test_adversarial_input_parses_within_budget(name):
     """Hard budget (child killed) AND near-linear scaling: str.find is memchr-fast, so a
     quadratic rescan of 1 MB can still finish in a few seconds - the 4x size step exposes it
     (linear ~4x, quadratic ~16x)."""
+    # Review of ae012a0: CPU time of the child (other load on the machine does not count), min of 3
+    # samples per size; a sample that already exceeds the budget stops the child at once, so a
+    # quadratic parser fails fast. The wall-clock kill (WALL_CLOCK_KILL) only guards against hangs.
     code = textwrap.dedent(f"""
-        import time
+        import sys, time
         from aidigest.feeds import clean_text, parse_feed
         def run(N):
             data = {ADVERSARIAL[name]}
             assert len(data) >= N * 0.9
-            t = time.monotonic()
+            t = time.process_time()
             parse_feed(data, "src")
             clean_text(data)
-            return time.monotonic() - t
-        quarter = run({N // 4})
-        full = run({N})
+            took = time.process_time() - t
+            if took > {BUDGET_SECONDS}:
+                print(f"OVER {{took:.2f}}")
+                sys.exit(0)
+            return took
+        quarter = min(run({N // 4}) for _ in range(3))
+        full = min(run({N}) for _ in range(3))
         print(f"{{quarter:.4f}} {{full:.4f}}")
     """)
     try:
         proc = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True,
-                              timeout=BUDGET_SECONDS)
+                              timeout=WALL_CLOCK_KILL)
     except subprocess.TimeoutExpired:
-        pytest.fail(f"{name}: parsing 1 MB exceeded {BUDGET_SECONDS}s (child killed) - non-linear parser")
+        pytest.fail(f"{name}: parsing did not finish within {WALL_CLOCK_KILL}s wall-clock (child killed)")
     assert proc.returncode == 0, proc.stderr[-2000:]
+    assert not proc.stdout.startswith("OVER"), f"{name}: one parse of up to 1 MB took {proc.stdout.split()[1]}s CPU " \
+                                                f"(budget {BUDGET_SECONDS}s) - non-linear parser"
     quarter, full = map(float, proc.stdout.split())
     assert full <= max(1.0, 8 * quarter), f"{name}: {quarter:.3f}s at N/4 -> {full:.3f}s at N (super-linear)"
 

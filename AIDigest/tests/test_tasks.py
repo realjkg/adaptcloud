@@ -330,23 +330,56 @@ async def test_get_task_is_scoped_to_the_requester(engine):
     assert await get_task(engine, task_id, "bob") is None
 
 
+def _sql_literals(path):
+    """(enclosing function, SQL text) for every string literal in a module: implicit concatenation
+    (any number of fragments, merged by the parser), `+` concatenation of literals, and f-strings
+    (placeholders as {})."""
+    import ast
+
+    def text_of(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            return "".join(v.value if isinstance(v, ast.Constant) else "{}" for v in node.values)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            left, right = text_of(node.left), text_of(node.right)
+            return None if left is None or right is None else left + right
+        return None
+
+    found = []
+
+    def visit(node, func, inside_concat=False):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            func = node.name
+        sql = text_of(node)
+        if sql is not None and not inside_concat:
+            found.append((func, sql))
+        for child in ast.iter_child_nodes(node):
+            visit(child, func, inside_concat=sql is not None)
+
+    visit(ast.parse(path.read_text()), "<module>")
+    return found
+
+
 def test_every_query_on_tasks_is_scoped_to_a_user():
-    """Sweep: every SQL statement that reads or changes aidigest.tasks names requested_by, or is the
-    update of a row this request just created by its fresh random id (_finish_task)."""
+    """Sweep (review of ae012a0, L5): every SQL statement that reads or changes aidigest.tasks must
+    filter on requested_by=:by and must not contain OR (no "... OR requested_by" escape hatch). The
+    only exemption is _finish_task, named explicitly: it updates the row this request created under
+    a fresh random id."""
     import re
     from pathlib import Path
-    src = (Path(__file__).resolve().parents[1] / "aidigest").glob("*.py")
     statements = []
-    for path in src:
-        for m in re.finditer(r'"((?:SELECT|UPDATE|DELETE)[^"]*?)"\s*(?:"([^"]*)")?\s*(?:"([^"]*)")?', path.read_text()):
-            sql = "".join(g or "" for g in m.groups())
-            if "aidigest.tasks" in sql:
-                statements.append((path.name, sql))
-    assert statements, "no task queries found: the sweep pattern is stale"
-    for name, sql in statements:
-        if sql.startswith("UPDATE aidigest.tasks SET status=:status"):   # _finish_task: own fresh id
+    for path in sorted((Path(__file__).resolve().parents[1] / "aidigest").glob("*.py")):
+        for func, sql in _sql_literals(path):
+            flat = re.sub(r"\s+", " ", sql).strip()
+            if re.search(r"aidigest\.tasks\b", flat, re.I) and re.match(r"(SELECT|UPDATE|DELETE|WITH)\b", flat, re.I):
+                statements.append((path.name, func, flat))
+    assert len(statements) >= 3, f"too few task queries found: the sweep is stale ({statements})"
+    for name, func, sql in statements:
+        if (name, func) == ("tasks.py", "_finish_task"):
             continue
-        assert "requested_by=:by" in sql.replace(" ", "") or "requested_by = :by" in sql, (name, sql)
+        assert re.search(r"\brequested_by\s*=\s*:by\b", sql, re.I), (name, func, sql)
+        assert not re.search(r"\bOR\b", sql, re.I), (name, func, sql)
 
 
 def test_every_route_has_an_access_policy(settings):
@@ -628,3 +661,42 @@ async def test_task_budget_covers_a_database_that_never_answers(engine, needle):
 async def _only_task(engine):
     async with engine.connect() as conn:
         return dict((await conn.execute(text("SELECT status, error FROM aidigest.tasks"))).mappings().one())
+
+
+# ═══════════ Review of ae012a0, L7: a deadline during COMMIT leaves no stranded row ═══════════
+async def test_deadline_during_the_task_insert_commit_is_cleaned_up(engine):
+    """The insert COMMITTED on the server but the answer never arrived: the caller gets 504 and,
+    within the reserved slice, the row it cannot see is marked failed (keyed on its own id)."""
+    from tests.fakes import HangAfterCommitEngine
+    hanging = HangAfterCommitEngine(engine, "INSERT INTO aidigest.tasks")
+    outcome, elapsed = await _run_task_timed(hanging, FakeAI(), FakeFetcher(), {"task": "Summarize this"})
+    assert hanging.committed, "the insert never committed: the test does not test anything"
+    assert isinstance(outcome, DeadlineError), outcome
+    assert elapsed < BUDGET + SLACK, elapsed
+    row = await _only_task(engine)
+    assert row["status"] == "failed" and "abandoned" in row["error"], row
+
+
+async def test_stale_running_task_is_failed_on_the_next_request(engine):
+    """Self-healing when even the cleanup could not run (DB unreachable): a 'running' row older than
+    the task budget (+ grace) cannot belong to a live task; the user's next request marks it failed.
+    It still counts toward the hourly limit (it was a request)."""
+    from aidigest.tasks import TaskConfig, TaskRequest, run_task
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "INSERT INTO aidigest.tasks (id, requested_by, request_text, mode, status, created_at) VALUES "
+            "('22222222-2222-2222-2222-222222222222', 'operator@adapt.cloud', 'old', 'research', 'running', "
+            " now() - interval '10 minutes'), "
+            "('33333333-3333-3333-3333-333333333333', 'someone-else', 'theirs', 'research', 'running', "
+            " now() - interval '10 minutes'), "
+            "('44444444-4444-4444-4444-444444444444', 'operator@adapt.cloud', 'live', 'research', 'running', "
+            " now())"))
+    ai = FakeAI()
+    ai.queue_json(answer())
+    await run_task(engine, ai, FakeFetcher(), "operator@adapt.cloud", TaskRequest(task="Summarize this knowledge"),
+                   TaskConfig(budget_seconds=60))
+    async with engine.connect() as conn:
+        rows = dict((await conn.execute(text("SELECT request_text, status FROM aidigest.tasks"))).all())
+    assert rows["old"] == "failed"            # older than budget + grace: abandoned
+    assert rows["live"] == "running"          # may still be running
+    assert rows["theirs"] == "running"        # another user's rows are not touched by this request
