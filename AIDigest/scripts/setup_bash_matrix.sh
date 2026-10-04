@@ -3,7 +3,8 @@
 #
 # The cases are generated from tests/test_setup_sh.py (the same hooks, the real aidigest_fill_empty
 # from setup.sh) and run inside each container with that container's bash. Every case runs in its own
-# process group (job control), so "kill 0" reaches only the case. Checked per case: exit status,
+# process group (job control), so "kill 0" reaches only the case, and a probe launched like a case
+# must show HUP/INT/QUIT/TERM at their default disposition. Checked per case: exit status,
 # .env (untouched / completely replaced), no temp file left (except after SIGKILL), one temp name
 # recorded, the failure message, and mode/owner for the mode case.
 #
@@ -55,6 +56,18 @@ cat > "$WORK/run.sh" <<'RUN'
 set -u
 cd /h; pass=0; fail=0
 set -m   # job control: each case is its own process group
+# Cases must start with HUP/INT/QUIT/TERM at their default disposition: an inherited "ignore" survives
+# exec and bash can neither trap nor reset it, so every signal case of that kind would fail (or, for a
+# setup.sh that does not trap, pass for the wrong reason). docker starts the container from the daemon,
+# not from this script's caller, so a caller's nohup or `&` does not reach it; this probe, launched
+# exactly like a case, proves it for every run instead of assuming it.
+(exec cat /proc/self/status > /tmp/sigprobe) &
+wait $!
+ignored=$(( 16#$(awk '/^SigIgn:/ { print $2 }' /tmp/sigprobe) & 0x4007 ))   # bits of HUP INT QUIT TERM
+if (( ignored )); then
+  echo "  cases would start with HUP/INT/QUIT/TERM ignored (SigIgn mask $(printf '%#x' "$ignored")); not run"
+  exit 2
+fi
 while IFS='|' read -r name rc final envs msg prep; do
   w=$(mktemp -d /tmp/case.XXXXXX); cp original "$w/.env"
   case "$prep" in 600) chmod 600 "$w/.env" ;; 640owner) chmod 640 "$w/.env"; chown 12345:23456 "$w/.env" ;; esac

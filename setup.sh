@@ -81,8 +81,16 @@ aidigest_collect() {
 AIDIGEST_TMP=""   # global, so the EXIT trap still sees it once the function has been left
 aidigest_tmp_cleanup() { if [[ -n "$AIDIGEST_TMP" ]]; then rm -f "$AIDIGEST_TMP"; AIDIGEST_TMP=""; fi; }
 aidigest_mode_owner() { ls -ldn "$1" | awk '{ print substr($1, 1, 10), $3, $4 }'; }
+# fsync $1. `sync FILE` (GNU coreutils 8.24+) is probed on $2, an existing file: where it works, a
+# failure to flush $1 is an error; only where it is unsupported does a plain `sync` stand in.
+aidigest_flush() { if sync "$2" 2>/dev/null; then sync "$1"; else sync; fi; }
 aidigest_fill_empty() {
   local file=$1 key=$2 newline=$3 l unchanged="${1} was not changed"
+  # A symlinked .env is refused: the rename would replace the link with a regular file, and writing
+  # through the link could reach a file outside the repository. (A hard-linked .env loses the link:
+  # after the rename, the other names still have the old content.)
+  [[ ! -L "$file" ]] \
+    || error "${file} is a symlink; edit its target by hand or replace the link with a regular file; ${unchanged}."
   trap 'aidigest_tmp_cleanup' EXIT
   trap 'aidigest_tmp_cleanup; exit 129' HUP
   trap 'aidigest_tmp_cleanup; exit 130' INT
@@ -99,7 +107,7 @@ aidigest_fill_empty() {
     fi
     printf '%s\n' "$l" || error "Could not write ${AIDIGEST_TMP} (disk full?); ${unchanged}." >&2
   done < "$file" > "$AIDIGEST_TMP"
-  sync "$AIDIGEST_TMP" 2>/dev/null || sync
+  aidigest_flush "$AIDIGEST_TMP" "$file" || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."
   mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."
   AIDIGEST_TMP=""
   trap - HUP INT QUIT TERM EXIT

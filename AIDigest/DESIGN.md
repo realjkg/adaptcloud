@@ -279,3 +279,13 @@ which `make restart` already does for `.env` changes.
 Writing to the side needs free space for a second copy of `.env`. When the space is not there,
 the write fails before the rename, and `.env` is untouched.
 
+## 15. Challenger review of 80c1871 (REQUEST CHANGES: 0 High, 1 Medium, 2 Low)
+
+The challenger confirmed `.env` integrity under every signal and under disk-full (40 cases, 0 violations).
+
+| ID | Finding | Fix | Tests |
+|---|---|---|---|
+| M | The gate failed when pytest started with signals ignored: `nohup` (HUP), a background job (INT, QUIT). An ignored disposition survives exec, and bash cannot trap or reset a signal ignored on entry | Every launch of the function under test (`_launch`) resets HUP/INT/QUIT/TERM to `SIG_DFL` in the child before exec (`preexec_fn`). `scripts/setup_bash_matrix.sh` launches a probe exactly like a case and refuses to run if the probe's `SigIgn` has any of the four. The containers are started by the docker daemon, so the caller's `nohup` or `&` does not reach them | `test_harness_works_when_pytest_starts_with_signals_ignored` (pytest itself ignores each signal); the suite run in the foreground, as a background job, under `nohup`, and both together; `mutation_check.py` started with `nohup ... &` |
+| L | A symlinked `.env` failed closed with a misleading "mode and owner" error | Refused up front: "`.env` is a symlink; edit its target by hand or replace the link with a regular file". Writing through the link could reach a file outside the repository, and the rename would replace the link. A hard-linked `.env` loses the link: after the rename, the other names keep the old content (comment in setup.sh) | `test_setup_refuses_a_symlinked_env` |
+| L | `sync "$tmp" \|\| sync` swallowed an fsync error | `aidigest_flush` probes `sync FILE` on the existing `.env`. Where it works, a failure to flush the temp copy is an error ("Could not flush ...; .env was not changed"). Only where it is unsupported does plain `sync` stand in | `flush-fails` failure case; `test_setup_flushes_the_temp_copy` (per-file / plain-only) |
+

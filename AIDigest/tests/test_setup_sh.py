@@ -202,13 +202,24 @@ def _fill_empty_script(hook: str) -> str:
             + 'aidigest_fill_empty "$1" AIDIGEST_PROXY_SECRET "AIDIGEST_PROXY_SECRET=new"\n')
 
 
+def _default_signals() -> None:
+    """Child side of every launch, before exec. nohup starts pytest with HUP ignored, a background job
+    (`cmd &`) with INT and QUIT ignored; an ignored disposition survives exec, and bash can neither trap
+    nor reset a signal that was ignored on entry. Reset them, so the function sees what a terminal
+    gives it."""
+    import signal
+    for signum in (signal.SIGHUP, signal.SIGINT, signal.SIGQUIT, signal.SIGTERM):
+        signal.signal(signum, signal.SIG_DFL)
+
+
 def _launch(tmp_path: Path, hook: str, env_file: Path | None = None, **env) -> subprocess.CompletedProcess:
     """Every run of the function under test goes through here."""
     # start_new_session: the script gets its own process group, so "kill 0" cannot reach pytest
     return subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(env_file or tmp_path / ".env")],
                           cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
                                              **env},
-                          capture_output=True, text=True, timeout=60, start_new_session=True)
+                          capture_output=True, text=True, timeout=60, start_new_session=True,
+                          preexec_fn=_default_signals)
 
 
 def _run_fill(tmp_path: Path, hook: str, content: str = _ORIGINAL, mode: int | None = None,
