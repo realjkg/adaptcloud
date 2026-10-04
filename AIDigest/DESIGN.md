@@ -260,3 +260,22 @@ replaced the user, so the guard only ever sees the sentinel; without the entrypo
 fails before any guard can run. A guard clause would be unreachable (its mutation could only
 survive). Outside compose (plain `caddy run`, no entrypoint) a marker user still stops Caddy, like
 a non-bcrypt hash there (section 12); Settings and setup.sh refuse it at the source.
+
+## 14. Challenger round 4 follow-up (review of f3c711b: APPROVED, 0 High / 0 Medium; Lows fixed before the push)
+
+| ID | Finding | Fix | Tests |
+|---|---|---|---|
+| L-a | `.env` could still be truncated by the in-place `cat "$tmp" > "$file"`: SIGHUP to the process group (SSH disconnect), SIGQUIT, SIGKILL during `cat`, and a full disk all left `.env` empty or cut short | Atomic replace: the new content goes to a temp file next to `.env`. `cp -p` gives it `.env`'s mode and owner, and an `ls -ldn` comparison verifies them. It is synced and then `mv -f` replaces `.env`. Traps for HUP/INT/QUIT/TERM (exit 128+signal) and EXIT remove the temp copy. `mktemp` ignores all four signals. Every failure before the rename exits 1 with "`.env` was not changed" | `test_setup_sh.py`: signal harness, 4 signals x 5 points x shell/group (40 cases); SIGKILL during the copy and at the replace; failures before the rename (real ENOSPC via `/dev/full`, `cp`/mode/`mv` failures); mode 0640 and owner kept |
+| L-b | `.env.aidigest.*` was not git-ignored, so a leftover 0600 copy of the secrets could be committed by `git add -A` | `.gitignore`: `.env.*` with `!.env.example` | `test_gitignore_covers_leftover_temp_copies` (`git check-ignore` in a scratch repo) |
+| L-c | `caddy run` without `caddy-entrypoint.sh` | Unsupported, documented: compose always starts Caddy through the entrypoint, and the matrix asserts the compose `command`. Without the entrypoint, a non-bcrypt hash or a user containing the heredoc marker stops Caddy | `caddy_matrix.sh` "outside compose" cases cover the values the Caddyfile alone handles |
+| L-d | The trap ordering depends on bash | The challenger verified it on bash 4.4-5.3; the harness pins it on the local bash (5.2.21) | signal harness |
+
+Replacing by rename gives `.env` a new inode. Nothing depends on the old one. Compose reads
+`.env` by path to interpolate `${VAR}`. No service bind-mounts it: the only file mounts are
+`Caddyfile` and `caddy-entrypoint.sh`. The Makefile reads it with `grep`. If a deployment ever
+bind-mounts `.env` as a single file, that container keeps the old content until it is recreated,
+which `make restart` already does for `.env` changes.
+
+Writing to the side needs free space for a second copy of `.env`. When the space is not there,
+the write fails before the rename, and `.env` is untouched.
+

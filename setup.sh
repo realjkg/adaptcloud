@@ -69,25 +69,40 @@ aidigest_collect() {
 
 # Replace an EMPTY "KEY=" / "KEY=''" / 'KEY=""' line with the new line; every other line is
 # copied unchanged. Used for a .env copied from .env.example, whose AIDigest keys are empty.
-# INT/TERM at any point (round 4 M1): the trap exists BEFORE the temp file, so the copy of the
-# secrets is always removed (exit 130). The two children that matter ignore INT/TERM (a terminal
-# Ctrl-C signals the whole process group): mktemp cannot die between creating the file and printing
-# its name, and the in-place rewrite cannot be cut off with .env truncated. This shell runs the trap
-# once the child has finished, so .env is either untouched or completely rewritten.
+#
+# .env is never rewritten in place (rounds 4-5): the new content is written to a temp file next to
+# it, given .env's mode and owner (cp -p, verified), synced, and renamed over .env (atomic). Until
+# the rename .env is untouched, so no signal (HUP on an SSH disconnect, Ctrl-C, QUIT, TERM, even
+# KILL) and no I/O error (disk full) can leave it truncated or partial. The temp copy is removed on
+# HUP/INT/QUIT/TERM (exit 128+signal) and on any other exit (EXIT trap, e.g. a failed write). The
+# traps exist before the temp file; mktemp ignores the signals, so a process-group signal cannot kill
+# it between creating the file and printing its name (this shell runs its trap once mktemp is done).
+# Only SIGKILL can leave the temp file behind; .gitignore covers ".env.*".
+AIDIGEST_TMP=""   # global, so the EXIT trap still sees it once the function has been left
+aidigest_tmp_cleanup() { if [[ -n "$AIDIGEST_TMP" ]]; then rm -f "$AIDIGEST_TMP"; AIDIGEST_TMP=""; fi; }
+aidigest_mode_owner() { ls -ldn "$1" | awk '{ print substr($1, 1, 10), $3, $4 }'; }
 aidigest_fill_empty() {
-  local file=$1 key=$2 newline=$3 l tmp=""
-  trap '[[ -z "$tmp" ]] || rm -f "$tmp"; exit 130' INT TERM   # never leave a copy of the secrets behind
-  tmp=$(trap '' INT TERM; mktemp "${file}.aidigest.XXXXXX")   # mktemp creates it mode 600
+  local file=$1 key=$2 newline=$3 l unchanged="${1} was not changed"
+  trap 'aidigest_tmp_cleanup' EXIT
+  trap 'aidigest_tmp_cleanup; exit 129' HUP
+  trap 'aidigest_tmp_cleanup; exit 130' INT
+  trap 'aidigest_tmp_cleanup; exit 131' QUIT
+  trap 'aidigest_tmp_cleanup; exit 143' TERM
+  AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp "${file}.aidigest.XXXXXX") \
+    || error "Could not create a temporary file next to ${file}; ${unchanged}."
+  cp -p "$file" "$AIDIGEST_TMP" \
+    && [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \
+    || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."
   while IFS= read -r l || [[ -n "$l" ]]; do
     if [[ "$l" == "${key}=" || "$l" == "${key}=''" || "$l" == "${key}=\"\"" ]]; then
-      printf '%s\n' "$newline"
-    else
-      printf '%s\n' "$l"
+      l=$newline
     fi
-  done < "$file" > "$tmp"
-  (trap '' INT TERM; cat "$tmp" > "$file")   # rewrite in place: keeps the file's inode, owner and mode
-  rm -f "$tmp"
-  trap - INT TERM
+    printf '%s\n' "$l" || error "Could not write ${AIDIGEST_TMP} (disk full?); ${unchanged}." >&2
+  done < "$file" > "$AIDIGEST_TMP"
+  sync "$AIDIGEST_TMP" 2>/dev/null || sync
+  mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."
+  AIDIGEST_TMP=""
+  trap - HUP INT QUIT TERM EXIT
 }
 
 # A key that already has a value is never modified; an EMPTY AIDigest key is filled in place;
