@@ -1627,3 +1627,175 @@ protect. The run that counts was started with `setsid` alone.
   content until it is recreated. Nothing in this repository does that.
 - The end-to-end run of section 11.9 was not repeated: this round changes only setup.sh,
   `.gitignore`, tests and scripts.
+
+## 15. Challenger review of `80c1871` (REQUEST CHANGES: 0 High, 1 Medium, 2 Low)
+
+The challenger confirmed `.env` integrity under every signal and under disk-full (40 cases, 0
+violations). This section supersedes sections 1-14 for gate results.
+
+| SHA | What |
+|---|---|
+| `46f0149` | Red: meta-test with pytest ignoring each signal; symlinked `.env`; `flush-fails`; per-file vs plain `sync`; every launch through `_launch` |
+| `d3d71ec` | Fix: `preexec_fn` resets HUP/INT/QUIT/TERM in the child; `setup_bash_matrix.sh` disposition probe; symlink refused; `aidigest_flush` (probed per-file fsync, checked); DESIGN.md section 15 |
+| `83af39d` | 5 mutations (151 total) |
+| this commit | this evidence |
+
+### 15.1 M: signals ignored on entry
+
+How each launch mode starts a process (kernel `SigIgn`, read from `/proc/self/status`):
+
+```
+foreground: none
+background: ['INT', 'QUIT']
+nohup: ['HUP']
+nohup+bg: ['HUP', 'INT', 'QUIT']
+```
+
+An ignored disposition survives `exec`, and bash can neither trap nor reset a signal that was
+ignored on entry. So a case for that signal fails. Red on `80c1871` (signal and SIGKILL tests):
+
+```
+(a) foreground:       52 passed
+(b) background job:   24 failed, 28 passed     (12 INT, 12 QUIT)
+(c) nohup:            12 failed, 40 passed     (12 HUP)
+```
+
+The fix has two parts:
+- **pytest:** every launch of the function under test goes through `_launch`, whose `preexec_fn`
+  resets HUP/INT/QUIT/TERM to `SIG_DFL` in the child before exec. The new
+  `test_harness_works_when_pytest_starts_with_signals_ignored` sets each signal to `SIG_IGN` in
+  pytest itself and then runs a group-signal case (red without the reset: 4 failures).
+- **`setup_bash_matrix.sh`:** the cases run in containers started by the docker daemon, so the
+  caller's `nohup` or `&` does not reach them. bash cannot undo an inherited ignore, and the images
+  have no tool that can (no Python; busybox `env` has no `--default-signal`). So the runner launches
+  a probe exactly like a case, reads its `SigIgn`, and refuses to run if HUP/INT/QUIT/TERM is
+  ignored, instead of reporting misleading results.
+
+Green, `test_setup_sh.py` (95 tests):
+
+```
+(a) foreground:            95 passed in 1.86s
+(b) background job:        95 passed in 1.90s
+(c) nohup:                 95 passed in 1.94s
+(d) nohup + background:    95 passed in 1.84s
+```
+
+`setup_bash_matrix.sh` (59 cases per version):
+
+```
+(a) foreground:          4.4 / 5.0 / 5.1 / 5.2 / 5.3: 59 passed, 0 failed each - all versions passed
+(b) background job:      4.4 / 5.0 / 5.1 / 5.2 / 5.3: 59 passed, 0 failed each - all versions passed
+(c) nohup + background:  4.4 / 5.0 / 5.1 / 5.2 / 5.3: 59 passed, 0 failed each - all versions passed
+(d) the guard, with the runner itself started as  bash -c 'trap "" INT QUIT; exec bash /h/run.sh':
+== bash:4.4
+  cases would start with HUP/INT/QUIT/TERM ignored (SigIgn mask 0x6); not run
+== bash:5.3
+  cases would start with HUP/INT/QUIT/TERM ignored (SigIgn mask 0x6); not run
+setup bash matrix: 2 version(s) failed      rc=1
+```
+
+### 15.2 L: symlinked `.env`
+
+`aidigest_fill_empty` now refuses a symlink up front. Writing through the link could reach a file
+outside the repository, and the rename would replace the link with a regular file:
+
+```
+✗  <dir>/.env is a symlink; edit its target by hand or replace the link with a regular file; <dir>/.env was not changed.
+```
+
+`test_setup_refuses_a_symlinked_env`: exit 1, the message, link and target unchanged, no temp file.
+Red on `80c1871`: the run stopped with "Could not give the temporary copy the mode and owner".
+
+A comment in setup.sh notes that a hard-linked `.env` loses the link: after the rename, the other
+names keep the old content. Only a symlinked `.env` is refused. A missing key is still appended
+through a link (`>>` writes in place), as before.
+
+### 15.3 L: fsync errors
+
+```bash
+aidigest_flush() { if sync "$2" 2>/dev/null; then sync "$1"; else sync; fi; }
+...
+  aidigest_flush "$AIDIGEST_TMP" "$file" || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."
+```
+
+The probe runs once per fill: `sync` on the existing `.env`.
+- Where per-file sync works, a failure to flush the temp copy stops the replace: exit 1, "Could not
+  flush ... .env was not changed", temp file removed (the `flush-fails` case, red on `80c1871`:
+  exit 0).
+- Plain `sync` is used only where `sync FILE` is unsupported (`test_setup_flushes_the_temp_copy`,
+  `plain-only`). Its own result is checked too.
+
+### 15.4 Gates
+
+pytest, each combination in the foreground and as a background job (INT/QUIT ignored):
+
+```
+foreground  Python 3.11.15  DB=postgres  637 passed in 41.61s
+background  Python 3.11.15  DB=postgres  637 passed in 42.71s
+foreground  Python 3.11.15  DB=aidigest_it  637 passed in 43.50s
+background  Python 3.11.15  DB=aidigest_it  637 passed in 45.15s
+foreground  Python 3.12.3  DB=postgres  637 passed in 44.77s
+background  Python 3.12.3  DB=postgres  637 passed in 45.23s
+foreground  Python 3.12.3  DB=aidigest_it  637 passed in 46.51s
+background  Python 3.12.3  DB=aidigest_it  637 passed in 45.80s
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts   (3.11 and 3.12)
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && bash -n AIDigest/scripts/setup_bash_matrix.sh && sh -n caddy-entrypoint.sh && dash -n caddy-entrypoint.sh
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+$ AIDigest/scripts/caddy_matrix.sh
+30 cases, 199 checks, 0 failures - caddy matrix: all expectations met
+$ AIDigest/scripts/setup_bash_matrix.sh
+section 15.1: 59/59 on bash 4.4, 5.0, 5.1, 5.2, 5.3 (foreground, background, nohup + background)
+```
+
+### 15.5 Mutation check, launched with `nohup ... &` (151 mutations)
+
+The run was launched as `( nohup $PY scripts/mutation_check.py ... & )`. Its `SigIgn` was
+`0x7`: HUP, INT and QUIT all ignored, the worst case.
+
+A first attempt at top level (`nohup ... &` directly in the tool shell) had only HUP ignored,
+because that shell runs with job control on. It was stopped before its first mutation finished,
+and the subshell form above was used instead.
+
+```
+py312 interpreter: /tmp/adv312/bin/python
+test database name: aidigest_it
+baseline: PASS (637 passed in 43.69s) 45s
+151/151 mutations killed, 0 survived.
+```
+
+New rows:
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 147 | `r6-tests-inherit-ignored-signals` | signal tests reset inherited SIG_IGN in the child (nohup / background job) | killed | 1 failed, 493 passed in 35.83s |
+| 148 | `r6-symlink-followed` | a symlinked .env is refused with a clear message | killed | 1 failed, 554 passed in 38.00s |
+| 149 | `r6-fsync-error-swallowed` | a failed fsync of the temp copy stops the replace (old `sync tmp || sync`) | killed | 1 failed, 547 passed in 35.16s |
+| 150 | `r6-fsync-plain-only` | the temp copy itself is flushed where `sync FILE` works | killed | 1 failed, 547 passed in 35.09s |
+| 151 | `r6-fsync-result-ignored` | the flush result is checked | killed | 1 failed, 547 passed in 36.87s |
+
+Run without `-x` in the foreground over `test_setup_sh.py`, each mutation is killed by:
+
+| Mutation | Failing cases |
+|---|---|
+| `r6-tests-inherit-ignored-signals` | the 4 `test_harness_works_when_pytest_starts_with_signals_ignored` cases. Under `nohup ... &`, every HUP/INT/QUIT signal case fails as well |
+| `r6-symlink-followed` | `test_setup_refuses_a_symlinked_env` |
+| `r6-fsync-error-swallowed` | `flush-fails` |
+| `r6-fsync-plain-only` | `flush-fails`, `test_setup_flushes_the_temp_copy[per-file]` |
+| `r6-fsync-result-ignored` | `flush-fails` |
+
+### 15.6 Limits
+
+- `setup_bash_matrix.sh` cannot reset an inherited ignore inside its containers (no suitable tool in
+  the images); it detects one and refuses to run. In practice it is not reachable, because the
+  daemon starts the containers.
+- The `sync FILE` probe uses `.env` itself, so if fsync of `.env` fails, the script falls back to
+  plain `sync`. That is safe, because `.env` is then not replaced unless plain `sync` succeeds.
+- The end-to-end run of section 11.9 was not repeated: this round changes only setup.sh, tests and
+  scripts.
