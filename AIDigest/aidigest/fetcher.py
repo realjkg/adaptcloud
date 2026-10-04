@@ -9,8 +9,9 @@ Controls (each covered by tests/test_fetcher.py and the mutation check):
   * the connection is made to the validated IP (Host header + TLS SNI = hostname,
     certificate verified against the hostname), so DNS rebinding cannot redirect it
   * redirects followed manually, each target re-validated, bounded count
-  * Accept-Encoding: identity; gzip/deflate decoded incrementally under the byte cap,
-    any other content encoding refused; Content-Length pre-check + running total
+  * Accept-Encoding: identity; gzip/deflate decoded incrementally under the byte cap, the stream
+    must reach its end marker with nothing after it; any other content encoding refused;
+    Content-Length pre-check + running total
   * a total deadline per fetch (slowloris) on top of the per-read timeout
   * environment proxies are ignored (they would bypass IP pinning)
 """
@@ -233,7 +234,11 @@ class GuardedFetcher:
         else:
             raise UpstreamError(f"Unsupported content encoding {encoding[:40]!r}")
         if response.is_stream_consumed:
-            # Only in-process transports hand over a pre-read (already decoded) body; still cap it.
+            # Only in-process transports hand over a pre-read body. httpx has already decoded it
+            # without checking that the compressed stream was complete (review 4177765193), so a
+            # compressed one cannot be verified here and is refused. Identity bodies are capped.
+            if decoder is not None:
+                raise UpstreamError("Compressed body was decoded before it could be verified")
             if len(response.content) > self.max_bytes:
                 raise UpstreamError("Source too large")
             return response.content
@@ -259,6 +264,20 @@ class GuardedFetcher:
                             raise UpstreamError("Source too large (decoded)")
                         chunks.append(out)
                     data = decoder.unconsumed_tail
+            if decoder is not None:
+                # Review 4177765193: finish the stream. flush() returns what zlib still holds (the
+                # input is fully consumed above, so at most one window), counted against the cap.
+                # A stream that never reached its end marker is truncated, and bytes after the end
+                # are not part of the body (trailing garbage, a second gzip member).
+                out = decoder.flush()
+                decoded += len(out)
+                if decoded > self.max_bytes:
+                    raise UpstreamError("Source too large (decoded)")
+                chunks.append(out)
+                if not decoder.eof:
+                    raise UpstreamError("Truncated compressed body")
+                if decoder.unused_data:
+                    raise UpstreamError("Trailing data after the compressed body")
         except httpx.HTTPError as exc:  # M4: e.g. ReadTimeout mid-body
             raise UpstreamError(f"Body read failed: {type(exc).__name__}") from exc
         except zlib.error as exc:
