@@ -18,7 +18,7 @@ A DB-side timeout (SQLSTATE 55P03 lock_not_available, 57014 query_canceled) coun
 running out only when it arrives at the budget's own deadline (within ATTRIBUTION_SECONDS of it);
 earlier ones - an operator's pg_cancel_backend - and any TimeoutError raised inside a step (e.g. a
 connect timeout) keep their own error (review of ae012a0, L6). Limit: an operator cancel landing in
-those last ATTRIBUTION_SECONDS is reported as the deadline.
+those last ATTRIBUTION_SECONDS (0.5 s) is reported as the deadline.
 """
 
 from __future__ import annotations
@@ -34,9 +34,11 @@ from sqlalchemy.exc import DBAPIError
 from aidigest.errors import DeadlineError
 
 RESERVE_SECONDS = 5.0      # kept back for recording a failure (at most half the budget)
-DB_MARGIN_SECONDS = 0.1    # Postgres gives up this much before the client-side deadline ...
-LOCK_EARLIER_SECONDS = 0.05  # ... and a lock wait this much earlier still (55P03, not 57014)
-ATTRIBUTION_SECONDS = 0.3  # a DB timeout this close to the deadline (or later) is the budget's own
+# Postgres gives up this much before the client-side deadline, so its error (with the SQLSTATE that
+# says what ran out) arrives before the client abandons the step, even on a loaded machine ...
+DB_MARGIN_SECONDS = 0.25
+LOCK_EARLIER_SECONDS = 0.1   # ... and a lock wait this much earlier still (55P03, not 57014)
+ATTRIBUTION_SECONDS = 0.5  # a DB timeout this close to the deadline (or later) is the budget's own
 TIMEOUT_SQLSTATES = frozenset({"55P03", "57014"})
 
 

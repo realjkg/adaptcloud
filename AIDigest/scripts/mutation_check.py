@@ -506,9 +506,9 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/budget.py", "set_config('lock_timeout', :lock, true), \"\n                                    \"set_config('statement_timeout', :stmt, true)",
         "set_config('lock_timeout', :lock, false), \"\n                                    \"set_config('statement_timeout', :stmt, false)")]),
     M("r8-db-margin-negative", "Postgres ends a wait BEFORE the client-side deadline (L1, challenger's mutant)",
-      [("aidigest/budget.py", "DB_MARGIN_SECONDS = 0.1 ", "DB_MARGIN_SECONDS = -0.04 ")]),
+      [("aidigest/budget.py", "DB_MARGIN_SECONDS = 0.25\n", "DB_MARGIN_SECONDS = -0.04\n")]),
     M("r8-lock-timeout-not-earlier", "a lock wait ends as a lock timeout (55P03), not a statement timeout",
-      [("aidigest/budget.py", "LOCK_EARLIER_SECONDS = 0.05 ", "LOCK_EARLIER_SECONDS = 0.0 ")]),
+      [("aidigest/budget.py", "LOCK_EARLIER_SECONDS = 0.1 ", "LOCK_EARLIER_SECONDS = 0.0 ")]),
     # L6: only the budget's own timeout is a deadline
     M("r8-any-db-timeout-is-the-deadline", "an operator cancel long before the deadline keeps its own error (L6)",
       [("aidigest/budget.py", "and budget.left(reserve) <= ATTRIBUTION_SECONDS:", ":")]),
@@ -574,6 +574,7 @@ def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, fl
     except subprocess.TimeoutExpired:
         return False, "suite timed out (900 s)", time.monotonic() - start, None
     tail = (proc.stdout.strip().splitlines() or [""])[-1]
+    run_suite.last_errors = [ln for ln in proc.stdout.splitlines() if ln.startswith("E   ")][:6]
     killer = None
     if proc.returncode != 0:
         if m is not None and m.runner == "caddy":
@@ -676,6 +677,8 @@ def main() -> int:
                 if reason is not None:
                     suspect += 1
                     tail = f"{tail} - {reason}"
+                    for line in getattr(run_suite, "last_errors", []):   # what the original run saw
+                        print(f"         {m.name}: {line}", flush=True)
             rows.append((m.name, m.control, verdict, killer or "", tail))
             print(f"{verdict:<8} {m.name:<38} by {killer or '-'}: {tail} ({secs:.0f}s)", flush=True)
             shutil.rmtree(work.parent, ignore_errors=True)
