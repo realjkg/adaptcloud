@@ -111,7 +111,7 @@ async def db_tx(engine, budget: Budget | None, *, reserve: bool = False) -> Asyn
         if budget is not None:
             left = budget.left(reserve)
             statement_ms = max(2, int((left - DB_MARGIN_SECONDS) * 1000))
-            lock_ms = max(1, min(statement_ms - 1, int((left - DB_MARGIN_SECONDS - LOCK_EARLIER_SECONDS) * 1000)))
+            lock_ms = max(1, statement_ms - int(LOCK_EARLIER_SECONDS * 1000))
             # is_local=true: SET LOCAL, gone at COMMIT/ROLLBACK (the pooled session is reused)
             await conn.execute(text("SELECT set_config('lock_timeout', :lock, true), "
                                     "set_config('statement_timeout', :stmt, true)"),
