@@ -38,6 +38,8 @@ MIN_FINAL_SCORE = 55
 MAX_ADJUSTMENT = 15
 MIN_CONFIDENCE = 0.75
 MAX_KNOWLEDGE_PER_ITEM = 3
+HEARTBEAT_STOP_SECONDS = 0.5   # how long the end of a run waits for its heartbeat to stop
+DB_UNREACHABLE = (TimeoutError, OSError)   # see aidigest.tasks.DB_UNREACHABLE
 
 
 @dataclass(frozen=True)
@@ -319,6 +321,9 @@ async def run_daily(engine: AsyncEngine, ai, fetcher, *, trigger: str, now: date
     except DeadlineError as exc:
         log.error("DAILY %s: database not answering within the budget (readiness)", run_key)
         raise DeadlineError(f"{over} (database not answering)") from exc
+    except DB_UNREACHABLE as exc:   # e.g. the connect timeout: its own error, not the budget (L6)
+        log.error("DAILY %s: database unavailable (%s)", run_key, type(exc).__name__)
+        raise StorageError("Database unavailable") from exc
     if not state["ready"]:  # findings 9/10: never run on a broken schema
         log.error("DAILY skipped: SCHEMA_NOT_READY (missing %s)", state["missing_tables"])
         with contextlib.suppress(DeadlineError):
@@ -332,6 +337,9 @@ async def run_daily(engine: AsyncEngine, ai, fetcher, *, trigger: str, now: date
     except DeadlineError as exc:   # nothing claimed: nothing to record, reported to the caller
         log.error("DAILY %s: could not claim the day within the budget (lock held or database silent)", run_key)
         raise DeadlineError(f"{over} (waiting to claim the day)") from exc
+    except DB_UNREACHABLE as exc:
+        log.error("DAILY %s: database unavailable (%s)", run_key, type(exc).__name__)
+        raise StorageError("Database unavailable") from exc
     if outcome == "attempts_exhausted":
         log.warning("DAILY %s: %d failed attempts today; not retrying", run_key, cfg.max_attempts)
         return {"status": "attempts_exhausted", "run_key": run_key, "max_attempts": cfg.max_attempts}
@@ -352,10 +360,13 @@ async def run_daily(engine: AsyncEngine, ai, fetcher, *, trigger: str, now: date
     except Exception as exc:
         message = str(exc) if isinstance(exc, AIDigestError) else f"{type(exc).__name__}: {exc}"
         await _finish_failed(engine, run_id, owner, message, budget)
-        if isinstance(exc, SQLAlchemyError):
+        if isinstance(exc, (SQLAlchemyError, *DB_UNREACHABLE)):
             raise StorageError("Database error during DAILY run") from exc
         raise
     finally:
+        # Review of ae012a0, M1: a heartbeat stuck in a lease refresh on a frozen DB must not hold the
+        # run past its budget: stop it and wait at most HEARTBEAT_STOP_SECONDS; otherwise abandon it.
         heartbeat.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await heartbeat
+        done, _ = await asyncio.wait({heartbeat}, timeout=HEARTBEAT_STOP_SECONDS)
+        if not done:
+            heartbeat.add_done_callback(lambda t: t.cancelled() or t.exception())

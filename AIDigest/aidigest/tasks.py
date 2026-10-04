@@ -33,6 +33,9 @@ from aidigest.fetcher import validate_url
 from aidigest.prompts import evidence_block, system_prompt
 
 log = logging.getLogger(__name__)
+# Raised by a database step that could not reach Postgres (asyncpg's connect timeout, a refused or
+# reset socket). Not the budget (review of ae012a0, L6): reported as "database unavailable" (503).
+DB_UNREACHABLE = (TimeoutError, OSError)
 
 Mode = Literal["auto", "research", "compare", "summarize", "knowledge_lookup", "build_brief", "opportunity_analysis"]
 FEED_MODES = {"research", "compare", "opportunity_analysis", "build_brief"}
@@ -291,6 +294,8 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
         state = await run_within(budget, readiness(engine, budget), "readiness")
     except DeadlineError as exc:
         raise DeadlineError(f"{over} (database not answering)") from exc
+    except DB_UNREACHABLE as exc:   # e.g. the connect timeout: its own error, not the budget (L6)
+        raise StorageError("Database unavailable") from exc
     if not state["ready"]:  # finding 9: gate BEFORE creating a task row
         raise NotReadyError(state["missing_tables"])
 
@@ -303,6 +308,8 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
                                                   budget), "task creation")
     except DeadlineError as exc:   # no row exists: nothing to record, the caller gets 504
         raise DeadlineError(f"{over} (waiting to create the task)") from exc
+    except DB_UNREACHABLE as exc:
+        raise StorageError("Database unavailable") from exc
 
     try:
         result = await run_within(budget, _execute_task(engine, ai, fetcher, req, mode, now, cfg, budget), "the task")
@@ -314,7 +321,7 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
             mapped: AIDigestError = DeadlineError(over)
         elif isinstance(exc, AIDigestError):
             mapped = exc
-        elif isinstance(exc, SQLAlchemyError):
+        elif isinstance(exc, (SQLAlchemyError, *DB_UNREACHABLE)):
             mapped = StorageError("Database error while running task")
         else:
             log.exception("Unexpected error in task %s", task_id)

@@ -214,15 +214,38 @@ async def test_abandoned_connections_are_released_within_the_bound(proxy, frozen
     assert isinstance(outcome, dict) and outcome["status"] == "completed", outcome
 
 
-def test_bounded_cancel_targets_the_pinned_asyncpg_internals():
-    """aidigest.db.BoundedCancelConnection overrides asyncpg's private Connection._cancel(waiter);
-    asyncpg is hash-pinned, and this fails loudly if an upgrade changes that method."""
+def test_bounded_close_targets_the_pinned_asyncpg_api():
+    """aidigest.db.BoundedCloseConnection overrides asyncpg's Connection.close(*, timeout=None) and
+    relies on terminate(); asyncpg is hash-pinned, and this fails loudly if an upgrade changes them."""
     import inspect
 
     import asyncpg
 
-    from aidigest.db import BoundedCancelConnection
+    from aidigest.db import BoundedCloseConnection
     assert asyncpg.__version__ == "0.31.0"
-    assert list(inspect.signature(asyncpg.Connection._cancel).parameters) == ["self", "waiter"]
-    assert inspect.iscoroutinefunction(asyncpg.Connection._cancel)
-    assert issubclass(BoundedCancelConnection, asyncpg.Connection)
+    close = inspect.signature(asyncpg.Connection.close).parameters
+    assert list(close) == ["self", "timeout"] and close["timeout"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert inspect.iscoroutinefunction(asyncpg.Connection.close)
+    assert callable(asyncpg.Connection.terminate)
+    assert issubclass(BoundedCloseConnection, asyncpg.Connection)
+
+
+@pytest.mark.parametrize("kind", ["task", "daily"])
+async def test_connect_timeout_is_database_unavailable_not_a_deadline(proxy, frozen_engine, kind):
+    """Review of ae012a0, L6: with plenty of budget left, a connection that cannot be opened ends
+    after the connect timeout as 'database unavailable' (503), not as the budget (504) and not as
+    an unhandled TimeoutError (500)."""
+    from aidigest.daily import DailyConfig, run_daily
+    from aidigest.db import CONNECT_TIMEOUT_SECONDS
+    from aidigest.errors import DeadlineError, StorageError
+    from aidigest.tasks import TaskConfig, TaskRequest, run_task
+    proxy.freeze()
+    if kind == "task":
+        call = run_task(frozen_engine, _answer_task(), FakeFetcher(), "operator@adapt.cloud",
+                        TaskRequest(task="Summarize this"), TaskConfig(budget_seconds=30))
+    else:
+        call = run_daily(frozen_engine, _selection(), FakeFetcher(), trigger="operator",
+                         config=DailyConfig(budget_seconds=30, lease_seconds=60))
+    outcome, elapsed = await returns_within(call)
+    assert isinstance(outcome, StorageError) and not isinstance(outcome, DeadlineError), repr(outcome)
+    assert elapsed < CONNECT_TIMEOUT_SECONDS + MARGIN, elapsed

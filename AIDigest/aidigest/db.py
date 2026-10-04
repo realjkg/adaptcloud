@@ -3,8 +3,10 @@
 Uses SQLAlchemy Core with explicit SQL against schema "aidigest" so that
 schema.sql stays the single source of truth for the data model."""
 
+import asyncio
 from pathlib import Path
 
+import asyncpg
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
@@ -15,10 +17,44 @@ SCHEMA_FILE = Path(__file__).resolve().parent.parent / "schema.sql"
 _SCHEMA_LOCK_KEY = 0x41494447
 
 
+# Review of ae012a0, M1: a database that freezes at TCP level (sockets open, nothing answers).
+# The run budget abandons the stuck step at its deadline (aidigest.budget.run_within); these bounds
+# make sure the ABANDONED connection does not stay checked out of the pool:
+CONNECT_TIMEOUT_SECONDS = 5.0  # a new connection: the asyncpg handshake is bounded
+CLOSE_TIMEOUT_SECONDS = 2.0    # closing a connection: bounded, then the socket is aborted
+# A step abandoned mid-statement is cancelled; SQLAlchemy then invalidates the connection and closes
+# it (BoundedCloseConnection: <= 2 s, then aborted) and the pool discards it. A step abandoned while
+# connecting gives up after the connect timeout. So an abandoned connection holds a pool slot for at
+# most ABANDONED_RELEASE_SECONDS. A frozen run abandons at most two (the run's, and the failure
+# record's or the DAILY heartbeat's): the pool (5 + 5 overflow) fills only with > 5 frozen runs per
+# 5 s, and even then a checkout waits inside the next run's budget, which still ends on time.
+ABANDONED_RELEASE_SECONDS = max(CONNECT_TIMEOUT_SECONDS, CLOSE_TIMEOUT_SECONDS)
+
+
+class BoundedCloseConnection(asyncpg.Connection):
+    """asyncpg.Connection whose close() always ends within CLOSE_TIMEOUT_SECONDS (or the given timeout).
+
+    Closing a connection whose statement was cancelled first waits - without any timeout - for
+    asyncpg's cancel request (a separate connection) and for the server to answer the cancelled
+    statement. Against a frozen server neither ever happens, so the close (shielded inside
+    SQLAlchemy's invalidation) would never finish and the connection would stay checked out of the
+    pool for good. After the bound the connection is aborted instead (terminate(): the socket is
+    closed and asyncpg's pending cancel request is cancelled)."""
+
+    async def close(self, *, timeout=None):
+        try:
+            await asyncio.wait_for(super().close(timeout=timeout),
+                                   CLOSE_TIMEOUT_SECONDS if timeout is None else timeout)
+        except TimeoutError:
+            self.terminate()
+
+
 def make_engine(url: str) -> AsyncEngine:
     if not url:
         raise RuntimeError("AIDIGEST_DATABASE_URL is not set. Provide a postgresql+asyncpg://... connection string.")
-    return create_async_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5)
+    return create_async_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5,
+                               connect_args={"timeout": CONNECT_TIMEOUT_SECONDS,
+                                             "connection_class": BoundedCloseConnection})
 
 
 def schema_statements() -> list[str]:

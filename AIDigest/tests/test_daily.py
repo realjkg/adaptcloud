@@ -639,9 +639,12 @@ def _budget_cfg():
 async def _timed(coro):
     start = time.monotonic()
     try:
-        return await asyncio.wait_for(coro, 30), time.monotonic() - start
+        outcome = await asyncio.wait_for(coro, 30)
     except Exception as exc:  # noqa: BLE001 - the caller asserts on the type
-        return exc, time.monotonic() - start
+        outcome = exc
+    elapsed = time.monotonic() - start
+    await asyncio.sleep(0.3)    # let the abandoned step's cleanup (rollback) finish inside the test
+    return outcome, elapsed
 
 
 async def test_daily_budget_covers_a_held_claim_lock(engine):

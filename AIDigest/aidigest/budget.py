@@ -6,12 +6,19 @@ time that is left. A slice at the end (`reserve`) is kept back for recording a f
 run that used up its working time can still mark itself failed before the budget ends.
 
 Two layers enforce it:
-  * client side: `run_within` wraps each step in `asyncio.wait_for` (a DB that never answers);
-  * DB side: `db_tx` opens every transaction with `SET LOCAL lock_timeout` and `statement_timeout`
-    a little below the time left, so a lock wait or a slow statement is ended by Postgres itself
-    and the backend does not stay queued behind the lock.
-A DB-side timeout (SQLSTATE 55P03 lock_not_available, 57014 query_canceled) is reported as the
-budget running out (DeadlineError), like the client-side one.
+  * client side: `run_within` runs each step as a task and waits for it with a timeout. At the
+    deadline the step is cancelled and ABANDONED: its cleanup is not awaited. When the database
+    freezes at TCP level, SQLAlchemy's shielded close and asyncpg's cancel request can take a long
+    time, and awaiting them would make the budget meaningless (review of ae012a0, M1). The abandoned
+    connection is closed and handed back to the pool within aidigest.db.ABANDONED_RELEASE_SECONDS;
+  * DB side: `db_tx` opens every transaction with `SET LOCAL statement_timeout` a little below the
+    time left, and `lock_timeout` a little below that (so a lock wait is reported as such), so
+    Postgres itself ends a lock wait or a slow statement and the backend does not stay queued.
+A DB-side timeout (SQLSTATE 55P03 lock_not_available, 57014 query_canceled) counts as the budget
+running out only when it arrives at the budget's own deadline (within ATTRIBUTION_SECONDS of it);
+earlier ones - an operator's pg_cancel_backend - and any TimeoutError raised inside a step (e.g. a
+connect timeout) keep their own error (review of ae012a0, L6). Limit: an operator cancel landing in
+those last ATTRIBUTION_SECONDS is reported as the deadline.
 """
 
 from __future__ import annotations
@@ -27,7 +34,9 @@ from sqlalchemy.exc import DBAPIError
 from aidigest.errors import DeadlineError
 
 RESERVE_SECONDS = 5.0      # kept back for recording a failure (at most half the budget)
-DB_MARGIN_SECONDS = 0.1    # Postgres gives up this much before the client-side deadline
+DB_MARGIN_SECONDS = 0.1    # Postgres gives up this much before the client-side deadline ...
+LOCK_EARLIER_SECONDS = 0.05  # ... and a lock wait this much earlier still (55P03, not 57014)
+ATTRIBUTION_SECONDS = 0.3  # a DB timeout this close to the deadline (or later) is the budget's own
 TIMEOUT_SQLSTATES = frozenset({"55P03", "57014"})
 
 
@@ -61,21 +70,37 @@ def is_db_timeout(exc: BaseException) -> bool:
     return False
 
 
+def _abandon(task: asyncio.Future) -> None:
+    """Cancel without waiting for the cleanup; retrieve whatever it ends with (no warnings)."""
+    task.cancel()
+    task.add_done_callback(lambda t: t.cancelled() or t.exception())
+
+
 async def run_within(budget: Budget, step: Awaitable[Any], what: str, *, reserve: bool = False) -> Any:
-    """Run `step` in the time left (incl. the reserved slice if `reserve`); DeadlineError otherwise."""
+    """Run `step` in the time left (incl. the reserved slice if `reserve`); DeadlineError otherwise.
+    Returns at the deadline even if the step's cleanup hangs (it is abandoned, not awaited)."""
     timeout = budget.left(reserve)
     if timeout <= 0:
         if asyncio.iscoroutine(step):
             step.close()   # never started
         raise DeadlineError(f"Time budget of {budget.seconds:g}s exhausted before {what}")
+    task = asyncio.ensure_future(step)
     try:
-        return await asyncio.wait_for(step, timeout)
-    except TimeoutError as exc:
-        raise DeadlineError(f"Time budget of {budget.seconds:g}s exhausted during {what}") from exc
-    except DBAPIError as exc:
-        if is_db_timeout(exc):
-            raise DeadlineError(f"Time budget of {budget.seconds:g}s exhausted during {what} (database)") from exc
+        done, _ = await asyncio.wait({task}, timeout=timeout)
+    except asyncio.CancelledError:
+        _abandon(task)
         raise
+    if not done:
+        _abandon(task)
+        raise DeadlineError(f"Time budget of {budget.seconds:g}s exhausted during {what}")
+    if task.cancelled():
+        raise asyncio.CancelledError()
+    exc = task.exception()
+    if exc is None:
+        return task.result()
+    if isinstance(exc, DBAPIError) and is_db_timeout(exc) and budget.left(reserve) <= ATTRIBUTION_SECONDS:
+        raise DeadlineError(f"Time budget of {budget.seconds:g}s exhausted during {what} (database)") from exc
+    raise exc
 
 
 @contextlib.asynccontextmanager
@@ -84,7 +109,11 @@ async def db_tx(engine, budget: Budget | None, *, reserve: bool = False) -> Asyn
     Without a budget (endpoints, the lease heartbeat) it is a plain transaction."""
     async with engine.begin() as conn:
         if budget is not None:
-            ms = max(1, int((budget.left(reserve) - DB_MARGIN_SECONDS) * 1000))
-            await conn.execute(text("SELECT set_config('lock_timeout', :v, true), "
-                                    "set_config('statement_timeout', :v, true)"), {"v": f"{ms}ms"})
+            left = budget.left(reserve)
+            statement_ms = max(2, int((left - DB_MARGIN_SECONDS) * 1000))
+            lock_ms = max(1, min(statement_ms - 1, int((left - DB_MARGIN_SECONDS - LOCK_EARLIER_SECONDS) * 1000)))
+            # is_local=true: SET LOCAL, gone at COMMIT/ROLLBACK (the pooled session is reused)
+            await conn.execute(text("SELECT set_config('lock_timeout', :lock, true), "
+                                    "set_config('statement_timeout', :stmt, true)"),
+                               {"lock": f"{lock_ms}ms", "stmt": f"{statement_ms}ms"})
         yield conn

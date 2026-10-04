@@ -613,7 +613,9 @@ async def _run_task_timed(engine, ai, fetcher, body):
                                                   TaskConfig(budget_seconds=BUDGET)), 30)
     except Exception as exc:  # noqa: BLE001 - asserted by the caller
         outcome = exc
-    return outcome, time.monotonic() - start
+    elapsed = time.monotonic() - start
+    await asyncio.sleep(0.3)    # let the abandoned step's cleanup (rollback) finish inside the test
+    return outcome, elapsed
 
 
 async def test_task_budget_covers_a_held_rate_limit_lock(settings, engine, fake_ai, fake_fetcher):
