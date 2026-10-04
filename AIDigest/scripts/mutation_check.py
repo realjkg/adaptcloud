@@ -36,6 +36,9 @@ class Mutation:
 
 
 M = Mutation
+# setup.sh aidigest_fill_empty lines (round 4 M1), used by more than one mutation
+R4_TRAP = "  trap '[[ -z \"$tmp\" ]] || rm -f \"$tmp\"; exit 130' INT TERM   # never leave a copy of the secrets behind\n"
+R4_MKTEMP = "  tmp=$(trap '' INT TERM; mktemp \"${file}.aidigest.XXXXXX\")   # mktemp creates it mode 600\n"
 MUTATIONS: list[Mutation] = [
     # ── Auth ──────────────────────────────────────────────────────────────────
     M("auth-secret-always-ok", "proxy shared secret is verified",
@@ -340,7 +343,8 @@ MUTATIONS: list[Mutation] = [
     M("r3-m1-settings-secret-chars", "Settings rejects whitespace/control in the proxy secret",
       [("aidigest/config.py", "        if not SAFE_SECRET.fullmatch(value):", "        if False:")]),
     M("r3-m1-settings-user-chars", "Settings rejects unsafe basic-auth user names",
-      [("aidigest/config.py", "        if value and (not SAFE_USER.fullmatch(value) or value == SENTINEL_USER):",
+      [("aidigest/config.py",
+        "        if value and (not SAFE_USER.fullmatch(value) or value == SENTINEL_USER or HEREDOC_MARKER in value):",
         "        if False:")]),
     M("r3-m1-settings-user-required", "production requires the basic-auth user",
       [("aidigest/config.py", "        if not self.aidigest_basic_auth_user:\n", "        if False:\n")]),
@@ -349,9 +353,34 @@ MUTATIONS: list[Mutation] = [
     M("r3-m1-setup-reserved-user", "setup.sh refuses the placeholder user name",
       [("../setup.sh", '  [[ "$AIDIGEST_BASIC_AUTH_USER" != aidigest-disabled ]] || error', "  true || error")]),
     M("r3-note-no-temp-trap", "setup.sh removes its temp file on INT/TERM",
-      [("../setup.sh", "  trap 'rm -f \"$tmp\"; exit 130' INT TERM     # never leave a copy of the secrets behind\n", "")]),
+      [("../setup.sh", R4_TRAP, "")]),
     M("r3-m2-readme-hardcoded-db", "README role SQL grants CONNECT on <dbname> (needs a non-postgres test DB)",
       [("README.md", "GRANT CONNECT ON DATABASE <dbname> TO aidigest_app;", "GRANT CONNECT ON DATABASE postgres TO aidigest_app;")]),
+    # ═══════════════ challenger round 4 ═══════════════
+    M("r4-m1-trap-after-mktemp", "setup.sh installs the temp-file trap BEFORE mktemp (the race)",
+      [("../setup.sh", R4_TRAP + R4_MKTEMP, R4_MKTEMP + R4_TRAP)]),
+    M("r4-m1-mktemp-not-shielded", "mktemp ignores INT/TERM (a group signal cannot orphan the file)",
+      [("../setup.sh", "  tmp=$(trap '' INT TERM; mktemp ", "  tmp=$(mktemp ")]),
+    M("r4-m1-rewrite-not-shielded", "the in-place rewrite ignores INT/TERM (Ctrl-C cannot truncate .env)",
+      [("../setup.sh", "  (trap '' INT TERM; cat \"$tmp\" > \"$file\")", "  (cat \"$tmp\" > \"$file\")")]),
+    M("r4-m1-rewrite-in-shell", "the in-place rewrite runs in a shielded child, not in the trapping shell",
+      [("../setup.sh", "  (trap '' INT TERM; cat \"$tmp\" > \"$file\")", "  cat \"$tmp\" > \"$file\"")]),
+    M("r4-l1-settings-allows-marker", "Settings rejects a user containing the heredoc marker",
+      [("aidigest/config.py", " or value == SENTINEL_USER or HEREDOC_MARKER in value):", " or value == SENTINEL_USER):")]),
+    M("r4-l1-setup-allows-marker", "setup.sh rejects a user containing the heredoc marker",
+      [("../setup.sh", "    || error \"User name must not contain 'AIDIGEST_VALUE_END'",
+        "    || true \"User name must not contain 'AIDIGEST_VALUE_END'")]),
+    M("r4-l1-entrypoint-allows-marker", "entrypoint replaces a user containing the heredoc marker (Caddy must start)",
+      [("../caddy-entrypoint.sh", 'valid_user() { single_line "$1" && no_marker "$1" && ',
+        'valid_user() { single_line "$1" && ')], runner="caddy"),
+    M("r4-l1-entrypoint-allows-marker-pytest", "same control, pytest stub-caddy test (no docker)",
+      [("../caddy-entrypoint.sh", 'valid_user() { single_line "$1" && no_marker "$1" && ',
+        'valid_user() { single_line "$1" && ')]),
+    M("r4-l1-caddyfile-marker-drift", "validators check the marker the Caddyfile actually uses",
+      [("../Caddyfile", "        <<AIDIGEST_VALUE_END\n        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled}\n"
+        "        AIDIGEST_VALUE_END <<AIDIGEST_VALUE_END\n",
+        "        <<AIDIGEST_USER_END\n        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled}\n"
+        "        AIDIGEST_USER_END <<AIDIGEST_VALUE_END\n")]),
 ]
 
 
