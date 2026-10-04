@@ -1071,3 +1071,259 @@ The end-to-end run of section 11.9 was not repeated: this round changes only the
 (covered end to end by the matrix with the real Caddy image), Settings/setup.sh validation and
 tests.
 
+
+## 13. Challenger round 4 (review of `9dbdc70`: 1 Medium, 1 Low)
+
+This section supersedes sections 1-12 for gate results.
+
+| SHA | What |
+|---|---|
+| `8adc6c4` | Red: deterministic signal-point test for `aidigest_fill_empty` (16 cases), heredoc-marker user tests (Settings, setup.sh, entrypoint with a stub `caddy`, marker consistency), 8 Caddy matrix cases |
+| `e127b99` | Fix: trap before `mktemp`, `mktemp` and the in-place rewrite shielded from INT/TERM; a user containing `AIDIGEST_VALUE_END` is invalid in Settings, setup.sh and the entrypoint; DESIGN.md section 13 |
+| `c5741b9` | 9 round-4 mutations (134 total); two round-3 targets moved to the changed lines |
+| this commit | this evidence |
+
+### 13.1 M1: the race, reproduced before any change (`9dbdc70`)
+
+The round-3 test polls for the temp file and then sends SIGTERM. On the old code the temp file exists
+before the trap does. 30 runs under load: 6 `yes` CPU burners on 4 cores, started before the runs
+and killed after them (`pgrep -x yes` -> 0).
+
+```
+old test, old code, 6 burners/4 cores: pass=23 fail=7
+      7 E       AssertionError: assert -15 == 130
+      7 E        +  where -15 = wait(timeout=20)
+```
+
+### 13.2 M1: the new test is deterministic
+
+`test_setup_temp_file_removed_on_interrupt` extracts the real `aidigest_fill_empty` from setup.sh
+and shadows the commands it runs with shell functions that call the real command and send the
+signal at a defined point. No polling and no sleeps. The cases are four points x INT/TERM x two
+targets: the shell (`kill $$`, an external SIGTERM) or its whole process group (`kill 0`, a terminal
+Ctrl-C; the script runs in its own session).
+
+| point | where the signal lands |
+|---|---|
+| `before-mktemp` | inside the `mktemp` call, before the file exists (the challenger's window) |
+| `after-mktemp` | the file exists but its name has not reached the shell yet |
+| `during-copy` | while the copy loop writes the third line |
+| `during-rewrite` | `.env` has been truncated by `> "$file"` and nothing is written yet |
+
+Each case requires exit 130, the recorded temp file gone, and `.env` either unchanged or (for
+`during-rewrite`) the complete new content. A control test without a signal requires the normal
+fill.
+
+Red on `9dbdc70` (`8adc6c4`; 12 of 16 fail):
+
+```
+before-mktemp / after-mktemp, TERM:  AssertionError: (-15, '')   killed by the default action, temp file left
+before-mktemp / after-mktemp, INT:   AssertionError: (-2, '')
+before-mktemp, group:                AssertionError: []          killed before the file was created
+during-rewrite, all four:            AssertionError: assert '' == 'FILLER_0=val..._SECRET=new\n'
+```
+
+### 13.3 M1+: Ctrl-C during the in-place rewrite emptied `.env` (found by the new test)
+
+The `during-rewrite` cases showed `.env` truncated to 0 bytes. The same happens with real
+commands and no hooks. Old `aidigest_fill_empty` on an 85 MB `.env`, SIGINT to the process group
+(what a terminal Ctrl-C does) once the rewrite has started:
+
+```
+rc=130 .env bytes=0 of 84777803 leftover=[]      (5 of 5 runs)
+```
+
+`cat` dies after `> "$file"` has truncated `.env`. The trap then deletes the temp file, which is the
+only complete copy. SECRET_KEY and MASTER_SECRET are lost, so every encrypted student record becomes
+unreadable. For a normal-size `.env` the window is microseconds, but the result cannot be undone.
+
+### 13.4 M1 fix (`e127b99`)
+
+```bash
+  local file=$1 key=$2 newline=$3 l tmp=""
+  trap '[[ -z "$tmp" ]] || rm -f "$tmp"; exit 130' INT TERM   # never leave a copy of the secrets behind
+  tmp=$(trap '' INT TERM; mktemp "${file}.aidigest.XXXXXX")   # mktemp creates it mode 600
+  ...
+  (trap '' INT TERM; cat "$tmp" > "$file")   # rewrite in place: keeps the file's inode, owner and mode
+  rm -f "$tmp"
+  trap - INT TERM
+```
+
+- `tmp=""` before the trap: the trap is valid under `set -u` from its first instant.
+- The trap is installed before `mktemp`.
+- Bash runs a trap only after the foreground child finishes. A signal during the command
+  substitution is therefore handled after `tmp` is assigned. The `before-mktemp`/`after-mktemp`
+  shell cases pin this behaviour (GNU bash 5.2.21).
+- The two children that can hold the only knowledge of the file ignore INT/TERM, and an ignored
+  disposition is inherited across `exec`. `mktemp` cannot die between creating the file and
+  printing its name. `cat` cannot be cut off after the truncation. For the rewrite, the
+  redirection is inside the subshell, after `trap ''`.
+- `set -e` behaviour is unchanged: `tmp=$(...)` is a plain assignment, so a failing `mktemp` still
+  stops the script, and the rewrite subshell's status is the status of `cat`.
+
+### 13.5 M1 under load, after the fix
+
+Same load as 13.1 (6 burners on 4 cores, load average 7.08 during the runs, burners killed after):
+
+```
+A  new test (16 cases per run), new code:          pass=30 fail=0    (16 passed every run)
+B  round-3 timing test (polling), new code:        pass=30 fail=0
+C  new test, old code (9dbdc70 setup.sh):          pass=0  fail=30   (the same 12 cases fail in every run)
+```
+
+B shows that the fix itself removes the race, not only the new test. C shows that the red result
+is deterministic as well.
+
+### 13.6 L1: heredoc marker in the user name
+
+Caddy ends a heredoc as soon as the text read so far ends with the marker, so the marker can end
+it anywhere in a line. The values that break the Caddyfile are exactly the user names that contain
+`AIDIGEST_VALUE_END`. Exact match, prefix, suffix and middle all break `caddy adapt`.
+
+No marker can avoid this. Caddy v2.11.6 accepts only `[A-Za-z0-9_-]` in a heredoc marker, and every
+one of those characters is allowed in a user name:
+
+```
+END!X    heredoc marker on line #2 must contain only alphanumeric characters, dashes and underscores; got 'END!X'
+END.X    ... got 'END.X'
+END@X    ... got 'END@X'
+END~X    ... got 'END~X'
+END:X    ... got 'END:X'
+END_X-9  (adapts)
+```
+
+So any value that contains the marker is invalid:
+- `aidigest/config.py`: `HEREDOC_MARKER = "AIDIGEST_VALUE_END"`. The user validator rejects any
+  value containing it (production and dev).
+- setup.sh: `[[ "$AIDIGEST_BASIC_AUTH_USER" != *AIDIGEST_VALUE_END* ]] || error ...`
+- `caddy-entrypoint.sh`: `valid_user` adds `no_marker`, so the user is replaced by the sentinel.
+- `test_heredoc_marker_is_the_one_the_caddyfile_uses`: every `<<MARKER` in the Caddyfile is
+  `HEREDOC_MARKER`, and the entrypoint and setup.sh check the same string.
+
+Other values that go through the heredoc:
+- The hash: a valid bcrypt hash (`[$./A-Za-z0-9]`) cannot contain `_`, so it cannot contain the
+  marker. Anything else is already replaced by the entrypoint (matrix case "hash contains the
+  heredoc marker" -> 401).
+- The proxy secret: it is not substituted into the Caddyfile (`{env.*}` at request time), so the
+  marker is harmless there (matrix case -> 502, i.e. auth passes).
+
+The Caddyfile guard has no marker clause, because such a clause could never run. With compose, the
+entrypoint has already exported the sentinel, which is all the guard sees. Without the entrypoint,
+`caddy adapt` fails before any guard runs. Outside compose (plain `caddy run`), a marker user
+still stops Caddy, in the same way as a non-bcrypt hash there (section 12.3). Settings and setup.sh
+refuse it at the source.
+
+Red, `scripts/caddy_matrix.sh` against the `9dbdc70` Caddy files (`8adc6c4`): 5 failures
+
+```
+== user is the heredoc marker
+  FAIL  caddy adapt (via entrypoint)                 expected adapted got ERROR: ding after '$2a$10$W8dE...QRm', at /etc/caddy/Caddyfile:41, ...
+== user = x + heredoc marker                (same)
+== user = ops- + heredoc marker             (same)
+== user = heredoc marker + -ops
+  FAIL  caddy adapt (via entrypoint)                 expected adapted got ERROR: tokens for 'basic_auth': username and password cannot be empty or missing, ...
+== user with the marker in the middle       (same)
+caddy matrix: 5 failure(s)
+```
+
+Pytest red (`8adc6c4`, Python 3.11.15, `aidigest_it`): `32 failed, 554 passed`. The failures are
+the 12 signal cases, 10 Settings marker cases, 4 setup.sh marker cases, 5 entrypoint cases and the
+marker-consistency test.
+
+### 13.7 Green: `scripts/caddy_matrix.sh` (real Caddy v2.11.6), 30 cases, 199 checks, 0 failures
+
+New cases (abridged: `compose caddy command` and `aidigest-disabled` checks are ok in every case):
+
+```
+== user is the heredoc marker            adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user = x + heredoc marker             adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user = ops- + heredoc marker          adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user = heredoc marker + -ops          adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user with the marker in the middle    adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user is the marker in lower case      adapt ok   UI / 200   no creds 401   user:<right password> 502
+== hash contains the heredoc marker      adapt ok   UI / 200   no creds 401   user:<right password> 401
+== secret contains the heredoc marker    adapt ok   UI / 200   no creds 401   user:<right password> 502
+caddy matrix: all expectations met
+```
+
+The 502 cases mean that Caddy let the request through, because the matrix has no AIDigest backend.
+They show that the rule is exactly "contains the marker". It is case-sensitive, as Caddy is, and a
+lower-case `aidigest_value_end` stays a valid user.
+
+### 13.8 Gates
+
+```
+$ AIDIGEST_TEST_DBNAME=<db> <py> -m pytest -q -rs -p no:cacheprovider
+Python 3.11.15  DB=postgres  586 passed in 39.71s
+Python 3.11.15  DB=aidigest_it  586 passed in 40.92s
+Python 3.12.3  DB=postgres  586 passed in 40.48s
+Python 3.12.3  DB=aidigest_it  586 passed in 40.83s
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts   (3.11 and 3.12)
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && sh -n caddy-entrypoint.sh && dash -n caddy-entrypoint.sh
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+```
+
+### 13.9 Mutation check: 134 mutations (125 + 9 new)
+
+```
+$ AIDIGEST_TEST_DBNAME=aidigest_it MUTATION_PY312=/tmp/adv312/bin/python $PY scripts/mutation_check.py
+py312 interpreter: /tmp/adv312/bin/python
+test database name: aidigest_it
+baseline: PASS (586 passed in 39.98s) 41s
+134/134 mutations killed, 0 survived.
+```
+
+Round-4 and retargeted rows:
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 120 | `r3-m1-settings-user-chars` | Settings rejects unsafe basic-auth user names | killed | 1 failed, 193 passed in 12.82s |
+| 124 | `r3-note-no-temp-trap` | setup.sh removes its temp file on INT/TERM | killed | 1 failed, 493 passed in 31.94s |
+| 126 | `r4-m1-trap-after-mktemp` | setup.sh installs the temp-file trap BEFORE mktemp (the race) | killed | 1 failed, 493 passed in 32.32s |
+| 127 | `r4-m1-mktemp-not-shielded` | mktemp ignores INT/TERM (a group signal cannot orphan the file) | killed | 1 failed, 494 passed in 32.76s |
+| 128 | `r4-m1-rewrite-not-shielded` | the in-place rewrite ignores INT/TERM (Ctrl-C cannot truncate .env) | killed | 1 failed, 506 passed in 32.46s |
+| 129 | `r4-m1-rewrite-in-shell` | the in-place rewrite runs in a shielded child, not in the trapping shell | killed | 1 failed, 505 passed in 31.54s |
+| 130 | `r4-l1-settings-allows-marker` | Settings rejects a user containing the heredoc marker | killed | 1 failed, 218 passed in 13.29s |
+| 131 | `r4-l1-setup-allows-marker` | setup.sh rejects a user containing the heredoc marker | killed | 1 failed, 489 passed in 31.38s |
+| 132 | `r4-l1-entrypoint-allows-marker` | entrypoint replaces a user containing the heredoc marker (Caddy must start) | killed | caddy matrix: 5 failure(s) |
+| 133 | `r4-l1-entrypoint-allows-marker-pytest` | same control, pytest stub-caddy test (no docker) | killed | 1 failed, 511 passed in 32.24s |
+| 134 | `r4-l1-caddyfile-marker-drift` | validators check the marker the Caddyfile actually uses | killed | 1 failed, 231 passed in 13.37s |
+
+The table below lists which tests kill each mutation. Each mutation was run without `-x` over
+`test_setup_sh.py` and `test_config.py`, so the list shows every failing test, not just the first.
+
+| Mutation | Failing cases |
+|---|---|
+| `r3-note-no-temp-trap` (no trap) | all 16 signal cases |
+| `r4-m1-trap-after-mktemp` (the challenger's ordering) | the 8 `before-mktemp` / `after-mktemp` cases |
+| `r4-m1-mktemp-not-shielded` | the 4 `before-mktemp` / `after-mktemp` cases with a group signal |
+| `r4-m1-rewrite-not-shielded` (`(cat ...)` in a plain subshell) | `during-rewrite` x group x INT/TERM (2) |
+| `r4-m1-rewrite-in-shell` (the old `cat "$tmp" > "$file"`) | the 4 `during-rewrite` cases |
+| `r4-l1-settings-allows-marker` | the 10 Settings marker cases |
+| `r4-l1-setup-allows-marker` | the 4 setup.sh marker cases (the marker-consistency text check still matches, because the mutation changes only `error` to `true`) |
+| `r4-l1-entrypoint-allows-marker-pytest` | the 5 stub-caddy entrypoint cases |
+| `r4-l1-caddyfile-marker-drift` | `test_heredoc_marker_is_the_one_the_caddyfile_uses` |
+
+`r3-m1-settings-user-chars` still disables the whole user check (`if False:`) on the extended
+line. `r4-l1-settings-allows-marker` removes only the marker clause.
+
+### 13.10 Not done / limits
+
+- A user containing the marker still stops Caddy outside compose (plain `caddy run` with no
+  entrypoint), like a non-bcrypt hash there. The supported deployment always goes through the
+  entrypoint, and the matrix asserts the compose `command`.
+- The trap ordering relies on bash running a trap only after a foreground child (here the command
+  substitution) finishes. The shell-target cases pin this behaviour on GNU bash 5.2.21; no other
+  bash version was available to run them.
+- SIGKILL, or a crash between the copy and the rewrite, can still leave the 600-mode temp file
+  behind. A `set -e` failure inside the copy loop (e.g. disk full) can too, because the trap
+  covers only INT/TERM, not EXIT.
+- The end-to-end run of section 11.9 was not repeated: this round changes setup.sh, the entrypoint,
+  Settings validation and tests. The matrix covers the Caddy layer with the real image.
