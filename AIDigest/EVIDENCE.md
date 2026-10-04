@@ -1327,3 +1327,303 @@ line. `r4-l1-settings-allows-marker` removes only the marker clause.
   covers only INT/TERM, not EXIT.
 - The end-to-end run of section 11.9 was not repeated: this round changes setup.sh, the entrypoint,
   Settings validation and tests. The matrix covers the Caddy layer with the real image.
+
+## 14. Challenger round 4 follow-up (review of `f3c711b`: APPROVED, 0 High / 0 Medium; two Lows fixed before the push)
+
+This section supersedes sections 1-13 for gate results.
+
+| SHA | What |
+|---|---|
+| `020ce61` | Red: signal harness extended to HUP/QUIT; SIGKILL; failures before the rename; mode/owner; `.gitignore` |
+| `1dcbae7` | Fix: atomic replace of `.env` (temp file next to it, `cp -p` + check, `sync`, `mv -f`); HUP/QUIT/EXIT traps; `.gitignore` `.env.*` / `!.env.example`; DESIGN.md section 14 |
+| `8c4d231` | 12 mutations; round-4 targets moved; the two in-place-rewrite mutations replaced |
+| `7008fee` | Red: each failure must print its own message (a full disk during `cp -p` was reported as a mode/owner problem) |
+| `c68ab4c` | Fix: separate copy and mode/owner checks; mutation `r5-copy-error-ignored` |
+| `02d2cd5` | `scripts/setup_bash_matrix.sh` (bash 4.4-5.3); `before-copy` signal point; the temp copy is mode 600 before secrets are copied in; mutation `r5-temp-not-private` |
+| this commit | this evidence, DESIGN.md section 14 update |
+
+### 14.1 Red: what the approved code (`f3c711b`) still did
+
+pytest (`020ce61`, Python 3.11.15): `41 failed, 37 passed` in `test_setup_sh.py`.
+- HUP: the shell is killed (exit -1).
+- QUIT: the shell ignores it (non-interactive bash ignores QUIT unless trapped), but the children
+  are killed.
+- TERM: exit 130, where 128+15 = 143 is now expected.
+- A group SIGKILL during `cat` leaves `.env` at 0 bytes.
+- Disk full exits with no message.
+- `.env.aidigest.*` is not git-ignored.
+
+Real commands, no hooks. The `f3c711b` function on an 85 MB `.env`; the signal goes to the process
+group once the in-place rewrite has started:
+
+```
+HUP to group during the replace: rc=-1 .env bytes=0 of 84777803 complete-new=False untouched=False leftover=1   (3 of 3)
+QUIT to group during the replace: rc=131 .env bytes=0 of 84777803 complete-new=False untouched=False leftover=1  (3 of 3)
+```
+
+Disk full on a real 96 KB tmpfs (`f3c711b`): above 50 KB the copy fails, `.env` is untouched, but
+the 600-mode temp copy is left behind (`set -e` exit, no EXIT trap) and the output gives no reason.
+
+```
+.env  48403 B: rc=0 .env complete-new; leftover=0
+.env  53003 B: rc=1 .env untouched; leftover=1  environment: line 12: printf: write error: No space left on device
+.env  57603 B: rc=1 .env untouched; leftover=1  environment: line 12: printf: write error: No space left on device
+```
+
+My size sweep did not hit the truncation that the challenger reports. Truncation needs the copy to
+fit (old + new <= free space) while the in-place rewrite does not (2 x new > free space). That is a
+narrow band, reached when the filled line is long, e.g. a hash. The atomic replace removes it.
+
+The bash matrix on `f3c711b`: 48 of 58 cases fail on each of bash 4.4, 5.0, 5.1, 5.2 and 5.3. Many
+of them fail only because the old code calls neither `cp` nor `mv`, so the hook never fires (exit
+0). The ones that matter, the same on every version:
+
+```
+FAIL sig-at-replace-HUP-group: .env is not the original file (0 bytes) temp file left
+FAIL sig-at-replace-QUIT-group: .env is not the original file (0 bytes) temp file left
+FAIL sig-during-copy-HUP-group: temp file left
+```
+
+### 14.2 Fix
+
+```bash
+AIDIGEST_TMP=""   # global, so the EXIT trap still sees it once the function has been left
+aidigest_tmp_cleanup() { if [[ -n "$AIDIGEST_TMP" ]]; then rm -f "$AIDIGEST_TMP"; AIDIGEST_TMP=""; fi; }
+aidigest_mode_owner() { ls -ldn "$1" | awk '{ print substr($1, 1, 10), $3, $4 }'; }
+aidigest_fill_empty() {
+  local file=$1 key=$2 newline=$3 l unchanged="${1} was not changed"
+  trap 'aidigest_tmp_cleanup' EXIT
+  trap 'aidigest_tmp_cleanup; exit 129' HUP
+  trap 'aidigest_tmp_cleanup; exit 130' INT
+  trap 'aidigest_tmp_cleanup; exit 131' QUIT
+  trap 'aidigest_tmp_cleanup; exit 143' TERM
+  AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp "${file}.aidigest.XXXXXX") \
+    || error "Could not create a temporary file next to ${file}; ${unchanged}."
+  cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); ${unchanged}."
+  [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \
+    || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."
+  while IFS= read -r l || [[ -n "$l" ]]; do
+    ...
+    printf '%s\n' "$l" || error "Could not write ${AIDIGEST_TMP} (disk full?); ${unchanged}." >&2
+  done < "$file" > "$AIDIGEST_TMP"
+  sync "$AIDIGEST_TMP" 2>/dev/null || sync
+  mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."
+  AIDIGEST_TMP=""
+  trap - HUP INT QUIT TERM EXIT
+}
+```
+
+- **Mode and owner:** `cp -p` (POSIX; GNU and BSD) copies the mode, owner and group. `ls -ldn`
+  then compares mode, uid and gid. If they differ, for example when a non-root user runs it on
+  someone else's `.env`, the script stops before the rename. setup.sh already assumes bash 4+ (`${x,,}`) and
+  Linux (`hostname -I`). `chmod --reference` would add a GNU-only dependency, so it is not used.
+- **The rename:** the temp file is in the same directory as `.env`, so `mv -f` is a single atomic
+  `rename(2)`.
+- **sync:** `sync FILE` is GNU coreutils 8.24+. Elsewhere the script falls back to a plain `sync`.
+- **The inode changes, and nothing depends on it:**
+  - compose reads `.env` by path for `${VAR}` interpolation;
+  - in `docker-compose.yml` the only file bind mounts are `./Caddyfile` and
+    `./caddy-entrypoint.sh`, and no service has `env_file: .env`;
+  - the Makefile reads `.env` with `grep`;
+  - `insurance-agent-demo/` has its own `.env` (`env_file: .env`, read by path when the container
+    is created) and is not touched by setup.sh.
+- **Space:** the copy needs free space for a second `.env`. When it is not there, the copy fails
+  before the rename.
+
+`.gitignore`:
+
+```
+.env.*
+!.env.example
+```
+
+```
+$ git check-ignore -v .env.aidigest.Ab3xYz homeschool-api/.env.aidigest.x .env.backup
+.gitignore:7:.env.*	.env.aidigest.Ab3xYz
+.gitignore:7:.env.*	homeschool-api/.env.aidigest.x
+.gitignore:7:.env.*	.env.backup
+$ git check-ignore -q .env.example || echo ".env.example not ignored"
+.env.example not ignored
+$ git ls-files | grep -E "\.env"
+.env.example
+homeschool-api/.env.example
+homeschool-tutor/.env.example
+insurance-agent-demo/.env.example
+$ git ls-files -ci --exclude-standard     # tracked files that would now be ignored
+(none)
+```
+
+### 14.3 Green: real commands, no hooks
+
+85 MB `.env`, the signal to the process group at 30 %, 70 % and 100 % of the copy:
+
+```
+HUP  to group at  30% of the copy: rc=129 .env untouched, leftover temp=0
+HUP  to group at 100% of the copy: rc=129 .env untouched, leftover temp=0
+QUIT to group at  30% of the copy: rc=131 .env untouched, leftover temp=0
+QUIT to group at 100% of the copy: rc=131 .env untouched, leftover temp=0
+INT  to group at  70% of the copy: rc=130 .env untouched, leftover temp=0
+TERM to group at  70% of the copy: rc=143 .env untouched, leftover temp=0
+KILL to group at  30% of the copy: rc=-9 .env untouched, leftover temp=1
+KILL to group at 100% of the copy: rc=-9 .env untouched, leftover temp=1
+(15 of 15 runs: .env untouched; the temp copy is left only after SIGKILL, and git ignores it)
+```
+
+96 KB tmpfs:
+
+```
+.env  43803 B on a 96 KB tmpfs: rc=0 .env complete-new; leftover temp=0; stdout:
+.env  53003 B on a 96 KB tmpfs: rc=1 .env untouched; leftover temp=0; stdout: ✗  Could not copy t96/.env to t96/.env.aidigest.6Oh7mz (disk full?); t96/.env was not changed.
+.env  66803 B on a 96 KB tmpfs: rc=1 .env untouched; leftover temp=0; stdout: ✗  Could not copy t96/.env to t96/.env.aidigest.NjVh3F (disk full?); t96/.env was not changed.
+```
+
+### 14.4 Deterministic harness (`test_setup_sh.py`)
+
+| test | cases | expectation |
+|---|---|---|
+| `test_setup_temp_file_removed_on_interrupt` | HUP/INT/QUIT/TERM x shell/group x 6 points (`before-mktemp`, `after-mktemp`, `before-copy`, `during-copy`, `at-replace`, `after-replace`) = 48 | exit 128+signal; temp file gone; `.env` untouched, or completely new for `after-replace` |
+| `test_setup_sigkill_never_truncates_env` | KILL x shell/group x `during-copy`/`at-replace` | `.env` untouched (the hook also shadows `cat`, so any in-place rewrite would be caught) |
+| `test_setup_failure_before_rename_leaves_env_untouched` | real ENOSPC from `/dev/full` during the copy loop and from `cp`; mode check fails; `mv` fails | exit 1; that step's own message plus ".env was not changed"; `.env` untouched; temp file gone (EXIT trap) |
+| `test_setup_temp_file_is_private_before_any_secret_is_copied` | `.env` mode 644 | the temp file is mode 600 when `cp -p` starts; `.env` ends at 644 |
+| `test_setup_fill_keeps_mode_and_owner` | mode 0640, owner 12345:23456 (as root) | kept |
+| `test_gitignore_covers_leftover_temp_copies` | `git check-ignore` in a scratch repo with the root `.gitignore` | `.env`, `.env.aidigest.*`, `.env.backup`, `sub/.env.aidigest.*` ignored; `.env.example`, `homeschool-api/.env.example` not ignored |
+
+`at-replace` expects `.env` untouched for every catchable signal. The hook signals the shell itself
+before calling `mv`, and bash runs the trap as soon as the `kill` builtin returns, before the next
+command.
+
+Under load (6 `yes` burners on 4 cores, load average 7.99; burners killed afterwards, `pgrep -x yes` -> 0),
+all harness tests together (59 per run), 30 runs:
+
+```
+harness x30 under load: pass=30 fail=0
+     30 59 passed
+```
+
+An earlier 30-run at `8c4d231` (50 tests per run) also passed 30/30.
+
+### 14.5 bash 4.4-5.3: `scripts/setup_bash_matrix.sh`
+
+The script generates the 58 harness cases from `tests/test_setup_sh.py` and runs them with the bash
+of the official `bash:<version>` images. Each case runs in its own process group (job control).
+
+```
+$ PYTHON=/tmp/adv/bin/python AIDigest/scripts/setup_bash_matrix.sh
+58 cases generated from tests/test_setup_sh.py
+== bash:4.4
+  bash 4.4.23(1)-release: 58 passed, 0 failed
+== bash:5.0
+  bash 5.0.18(1)-release: 58 passed, 0 failed
+== bash:5.1
+  bash 5.1.16(1)-release: 58 passed, 0 failed
+== bash:5.2
+  bash 5.2.37(1)-release: 58 passed, 0 failed
+== bash:5.3
+  bash 5.3.20(1)-release: 58 passed, 0 failed
+setup bash matrix: all versions passed
+```
+
+bash 4.4 was run 8 more times with the final runner: 8/8 all passed.
+
+An earlier draft of the runner showed "temp file left" on 4.4, for group HUP/QUIT/TERM at
+`before-mktemp`. This was an artifact of the runner, not a bash 4.4 problem:
+- The case ran inside a wrapper subshell in the same process group. The group signal killed the
+  wrapper, so `wait` returned while the case shell was still running its trap.
+- With a 0.5 s pause before the checks, the same runner passes 4 of 4 runs.
+- The final runner `exec`s the case, so `wait` returns when the case shell itself exits.
+
+So the trap ordering this design relies on holds on every tested version: bash runs a trap only
+after the command substitution has finished.
+
+### 14.6 Gates
+
+```
+$ AIDIGEST_TEST_DBNAME=<db> <py> -m pytest -q -rs -p no:cacheprovider
+Python 3.11.15  DB=postgres  629 passed in 41.71s
+Python 3.11.15  DB=aidigest_it  629 passed in 40.49s
+Python 3.12.3  DB=postgres  629 passed in 41.46s
+Python 3.12.3  DB=aidigest_it  629 passed in 39.61s
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts   (3.11 and 3.12)
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && bash -n AIDigest/scripts/setup_bash_matrix.sh && sh -n caddy-entrypoint.sh && dash -n caddy-entrypoint.sh
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+$ AIDigest/scripts/caddy_matrix.sh
+30 cases, 199 checks, 0 failures
+caddy matrix: all expectations met
+```
+
+### 14.7 Mutation check: 146 mutations
+
+```
+$ AIDIGEST_TEST_DBNAME=aidigest_it MUTATION_PY312=/tmp/adv312/bin/python $PY scripts/mutation_check.py
+py312 interpreter: /tmp/adv312/bin/python
+test database name: aidigest_it
+baseline: PASS (629 passed in 41.30s) 43s
+146/146 mutations killed, 0 survived.
+```
+
+134 (section 13), minus 2 dropped (`r4-m1-rewrite-not-shielded` and `r4-m1-rewrite-in-shell`: there
+is no in-place rewrite any more, and `r5-in-place-rewrite*` put one back instead), plus 14 new.
+
+Rows for new and retargeted mutations:
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 124 | `r3-note-no-temp-trap` | setup.sh removes its temp file on INT/TERM | killed | 1 failed, 495 passed in 34.86s |
+| 126 | `r4-m1-trap-after-mktemp` | setup.sh installs the temp-file traps BEFORE mktemp (the race) | killed | 1 failed, 493 passed in 35.77s |
+| 127 | `r4-m1-mktemp-not-shielded` | mktemp ignores the signals (a group signal cannot orphan the file) | killed | 1 failed, 494 passed in 35.54s |
+| 133 | `r5-in-place-rewrite` | .env replaced by an atomic rename, not rewritten in place | killed | 1 failed, 501 passed in 34.00s |
+| 134 | `r5-in-place-rewrite-shielded` | no in-place rewrite, even with the round-4 signal shield | killed | 1 failed, 501 passed in 33.66s |
+| 135 | `r5-mode-owner-not-kept` | the new .env gets the old one's mode and owner (cp -p and its check) | killed | 1 failed, 517 passed in 33.83s |
+| 136 | `r5-mode-owner-not-verified` | mode/owner of the temp copy verified before the rename | killed | 1 failed, 547 passed in 34.62s |
+| 137 | `r5-copy-error-ignored` | a failed copy (disk full) stops before the rename | killed | 1 failed, 545 passed in 34.70s |
+| 138 | `r5-no-hup-trap` | SIGHUP (SSH disconnect) removes the temp copy, exit 129 | killed | 1 failed, 493 passed in 33.81s |
+| 139 | `r5-no-quit-trap` | SIGQUIT removes the temp copy, exit 131 | killed | 1 failed, 497 passed in 33.34s |
+| 140 | `r5-no-exit-cleanup` | the temp copy is removed on any exit (e.g. a failed write) | killed | 1 failed, 545 passed in 34.30s |
+| 141 | `r5-mktemp-shield-int-term-only` | mktemp ignores HUP and QUIT too | killed | 1 failed, 494 passed in 34.45s |
+| 142 | `r5-write-error-ignored` | a failed write (disk full) stops before the rename | killed | 1 failed, 546 passed in 35.78s |
+| 143 | `r5-rename-error-ignored` | a failed rename is reported, not success | killed | 1 failed, 548 passed in 35.66s |
+| 144 | `r5-temp-not-private` | the temp copy is created mode 600, before any secret is copied into it | killed | 1 failed, 549 passed in 35.32s |
+| 145 | `r5-gitignore-no-env-star` | .gitignore covers leftover .env.aidigest.* copies | killed | 1 failed, 552 passed in 35.79s |
+| 146 | `r5-gitignore-example-ignored` | .env.example stays tracked | killed | 1 failed, 552 passed in 35.79s |
+
+The table below lists which tests kill each mutation. Each mutation was run without `-x` over
+`test_setup_sh.py`, so the list shows every failing test, not just the first.
+
+| Mutation | Failing cases |
+|---|---|
+| `r5-in-place-rewrite`, `r5-in-place-rewrite-shielded` | 16 `at-replace`/`after-replace` signal cases, SIGKILL `at-replace` (shell and group: `.env` 0 bytes for the group), `rename-fails` |
+| `r5-mode-owner-not-kept` (drops `cp -p` and its check) | `test_setup_fill_keeps_mode_and_owner`, `copy-fails`, `mode-not-kept` |
+| `r5-mode-owner-not-verified` | `mode-not-kept` |
+| `r5-copy-error-ignored` | `copy-fails` |
+| `r5-no-hup-trap` / `r5-no-quit-trap` | the HUP / QUIT signal cases |
+| `r5-no-exit-cleanup` | all 4 failure cases (temp copy left) |
+| `r5-mktemp-shield-int-term-only` | `before/after-mktemp` x HUP/QUIT x group |
+| `r5-write-error-ignored` / `r5-rename-error-ignored` | `disk-full` / `rename-fails` |
+| `r5-temp-not-private` | `test_setup_temp_file_is_private_before_any_secret_is_copied` |
+| `r5-gitignore-no-env-star` / `r5-gitignore-example-ignored` | `test_gitignore_covers_leftover_temp_copies` |
+
+The first full run stopped at its baseline. It had been started under `nohup`, which sets SIGHUP to
+ignored for every child process. bash cannot trap a signal that was already ignored when it
+started, so a HUP case failed. Under `nohup`, a HUP never reaches setup.sh, so there is nothing to
+protect. The run that counts was started with `setsid` alone.
+
+### 14.8 Remaining Lows / limits
+
+- **`caddy run` without `caddy-entrypoint.sh` is unsupported** (DESIGN.md section 14). Compose
+  always starts Caddy through the entrypoint, and the matrix asserts the compose `command`. Without
+  the entrypoint, a non-bcrypt hash or a user containing `AIDIGEST_VALUE_END` stops Caddy.
+- **bash versions:** the trap ordering was verified on bash 4.4-5.3, by the challenger and by
+  `scripts/setup_bash_matrix.sh` (58/58 cases on each of 4.4, 5.0, 5.1, 5.2, 5.3).
+- **SIGKILL** (or a power loss) can leave the 600-mode `.env.aidigest.XXXXXX` copy. `.env` itself
+  is never damaged, and git ignores the copy.
+- **If something bind-mounts `.env` as a single file,** that container keeps the old inode and
+  content until it is recreated. Nothing in this repository does that.
+- The end-to-end run of section 11.9 was not repeated: this round changes only setup.sh,
+  `.gitignore`, tests and scripts.
