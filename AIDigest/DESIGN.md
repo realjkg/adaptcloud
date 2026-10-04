@@ -374,3 +374,32 @@ garbage and a second gzip member are refused.
 
 A pre-read body (only in-process transports, never the network) has already been decoded by httpx,
 which does not check completeness, so a compressed pre-read body is refused.
+
+## 17. Challenger review of ae012a0 (REQUEST CHANGES: 0 High, 2 Medium, 8 Low)
+
+The IDOR fix, the `.env` writer and the decoder held up. Changes:
+
+| ID | Finding | Fix | Tests |
+|---|---|---|---|
+| M1 | A DB frozen at TCP level (sockets open, nothing forwarded) kept TASK/DAILY running for 20-180 s past a 2 s budget. `asyncio.wait_for` cancels and then AWAITS the cleanup, which hangs in SQLAlchemy's shielded close / asyncpg's cancel | `run_within` runs each step as a task; at the deadline it cancels and abandons it (cleanup not awaited, outcome consumed). The DAILY heartbeat is stopped with a bounded 0.5 s wait. `make_engine`: connect timeout 5 s and `BoundedCloseConnection`, whose `close()` ends within 2 s and otherwise aborts the socket (asyncpg's close waits, unbounded, for the server's answer to the cancelled statement). An abandoned connection holds a pool slot for at most `ABANDONED_RELEASE_SECONDS` = 5 s; with 5 + 5 slots that needs more than 5 frozen runs per 5 s to fill, and even then the next checkout waits inside a budget | `tests/test_freeze.py`: a real freezing TCP proxy in front of `make_engine()`. TASK/DAILY freeze before the run, during the AI call, and (DAILY) during a lease refresh: each returns within budget + 1 s. Six frozen runs: every pool slot is back within the bound while still frozen, and the service recovers after the thaw. The asyncpg `close` API is pinned |
+| M2 | Nothing proved the DB timeouts are transaction-local; `set_config(..., false)` survived | - | `test_db_tx_timeouts_do_not_leak_into_the_next_transaction_on_the_same_session`: `pool_size=1`, same `pg_backend_pid()` in both transactions, `lock_timeout`/`statement_timeout` back to 0 |
+| L1 | The lock-wait test did not prove that Postgres ended the wait | `lock_timeout` = `statement_timeout` - 50 ms (before, both were equal and the statement timer always won, as 57014) | the lock-wait test requires 55P03 in the cause chain. `test_our_own_statement_timeout_is_the_budget` requires 57014 in the cause, which kills the challenger's `DB_MARGIN_SECONDS = -0.04` |
+| L2 | Overwriting a 644 `.env` wrote the new secrets into a 644 temp file, then a 644 `.env` until the later chmod | `env_replace` chmods the temp copy to 600 before anything new is written and checks mode 600 + the original owner/group. The replaced file is always 600. Decision for the append/fill path: also 600 (`.env` holds secrets); a looser mode is tightened with a notice, and owner and group are kept | `test_setup_temp_copy_is_private_before_new_content_is_written` (fill, append), `test_full_setup_overwrite_writes_new_secrets_only_into_600_files`, mode tests now expect 600 |
+| L3 | Single basic-auth account | Documented in 16.1: `requested_by` is the same for every caller; the hourly task limit is team-wide | - |
+| L4 | TASK knowledge wording | Corrected in 16.1 and the README: knowledge points are model output written with the private task text in the prompt, readable by all via `/knowledge`, and fed into other users' tasks; `persist_knowledge: false` opts out | - |
+| L5 | The tasks sweep had a prefix exemption, missed `OR requested_by`, and saw at most three string fragments | AST-based sweep over every module: implicit concatenation (any number of fragments), `+` concatenation and f-strings. Every SELECT/UPDATE/DELETE/WITH on `aidigest.tasks` must contain `requested_by=:by` and no `OR`. Only `_finish_task` is exempt, by name | mutants: OR, fragmented, `+`-concatenated, unscoped stale cleanup, unscoped abandon cleanup (only the sweep can kill the last one) |
+| L6 | Any TimeoutError inside a step became a budget deadline | Only the budget's own timeout is a deadline. A DB timeout (55P03/57014) counts as ours when it arrives within 0.3 s of the deadline; earlier (an operator's `pg_cancel_backend`) it keeps its own error. A TimeoutError/OSError from a DB step (connect timeout, refused socket) is `StorageError` (503). Limit: an operator cancel in the last 0.3 s before the deadline is reported as the deadline | `test_a_timeout_raised_inside_a_step_is_not_the_budget`, `test_an_operator_cancel_is_not_the_budget`, `test_connect_timeout_is_database_unavailable_not_a_deadline` (TASK, DAILY) |
+| L7 | A deadline during the COMMIT of the claim / task insert could leave a committed `running` row the code thought did not exist | The ids are client-generated before the transaction. On a deadline there, a bounded best-effort cleanup within the reserved slice marks that row failed ("abandoned ..."), keyed on our own id (and the owner token for DAILY): the day is freed at once. TASK fallback when even that cannot run: the user's next request fails their own `running` rows older than budget + 60 s, under the per-user lock. These rows still count toward the hourly limit (they were requests) | `test_deadline_during_the_task_insert_commit_is_cleaned_up`, `test_deadline_during_the_claim_commit_frees_the_day` (`tests/fakes.HangAfterCommitEngine`: COMMIT lands, the answer never arrives), `test_stale_running_task_is_failed_on_the_next_request` |
+| L8 | `.env` backups bypassed the writer | `setup.sh --backup-env` (the Makefile `backup-env` target calls it) and the overwrite path use `env_replace .env.backup cat .env`: mode 600, rename, a symlinked backup refused. The static sweep now covers every `.env*` target | `test_backup_env_is_written_atomically_and_private`, `test_backup_env_refuses_a_symlinked_backup`, `test_makefile_backup_env_uses_the_writer`, `test_no_direct_writes_to_env_anywhere` |
+
+Flaky timing tests:
+- The non-yielding stream test counts chunks produced between `sleep(0)` ticker turns, at most
+  `YIELD_EVERY_CHUNKS` + 8.
+- The loop-gap helper uses the loop thread's CPU time.
+- The 200k-chunk and adversarial-parse children measure `time.process_time()`, take the min of 3
+  samples per size, and run under `RLIMIT_CPU`, so a quadratic parser is killed by the kernel
+  however loaded the machine is.
+
+`scripts/mutation_check.py` records the test that killed each mutant and confirms the kill: the test
+must fail when re-run alone on the mutated tree and pass on the baseline. Otherwise the mutant is
+SUSPECT, and the run fails.
