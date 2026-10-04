@@ -480,7 +480,7 @@ def test_daily_config_requires_lease_longer_than_budget():
 # ── M1: overall run budget ───────────────────────────────────────────────────
 async def test_daily_run_budget(engine):
     gate = asyncio.Event()  # never set: feeds hang
-    cfg = DailyConfig(budget_seconds=0.3, lease_seconds=60, heartbeat_seconds=3600)
+    cfg = DailyConfig(budget_seconds=1.0, lease_seconds=60, heartbeat_seconds=3600)
     with pytest.raises(DeadlineError):  # outer bound: without the budget this fails in 5 s, not hangs
         await asyncio.wait_for(
             run_daily(engine, FakeAI(), FakeFetcher({}, gate=gate), trigger="schedule", now=NOW, config=cfg), 5)
@@ -619,3 +619,82 @@ async def test_run_key_uses_the_utc_date(engine):
     local = datetime(2026, 10, 3, 23, 30, tzinfo=timezone(timedelta(hours=-5)))
     result = await run_daily(engine, FakeAI(), empty_feeds(), trigger="operator", now=local)
     assert result["run_key"] == "daily:2026-10-04"
+
+
+# ═══════════ PR review 4177765160: the DAILY budget is absolute ═══════════
+# Readiness, the claim (incl. its advisory-lock wait), the run and the final status recording all
+# share ONE deadline taken at entry; recording a failure has its own reserved slice.
+import time  # noqa: E402
+
+from tests.fakes import HangingEngine  # noqa: E402
+
+BUDGET = 1.0
+SLACK = 0.6   # scheduling + process overhead on a loaded machine; far below "hangs forever"
+
+
+def _budget_cfg():
+    return DailyConfig(budget_seconds=BUDGET, lease_seconds=60, heartbeat_seconds=3600)
+
+
+async def _timed(coro):
+    start = time.monotonic()
+    try:
+        return await asyncio.wait_for(coro, 30), time.monotonic() - start
+    except Exception as exc:  # noqa: BLE001 - the caller asserts on the type
+        return exc, time.monotonic() - start
+
+
+async def test_daily_budget_covers_a_held_claim_lock(engine):
+    """Another session holds the per-day advisory lock the claim waits for."""
+    ai = FakeAI()
+    async with engine.connect() as holder:
+        await holder.execute(text("SELECT pg_advisory_lock(hashtext(:k))"), {"k": "daily:2026-10-03"})
+        outcome, elapsed = await _timed(run_daily(engine, ai, feed_fetcher(items(3)), trigger="schedule",
+                                                  now=NOW, config=_budget_cfg()))
+        await holder.execute(text("SELECT pg_advisory_unlock_all()"))
+    assert isinstance(outcome, DeadlineError), outcome
+    assert elapsed < BUDGET + SLACK, elapsed
+    assert ai.calls == []
+    assert await scalar(engine, "SELECT count(*) FROM aidigest.runs WHERE status='running'") == 0
+
+
+@pytest.mark.parametrize("needle", [
+    "information_schema.tables",            # readiness
+    "pg_advisory_xact_lock(hashtext(:key))",  # the claim
+    "FOR UPDATE",                           # the final store + complete
+])
+async def test_daily_budget_covers_a_database_that_never_answers(engine, needle):
+    ai = FakeAI()
+    ai.queue_json([selection("https://news.example/0")])
+    hanging = HangingEngine(engine, needle)
+    outcome, elapsed = await _timed(run_daily(hanging, ai, feed_fetcher(items(3)), trigger="schedule",
+                                              now=NOW, config=_budget_cfg()))
+    assert hanging.hung, "the needle never matched: the test does not test anything"
+    assert isinstance(outcome, DeadlineError), outcome
+    assert elapsed < BUDGET + SLACK, elapsed
+    if needle == "FOR UPDATE":   # the run row exists: the failure is recorded within the reserved slice
+        assert await scalar(engine, "SELECT status FROM aidigest.runs") == "failed"
+        assert "budget" in await scalar(engine, "SELECT error FROM aidigest.runs")
+
+
+async def test_daily_failure_recording_cannot_overrun_the_budget(engine):
+    """Both the final store and the failure record hang: the run still ends within the budget."""
+    hanging = HangingEngine(engine, "aidigest.runs SET status=")
+    ai = FakeAI()
+    ai.queue_json([selection("https://news.example/0")])
+    outcome, elapsed = await _timed(run_daily(hanging, ai, feed_fetcher(items(3)), trigger="schedule",
+                                              now=NOW, config=_budget_cfg()))
+    assert hanging.hung
+    assert isinstance(outcome, DeadlineError), outcome
+    assert elapsed < BUDGET + SLACK, elapsed
+
+
+def test_daily_and_task_use_only_budgeted_transactions():
+    """Sweep: the DAILY and TASK modules open every transaction through db_tx, which applies the
+    budget's DB-side lock_timeout and statement_timeout."""
+    from pathlib import Path
+    pkg = Path(__file__).resolve().parents[1] / "aidigest"
+    for name in ("daily.py", "tasks.py"):
+        src = (pkg / name).read_text()
+        assert "engine.begin()" not in src and "engine.connect()" not in src, name
+        assert "db_tx(" in src, name

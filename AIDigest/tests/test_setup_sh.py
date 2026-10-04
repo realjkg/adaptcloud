@@ -189,17 +189,29 @@ _ORIGINAL = _FILLER + "AIDIGEST_PROXY_SECRET=\n"
 _FILLED = _FILLER + "AIDIGEST_PROXY_SECRET=new\n"
 
 
-def _fill_empty_script(hook: str) -> str:
-    """The real error() helper and the real aidigest_fill_empty block (from its AIDIGEST_TMP global, when
-    there is one, to the end of the function), the hook first, then one call."""
+_APPENDED = _ORIGINAL + "\n# AIDigest (added by setup.sh on 2026-01-01 00:00 UTC)\nAIDIGEST_ADDED=new\n"
+_EXPECTED = {"fill": _FILLED, "append": _APPENDED}
+# The .env writer (PR review 4177765138): every change to .env goes through env_replace FILE PRODUCER...,
+# fill (an empty key gets a value) and append (a missing key is added) alike.
+_CALLS = {
+    "fill": 'env_replace "$1" aidigest_env_lines "$1" 1 "AIDIGEST_PROXY_SECRET=new"\n',
+    "append": 'env_replace "$1" aidigest_env_lines "$1" 0 "AIDIGEST_ADDED=new"\n',
+}
+_FIXED_DATE = "date() { builtin printf '%s\\n' '2026-01-01 00:00 UTC'; }\n"
+
+
+def _fill_empty_script(hook: str, path: str = "fill") -> str:
+    """The real error() helper and the real .env writer block of setup.sh (from its AIDIGEST_TMP global
+    to the end of aidigest_env_lines), the hook first, then one call of the given path."""
     text_ = (REPO / "setup.sh").read_text()
     error_line = next(ln for ln in text_.splitlines() if ln.startswith("error()"))
-    func = text_.index("aidigest_fill_empty() {")
+    last = text_.find("aidigest_env_lines() {")
+    last = last if last >= 0 else text_.index("aidigest_fill_empty() {")
     start = text_.find('AIDIGEST_TMP=""')
-    start = start if 0 <= start < func else func
-    block = text_[start:text_.index("\n}\n", func) + 3]
-    return ("set -euo pipefail\nRED=; RESET=\n" + error_line + "\n" + _SIGNAL_HELPER + hook + block
-            + 'aidigest_fill_empty "$1" AIDIGEST_PROXY_SECRET "AIDIGEST_PROXY_SECRET=new"\n')
+    start = start if 0 <= start < last else last
+    block = text_[start:text_.index("\n}\n", last) + 3]
+    return ("set -euo pipefail\nRED=; RESET=\n" + error_line + "\n" + _SIGNAL_HELPER + _FIXED_DATE + hook + block
+            + _CALLS[path])
 
 
 def _default_signals() -> None:
@@ -212,22 +224,23 @@ def _default_signals() -> None:
         signal.signal(signum, signal.SIG_DFL)
 
 
-def _launch(tmp_path: Path, hook: str, env_file: Path | None = None, **env) -> subprocess.CompletedProcess:
+def _launch(tmp_path: Path, hook: str, env_file: Path | None = None, path: str = "fill",
+            **env) -> subprocess.CompletedProcess:
     """Every run of the function under test goes through here."""
     # start_new_session: the script gets its own process group, so "kill 0" cannot reach pytest
-    return subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(env_file or tmp_path / ".env")],
+    return subprocess.run(["bash", "-c", _fill_empty_script(hook, path), "fill", str(env_file or tmp_path / ".env")],
                           cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
                                              **env},
                           capture_output=True, text=True, timeout=60, start_new_session=True,
                           preexec_fn=_default_signals)
 
 
-def _run_fill(tmp_path: Path, hook: str, content: str = _ORIGINAL, mode: int | None = None,
+def _run_fill(tmp_path: Path, hook: str, content: str = _ORIGINAL, mode: int | None = None, path: str = "fill",
               **env) -> subprocess.CompletedProcess:
     (tmp_path / ".env").write_text(content)
     if mode is not None:
         (tmp_path / ".env").chmod(mode)
-    return _launch(tmp_path, hook, **env)
+    return _launch(tmp_path, hook, path=path, **env)
 
 
 def _created(tmp_path: Path) -> list[str]:
@@ -235,27 +248,29 @@ def _created(tmp_path: Path) -> list[str]:
     return created.read_text().split() if created.exists() else []
 
 
+@pytest.mark.parametrize("path", sorted(_CALLS))
 @pytest.mark.parametrize("target", ["shell", "group"])
 @pytest.mark.parametrize("sig", sorted(_SIGNUM))
 @pytest.mark.parametrize("point", sorted(_SIGNAL_POINTS))
-def test_setup_temp_file_removed_on_interrupt(tmp_path, point, sig, target):
+def test_setup_temp_file_removed_on_interrupt(tmp_path, point, sig, target, path):
     """HUP/INT/QUIT/TERM at any point: exit 128+signal, the 600-mode temp copy is gone, and .env is
     either untouched (signal before the replace) or completely replaced: never truncated or partial."""
-    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], SIG=sig, TARGET=target)
+    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], path=path, SIG=sig, TARGET=target)
     names = _created(tmp_path)
     assert len(names) == 1 and names[0].startswith(str(tmp_path / ".env.aidigest.")), names
     assert proc.returncode == 128 + _SIGNUM[sig], (proc.returncode, proc.stdout, proc.stderr)
     assert not Path(names[0]).exists(), "temp file with secrets left behind"
     assert not list(tmp_path.glob(".env.aidigest.*"))
-    assert (tmp_path / ".env").read_text() == (_FILLED if point == "after-replace" else _ORIGINAL)
+    assert (tmp_path / ".env").read_text() == (_EXPECTED[path] if point == "after-replace" else _ORIGINAL)
 
 
+@pytest.mark.parametrize("path", sorted(_CALLS))
 @pytest.mark.parametrize("target", ["shell", "group"])
 @pytest.mark.parametrize("point", ["during-copy", "at-replace"])
-def test_setup_sigkill_never_truncates_env(tmp_path, point, target):
+def test_setup_sigkill_never_truncates_env(tmp_path, point, target, path):
     """SIGKILL cannot be trapped: the temp file may remain (it is git-ignored), but .env is the old
     file or the complete new one, never partial or empty (in particular not an in-place rewrite)."""
-    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], SIG="KILL", TARGET=target)
+    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], path=path, SIG="KILL", TARGET=target)
     assert proc.returncode == -9, (proc.returncode, proc.stderr)
     assert (tmp_path / ".env").read_text() == _ORIGINAL
 
@@ -274,14 +289,15 @@ _FAILURES = {  # hook, the message that must explain it
 }
 
 
+@pytest.mark.parametrize("path", sorted(_CALLS))
 @pytest.mark.parametrize("failure", sorted(_FAILURES))
-def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure):
+def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure, path):
     """Any failure before the rename: exit 1 with a clear message, .env byte-identical, and the temp
     copy removed by the EXIT cleanup."""
     env_file = tmp_path / ".env"
     hook, message = _FAILURES[failure]
     # mode 600 as setup.sh writes it, so only the step under test can stop the replace
-    proc = _run_fill(tmp_path, hook, mode=0o600)
+    proc = _run_fill(tmp_path, hook, mode=0o600, path=path)
     names = _created(tmp_path)
     assert len(names) == 1, names
     assert proc.returncode == 1, (proc.returncode, proc.stdout, proc.stderr)
@@ -301,7 +317,8 @@ def test_setup_temp_file_is_private_before_any_secret_is_copied(tmp_path):
     assert stat.S_IMODE(env_file.stat().st_mode) == 0o644 and env_file.read_text() == _FILLED
 
 
-def test_setup_fill_keeps_mode_and_owner(tmp_path):
+@pytest.mark.parametrize("path", sorted(_CALLS))
+def test_setup_fill_keeps_mode_and_owner(tmp_path, path):
     """.env is replaced by a rename, so the new file must get the old one's mode and owner."""
     env_file = tmp_path / ".env"
     env_file.write_text(_ORIGINAL)
@@ -309,10 +326,10 @@ def test_setup_fill_keeps_mode_and_owner(tmp_path):
     owner = (12345, 23456) if os.geteuid() == 0 else (os.getuid(), os.getgid())
     if os.geteuid() == 0:
         os.chown(env_file, *owner)
-    proc = _launch(tmp_path, _MKTEMP_RECORD)
+    proc = _launch(tmp_path, _MKTEMP_RECORD, path=path)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     st = env_file.stat()
-    assert env_file.read_text() == _FILLED
+    assert env_file.read_text() == _EXPECTED[path]
     assert stat.S_IMODE(st.st_mode) == 0o640
     assert (st.st_uid, st.st_gid) == owner
     assert not list(tmp_path.glob(".env.aidigest.*"))
@@ -335,7 +352,8 @@ def test_setup_flushes_the_temp_copy(tmp_path, support):
         assert synced == ["<plain>"], synced
 
 
-def test_setup_refuses_a_symlinked_env(tmp_path):
+@pytest.mark.parametrize("path", sorted(_CALLS))
+def test_setup_refuses_a_symlinked_env(tmp_path, path):
     """A rename would replace the link with a regular file (and writing through it could reach a file
     outside the repository): a symlinked .env is refused with a clear message, link and target unchanged."""
     target = tmp_path / "elsewhere.env"
@@ -343,7 +361,7 @@ def test_setup_refuses_a_symlinked_env(tmp_path):
     target.chmod(0o600)
     link = tmp_path / ".env"
     link.symlink_to(target)
-    proc = _launch(tmp_path, _MKTEMP_RECORD)
+    proc = _launch(tmp_path, _MKTEMP_RECORD, path=path)
     assert proc.returncode == 1, (proc.returncode, proc.stdout, proc.stderr)
     assert ".env is a symlink" in proc.stdout + proc.stderr, proc.stdout + proc.stderr
     assert link.is_symlink() and os.readlink(link) == str(target)
@@ -366,6 +384,63 @@ def test_harness_works_when_pytest_starts_with_signals_ignored(tmp_path, sig):
     assert proc.returncode == 128 + _SIGNUM[sig], (proc.returncode, proc.stdout, proc.stderr)
     assert (tmp_path / ".env").read_text() == _ORIGINAL
     assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+# ── PR review 4177765138: the upgrade (append) path is the same atomic, symlink-refusing writer ──
+def test_upgrade_of_a_pre_pr_env_adds_the_keys_atomically_keeping_mode_and_owner(tmp_path):
+    """The normal upgrade path: a pre-PR .env without any AIDigest key. The keys are added by
+    replacing .env (new inode, nothing written into the old file), with its mode and owner."""
+    env_file = _prepare(tmp_path)
+    env_file.chmod(0o640)
+    owner = (12345, 23456) if os.geteuid() == 0 else (os.getuid(), os.getgid())
+    if os.geteuid() == 0:
+        os.chown(env_file, *owner)
+    before, inode = env_file.read_bytes(), env_file.stat().st_ino
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    st = env_file.stat()
+    after = env_file.read_bytes()
+    assert after.startswith(before) and b"AIDIGEST_PROXY_SECRET=" in after and b"COMPOSE_PROFILES=aidigest" in after
+    assert st.st_ino != inode, "the keys were written into the old file instead of replacing it"
+    assert stat.S_IMODE(st.st_mode) == 0o640 and (st.st_uid, st.st_gid) == owner
+    assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+def test_upgrade_refuses_a_symlinked_env_on_the_append_path(tmp_path):
+    """setup.sh --aidigest on a pre-PR .env that is a symlink to a file elsewhere: refused, the
+    target outside the directory is not modified."""
+    shutil.copy(REPO / "setup.sh", tmp_path / "setup.sh")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "real.env"
+    target.write_text(PRE_PR_ENV)
+    (tmp_path / ".env").symlink_to(target)
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode != 0, proc.stdout + proc.stderr
+    assert ".env is a symlink" in proc.stdout + proc.stderr
+    assert target.read_text() == PRE_PR_ENV and (tmp_path / ".env").is_symlink()
+    assert not list(tmp_path.glob(".env.aidigest.*")) and not list(outside.glob(".env.aidigest.*"))
+
+
+def test_no_direct_writes_to_env_anywhere():
+    """Sweep: .env changes only through env_replace (temp file + rename). setup.sh and the Makefile
+    must not redirect into .env, tee/sed -i/cp onto it, or rename anything but the temp copy onto it."""
+    import re
+    forbidden = [
+        re.compile(r'>>?\s*"?(\.env|\$\{?file\}?|\$1)"?(\s|;|\)|$)'),       # > .env, >> "$file"
+        re.compile(r'\btee\b[^|;]*\s"?(\.env|\$\{?file\}?)"?(\s|;|$)'),
+        re.compile(r'\bsed\b[^|;]*\s-i'),
+        re.compile(r'\b(cp|install|ln)\b[^|;]*\s"?(\.env|\$\{?file\}?)"?\s*(;|$)'),
+    ]
+    renames = []
+    for name in ("setup.sh", "Makefile"):
+        for number, line in enumerate((REPO / name).read_text().splitlines(), 1):
+            code = line.split(" #", 1)[0] if not line.lstrip().startswith("#") else ""
+            for pattern in forbidden:
+                assert not pattern.search(code), f"{name}:{number}: direct write to .env: {line.strip()}"
+            if re.search(r'\bmv\b', code):
+                renames.append(code.strip())
+    assert renames == ['mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."'], renames
 
 
 def test_setup_fill_empty_without_signal_still_fills(tmp_path):

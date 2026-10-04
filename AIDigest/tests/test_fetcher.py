@@ -446,6 +446,51 @@ async def test_corrupt_gzip_is_upstream_error():
         await f.fetch("https://a.example/")
 
 
+# ── PR review 4177765193: compressed bodies must be complete and end where the stream ends ──
+def _compressed(encoding: str, data: bytes) -> bytes:
+    import gzip
+    import zlib
+    return gzip.compress(data) if encoding in ("gzip", "x-gzip") else zlib.compress(data)
+
+
+_TEXT = b"a complete body of plain text " * 40
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "x-gzip", "deflate"])
+@pytest.mark.parametrize("chunk", [7, 65536])
+@pytest.mark.parametrize("damage", ["truncated", "trailing-garbage", "two-streams"])
+async def test_incomplete_or_padded_compressed_body_is_rejected(encoding, chunk, damage):
+    """A truncated stream would otherwise come back as a silently partial body; bytes after the end
+    of the compressed stream are not part of the body either."""
+    body = _compressed(encoding, _TEXT)
+    wire = {"truncated": body[: len(body) // 2], "trailing-garbage": body + b"GARBAGE",
+            "two-streams": body + body}[damage]
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(wire, chunk), headers={"content-encoding": encoding}),
+                {"a.example": [PUBLIC_V4]}, max_bytes=100_000)
+    with pytest.raises(UpstreamError, match="(?i)truncated|trailing"):
+        await f.fetch("https://a.example/")
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "x-gzip", "deflate"])
+@pytest.mark.parametrize("chunk", [1, 7, 65536])
+async def test_complete_compressed_body_is_decoded(encoding, chunk):
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(_compressed(encoding, _TEXT), chunk),
+                                           headers={"content-encoding": encoding}),
+                {"a.example": [PUBLIC_V4]}, max_bytes=100_000)
+    assert (await f.fetch("https://a.example/")).text == _TEXT.decode()
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "deflate"])
+async def test_pre_read_compressed_body_is_refused(encoding):
+    """An in-process transport hands over a body httpx already decoded, without checking that the
+    stream was complete (a truncated gzip comes back as a few bytes): it cannot be verified."""
+    truncated = _compressed(encoding, _TEXT)[:30]
+    f = fetcher(lambda req: httpx.Response(200, content=truncated, headers={"content-encoding": encoding}),
+                {"a.example": [PUBLIC_V4]}, max_bytes=100_000)
+    with pytest.raises(UpstreamError, match="(?i)verif"):
+        await f.fetch("https://a.example/")
+
+
 # ── L2: the explicit policy layer, tested independently of ipaddress.is_global ─
 @pytest.mark.parametrize(
     "ip",

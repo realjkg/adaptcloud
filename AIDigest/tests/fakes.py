@@ -92,3 +92,54 @@ def rss(items: list[dict[str, str]]) -> str:
         for i in items
     )
     return f'<?xml version="1.0"?><rss version="2.0"><channel><title>x</title>{body}</channel></rss>'
+
+
+class HangingEngine:
+    """Wraps a real AsyncEngine; any statement containing `needle` never gets an answer (a DB that
+    accepts the connection and then goes silent). Everything else runs on the real engine."""
+
+    def __init__(self, engine, needle: str):
+        self.engine = engine
+        self.needle = needle
+        self.hung: list[str] = []
+
+    def begin(self):
+        return _HangingContext(self, self.engine.begin())
+
+    def connect(self):
+        return _HangingContext(self, self.engine.connect())
+
+    def __getattr__(self, name):
+        return getattr(self.engine, name)
+
+
+class _HangingContext:
+    def __init__(self, owner: HangingEngine, context):
+        self.owner = owner
+        self.context = context
+
+    async def __aenter__(self):
+        return _HangingConnection(self.owner, await self.context.__aenter__())
+
+    async def __aexit__(self, *exc):
+        return await self.context.__aexit__(*exc)
+
+
+class _HangingConnection:
+    def __init__(self, owner: HangingEngine, conn):
+        self.owner = owner
+        self.conn = conn
+
+    async def execute(self, statement, *args, **kwargs):
+        import asyncio
+
+        if self.owner.needle in str(statement):
+            self.owner.hung.append(str(statement))
+            await asyncio.Event().wait()   # never answers
+        return await self.conn.execute(statement, *args, **kwargs)
+
+    async def scalar(self, statement, *args, **kwargs):
+        return (await self.execute(statement, *args, **kwargs)).scalar()
+
+    def __getattr__(self, name):
+        return getattr(self.conn, name)

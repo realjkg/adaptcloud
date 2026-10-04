@@ -2,11 +2,13 @@
 
 import json
 
+import httpx
 import pytest
 from sqlalchemy import text
 
 from aidigest.errors import AIError, UnsafeURLError, UpstreamError
 from aidigest.tasks import resolve_mode
+from tests.fakes import PROXY_SECRET
 
 URLS = ["https://a.example/one", "https://b.example/two", "https://c.example/three"]
 
@@ -299,6 +301,68 @@ async def test_get_unknown_task_404(client, task_id):
     assert (await client.get(f"/agent/tasks/{task_id}")).status_code == 404
 
 
+# ── PR review 4177765103: a task is visible only to the user who created it ──
+OTHER = {"X-AIDigest-User": "someone-else@adapt.cloud", "X-AIDigest-Proxy-Secret": PROXY_SECRET}
+
+
+async def test_task_of_another_user_is_404_like_an_unknown_id(app, client, fake_ai, fake_fetcher):
+    fake_fetcher.pages[URLS[0]] = "page"
+    fake_ai.queue_json(answer())
+    created = (await client.post("/agent/tasks", json={"task": "Summarize this", "urls": URLS[:1]})).json()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://aidigest", headers=OTHER) as other:
+        theirs = await other.get(f"/agent/tasks/{created['id']}")
+        unknown = await other.get("/agent/tasks/00000000-0000-0000-0000-000000000000")
+    assert theirs.status_code == 404
+    assert theirs.json() == unknown.json()          # indistinguishable from a task that does not exist
+    assert "Short answer" not in theirs.text and "Summarize" not in theirs.text
+    assert (await client.get(f"/agent/tasks/{created['id']}")).status_code == 200   # the owner still can
+
+
+async def test_get_task_is_scoped_to_the_requester(engine):
+    from aidigest.tasks import get_task
+    task_id = "11111111-1111-1111-1111-111111111111"
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "INSERT INTO aidigest.tasks (id, requested_by, request_text, mode, status, created_at) "
+            "VALUES (:id, 'alice', 'secret plan', 'research', 'completed', now())"), {"id": task_id})
+    assert (await get_task(engine, task_id, "alice"))["request_text"] == "secret plan"
+    assert await get_task(engine, task_id, "bob") is None
+
+
+def test_every_query_on_tasks_is_scoped_to_a_user():
+    """Sweep: every SQL statement that reads or changes aidigest.tasks names requested_by, or is the
+    update of a row this request just created by its fresh random id (_finish_task)."""
+    import re
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "aidigest").glob("*.py")
+    statements = []
+    for path in src:
+        for m in re.finditer(r'"((?:SELECT|UPDATE|DELETE)[^"]*?)"\s*(?:"([^"]*)")?\s*(?:"([^"]*)")?', path.read_text()):
+            sql = "".join(g or "" for g in m.groups())
+            if "aidigest.tasks" in sql:
+                statements.append((path.name, sql))
+    assert statements, "no task queries found: the sweep pattern is stale"
+    for name, sql in statements:
+        if sql.startswith("UPDATE aidigest.tasks SET status=:status"):   # _finish_task: own fresh id
+            continue
+        assert "requested_by=:by" in sql.replace(" ", "") or "requested_by = :by" in sql, (name, sql)
+
+
+def test_every_route_has_an_access_policy(settings):
+    """New endpoints must be classified. Policy (DESIGN.md section 16): every authenticated user is a
+    team member; digest, knowledge and ops are shared; task records are per-user."""
+    from aidigest.app import create_app
+    policy = {
+        "/health": "public", "/": "shared", "/ops/status": "shared-ops", "/ops/run-daily": "shared-ops",
+        "/digest": "shared", "/digest.json": "shared", "/knowledge": "shared",
+        "/agent/tasks": "per-user (creates the caller's task)", "/agent/tasks/{task_id}": "per-user (owner only)",
+    }
+    app = create_app(settings, engine=object(), ai=object(), fetcher=object())
+    routes = {r.path for r in app.routes if getattr(r, "methods", None)}
+    assert routes == set(policy), routes ^ set(policy)
+
+
 # ── M3: NUL bytes are input errors, never 503 ────────────────────────────────
 @pytest.mark.parametrize(
     "body",
@@ -360,7 +424,7 @@ async def test_task_budget_is_enforced_and_recorded(settings, engine, fake_fetch
 
     ai = FakeAI(on_call=slow)
     ai.queue_json(answer())
-    app = create_app(settings.model_copy(update={"aidigest_task_budget_seconds": 0.3}),
+    app = create_app(settings.model_copy(update={"aidigest_task_budget_seconds": 1.0}),
                      engine=engine, ai=ai, fetcher=fake_fetcher)
     async with app.router.lifespan_context(app):
         async with _client_for(app) as c:
@@ -495,3 +559,72 @@ async def test_huge_charref_in_page_is_handled(settings, engine, fake_ai, ref):
     assert r.status_code == 200, r.text
     text_ = evidence_of(fake_ai.calls[0])[0]["text"]
     assert text_.startswith("before") and text_.endswith("after")
+
+
+# ═══════════ PR review 4177765211: the TASK budget is absolute ═══════════
+import asyncio  # noqa: E402
+import time  # noqa: E402
+
+from aidigest.errors import DeadlineError  # noqa: E402
+from tests.fakes import FakeAI, FakeFetcher, HangingEngine  # noqa: E402
+
+BUDGET = 1.0
+SLACK = 0.6
+
+
+async def _run_task_timed(engine, ai, fetcher, body):
+    from aidigest.tasks import TaskConfig, TaskRequest, run_task
+    start = time.monotonic()
+    try:
+        outcome = await asyncio.wait_for(run_task(engine, ai, fetcher, "operator@adapt.cloud", TaskRequest(**body),
+                                                  TaskConfig(budget_seconds=BUDGET)), 30)
+    except Exception as exc:  # noqa: BLE001 - asserted by the caller
+        outcome = exc
+    return outcome, time.monotonic() - start
+
+
+async def test_task_budget_covers_a_held_rate_limit_lock(settings, engine, fake_ai, fake_fetcher):
+    """Another session holds the per-user advisory lock that the task-row insert waits for; over
+    HTTP the caller gets 504 within the budget and no task row is left behind."""
+    from aidigest.app import create_app
+    app = create_app(settings.model_copy(update={"aidigest_task_budget_seconds": BUDGET}),
+                     engine=engine, ai=fake_ai, fetcher=fake_fetcher)
+    async with engine.connect() as holder:
+        await holder.execute(text("SELECT pg_advisory_lock(hashtext('task:operator@adapt.cloud'))"))
+        async with app.router.lifespan_context(app):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://aidigest",
+                                         headers={"X-AIDigest-User": "operator@adapt.cloud",
+                                                  "X-AIDigest-Proxy-Secret": PROXY_SECRET}) as c:
+                start = time.monotonic()
+                r = await asyncio.wait_for(c.post("/agent/tasks", json={"task": "Summarize this"}), 30)
+                elapsed = time.monotonic() - start
+        await holder.execute(text("SELECT pg_advisory_unlock_all()"))
+    assert r.status_code == 504, r.text
+    assert elapsed < BUDGET + SLACK, elapsed
+    assert fake_ai.calls == []
+    assert await count(engine, "tasks") == 0
+
+
+@pytest.mark.parametrize("needle", [
+    "information_schema.tables",     # readiness
+    "pg_advisory_xact_lock",         # the task-row insert (rate-limit lock)
+    "FROM aidigest.knowledge",       # during the run: evidence
+    "UPDATE aidigest.tasks SET",     # recording completion AND failure: both hang
+])
+async def test_task_budget_covers_a_database_that_never_answers(engine, needle):
+    ai, fetcher = FakeAI(), FakeFetcher()
+    ai.queue_json(answer())
+    hanging = HangingEngine(engine, needle)
+    outcome, elapsed = await _run_task_timed(hanging, ai, fetcher, {"task": "Summarize this knowledge"})
+    assert hanging.hung, "the needle never matched: the test does not test anything"
+    assert isinstance(outcome, DeadlineError), outcome
+    assert elapsed < BUDGET + SLACK, elapsed
+    if needle == "FROM aidigest.knowledge":   # the row exists and the failure record does not hang
+        row = await _only_task(engine)
+        assert row["status"] == "failed" and "budget" in row["error"]
+
+
+async def _only_task(engine):
+    async with engine.connect() as conn:
+        return dict((await conn.execute(text("SELECT status, error FROM aidigest.tasks"))).mappings().one())
