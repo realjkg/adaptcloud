@@ -1801,3 +1801,215 @@ Run without `-x` in the foreground over `test_setup_sh.py`, each mutation is kil
   `.env` at that moment, and the rename itself is still atomic.
 - The end-to-end run of section 11.9 was not repeated: this round changes only setup.sh, tests and
   scripts.
+
+## 16. Copilot review of PR #60 (`0ed8b21`): 2 High, 3 Medium
+
+PR #60 was merged at `0ed8b21` (`origin/main` = `f789743`). These fixes are on a new branch,
+`fix/aidigest-copilot-review`, cut from `origin/main`. The first five commits were written on
+`feat/ai-digest-initial` before the merge, then cherry-picked. `git log origin/main..HEAD` contains
+only the commits below. This section supersedes sections 1-15 for gate results.
+
+| SHA | What |
+|---|---|
+| `62f40b4` | Red: tests for all five findings (cherry-pick of `27aa055`) |
+| `766adb6` | High 4177765103: a task is readable only by its requester; access policy (DESIGN.md 16.1) |
+| `13556df` | Medium 4177765193: compressed bodies must reach their end marker with nothing after it |
+| `32aeb9a` | Medium 4177765160 / 4177765211: absolute DAILY and TASK budgets, DB-side timeouts |
+| `90787ab` | High 4177765138: one atomic writer for every `.env` change in setup.sh |
+| `40e3178` | 17 mutations (168 total); 9 targets moved |
+| `8c6aab4` | The DAILY failure-record test reaches the failure record (kills #158, the one survivor of the full run) |
+| this commit | this evidence |
+
+### 16.1 Red (on `0ed8b21`)
+
+```
+test_setup_sh.py:                     129 failed, 28 passed   (the writer, the append path, symlink, static sweep)
+test_tasks.py + test_fetcher.py:      24 failed  (IDOR x3; 20 damaged-stream cases + 2 pre-read cases: "DID NOT RAISE UpstreamError")
+budget tests (budget/daily/tasks):    14 failed, 5 passed in 246.89s   (each hanging case ran into its 30 s test guard)
+```
+
+The 5 budget tests that already passed are cases that were inside the old `wait_for`: a hang in the
+DAILY final store, a hang in TASK knowledge evidence, and the three existing budget tests.
+
+### 16.2 High 4177765103: task IDOR
+
+`GET /agent/tasks/{id}` passes the caller to `get_task`, which filters on
+`id AND requested_by` (the stored, normalised form).
+- Another user's task is a 404 with the same body as an unknown id. The owner still gets 200, and the
+  other user's response contains neither the task text nor the result
+  (`test_task_of_another_user_is_404_like_an_unknown_id`).
+- Sweep: every route is classified as public, shared or per-user
+  (`test_every_route_has_an_access_policy`; policy in DESIGN.md 16.1). Every SQL statement on
+  `aidigest.tasks` names `requested_by`, except the status update of the row this request just
+  created under a fresh random id (`test_every_query_on_tasks_is_scoped_to_a_user`).
+- There is no task list endpoint. Runs, the digest and knowledge are team-shared by policy.
+
+### 16.3 High 4177765138: `.env` writes
+
+All `.env` changes go through `env_replace FILE PRODUCER`: a temp file next to `.env`, `cp -p` plus a
+mode/owner check, flush, `mv -f`, the HUP/INT/QUIT/TERM/EXIT traps, and the symlink refusal. Three
+paths use it:
+- fill empty keys and append missing ones, in one replace;
+- the pre-PR upgrade, which only appends;
+- the full-setup fresh write (which was `cat > .env`).
+
+The `>>` append is gone.
+
+Tests: the signal harness now covers both paths (fill / append): 4 signals x 6 points x
+shell/group x 2 paths = 96 cases. It also covers SIGKILL and the failures (`/dev/full`, `cp`,
+mode, `mv`, flush) on both paths, plus mode/owner and the symlink. On top of that:
+- `test_upgrade_of_a_pre_pr_env_adds_the_keys_atomically_keeping_mode_and_owner`: a real
+  `setup.sh --aidigest` on a pre-PR `.env` with mode 0640 and owner 12345:23456. The keys are
+  added, the old content is a prefix of the new, mode and owner are kept, and the inode is new
+  (replaced, not written into).
+- `test_upgrade_refuses_a_symlinked_env_on_the_append_path`: a real `--aidigest` run, with `.env`
+  a symlink to a file outside the directory. The run is refused and the outside file is unchanged.
+- `test_no_direct_writes_to_env_anywhere`: setup.sh and the Makefile contain no `>`/`>>`, `tee`,
+  `sed -i` or `cp` onto `.env`. The only `mv` onto it is the temp-copy rename.
+
+Full-setup path, checked by hand: the real `env_replace .env setup_env_content` creates a fresh `.env`
+with mode 600 even under `umask 022`. Over an existing 644 `.env` it writes a new inode, and setup.sh
+then runs `chmod 600`.
+
+Elsewhere in the repository, `insurance-agent-demo/Makefile` runs `cp .env.example .env` only when
+that separate app has no `.env`. It is not part of this stack and was not changed.
+
+### 16.4 Medium 4177765160 / 4177765211: absolute budgets
+
+`aidigest/budget.py` (DESIGN.md 16.3) takes one deadline at entry. Readiness, the claim or task-row
+insert (including the advisory-lock wait), the run and the final recording each run in the time that
+is left. Every DAILY/TASK transaction sets local `lock_timeout` and `statement_timeout` 0.1 s below
+it. `min(5 s, budget/2)` is reserved for recording a failure.
+
+| Test (budget 1.0 s, bound 1.6 s) | Result |
+|---|---|
+| advisory lock held by another session: DAILY claim / TASK insert (HTTP 504) | DeadlineError within the bound; no AI call, no row left `running` |
+| DB never answers (`tests/fakes.HangingEngine`): readiness, claim, task insert, final store | DeadlineError within the bound |
+| ... final store hangs, failure record answers | run row / task row `failed` with "budget" |
+| ... completion AND failure record hang | still DeadlineError within the bound (fail safe, logged) |
+| `db_tx` | `lock_timeout` and `statement_timeout` are set, > 0 and within the time left, local to the transaction |
+| DB-side lock wait | ended by Postgres (55P03), reported as DeadlineError; no backend left waiting in `pg_locks` |
+
+### 16.5 Medium 4177765193: compressed bodies
+
+After the last chunk the decoder is flushed, and the flushed bytes count against the cap. The
+stream must then have reached its end (`decoder.eof`) with nothing left over (`unused_data`), for
+gzip, x-gzip and deflate. The damage cases (truncated, trailing garbage, two streams) are rejected
+with chunk sizes 7 and 65536. Complete streams still decode with chunks of 1, 7 and 65536. A
+pre-read compressed body is refused: httpx decoded it without a completeness check, and returns a
+truncated gzip as a 10-byte body.
+
+### 16.6 Gates
+
+pytest, each combination in the foreground and as a background job (INT/QUIT ignored):
+
+```
+foreground  Python 3.11.15  DB=postgres  748 passed in 55.06s
+background  Python 3.11.15  DB=postgres  748 passed in 52.26s
+foreground  Python 3.11.15  DB=aidigest_it  748 passed in 53.80s
+background  Python 3.11.15  DB=aidigest_it  748 passed in 54.68s
+foreground  Python 3.12.3  DB=postgres  748 passed in 55.58s
+background  Python 3.12.3  DB=postgres  748 passed in 55.22s
+foreground  Python 3.12.3  DB=aidigest_it  748 passed in 56.28s
+background  Python 3.12.3  DB=aidigest_it  748 passed in 59.37s
+$ ruff check .                          All checks passed!
+$ python -m compileall ... (3.11, 3.12)  compile-ok
+$ bash -n setup.sh caddy_matrix.sh setup_bash_matrix.sh; sh -n / dash -n caddy-entrypoint.sh   syntax-ok
+$ pip-audit -r requirements.txt          No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt      No known vulnerabilities found
+$ AIDigest/scripts/caddy_matrix.sh       30 cases, 199 checks, 0 failures
+$ AIDigest/scripts/setup_bash_matrix.sh  118 cases (fill + append) on bash 4.4, 5.0, 5.1, 5.2, 5.3: 118 passed each
+```
+
+An earlier pass of the same 8-run loop had one failure in each of two runs (3.11 / `aidigest_it`,
+foreground and background). Both foreground `postgres` runs of that pass took 85 s instead of about
+55 s. The failing test was not captured: each run overwrote one log file. That pass ran while another
+session on this shared machine was starting containers on the same docker daemon.
+- 14 later full runs passed: 6 x 3.11/`aidigest_it` plus the 8 above, each logged separately.
+- The likely candidate is `test_non_yielding_stream_still_yields_the_loop_periodically` (an
+  event-loop gap under 0.25 s). It is an earlier test, unchanged in this round. It also failed in
+  mutation-analysis runs that overlapped with `dockerd` starting and image pulls, and passed 5/5 on
+  a quiet machine.
+
+### 16.7 Mutation check (168 mutations)
+
+**Full run at `40e3178`.** It was launched as `( nohup $PY scripts/mutation_check.py ... & )`, with
+HUP, INT and QUIT ignored, `AIDIGEST_TEST_DBNAME=aidigest_it`, and `MUTATION_PY312` set.
+
+```
+baseline: PASS (748 passed in 56.71s) 58s
+167/168 mutations killed, 1 survived.
+SURVIVED r7-daily-failure-record-unbounded      748 passed in 56.67s
+```
+
+**#158 was a test gap, not an equivalent mutation.**
+- The test hung every statement containing `aidigest.runs SET status=`, which also matches the
+  claim's own `UPDATE aidigest.runs SET status='failed', error='abandoned'`. The run therefore timed
+  out in the claim, before any row existed, and never reached the failure record that the mutation
+  changes.
+- The TASK counterpart (#161, killed) was valid, because a TASK row is created by an INSERT, which
+  its needle does not match.
+- `8c6aab4` hangs only statements on the run's own claimed row (`AND owner=:owner AND
+  status='running'`: the ownership check, the final store, the failure record). It asserts that the
+  failure-record UPDATE was attempted and that the row exists.
+- Against the mutated code: `AssertionError: TimeoutError()`, because the run hangs until the 30 s
+  test guard. Against the real code: passed in 3.9 s.
+
+**Re-run of the round-7 set at `8c6aab4`** (`--only r7-`, launched the same way):
+
+```
+baseline: PASS (748 passed in 55.43s) 57s
+17/17 mutations killed, 0 survived.
+```
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 1 | `r7-task-read-not-scoped` | a task is readable only by its requester (IDOR, 4177765103) | killed | 1 failed, 723 passed in 49.86s |
+| 2 | `r7-append-in-place` | the upgrade (append) path replaces .env atomically (4177765138) | killed | 1 failed, 658 passed in 45.48s |
+| 3 | `r7-full-setup-in-place` | the full setup writes .env through the same writer | killed | 1 failed, 660 passed in 47.99s |
+| 4 | `r7-producer-write-error-ignored` | the .env producer fails on a failed write (disk full) | killed | 1 failed, 639 passed in 44.62s |
+| 5 | `r7-daily-readiness-unbounded` | DAILY readiness is inside the budget (4177765160) | killed | 1 failed, 289 passed in 54.88s |
+| 6 | `r7-daily-claim-unbounded` | the DAILY claim (incl. its lock wait) is inside the budget | killed | 1 failed, 288 passed in 26.14s |
+| 7 | `r7-daily-failure-record-unbounded` | recording a DAILY failure uses only the reserved slice | killed | 1 failed, 292 passed in 57.24s |
+| 8 | `r7-task-readiness-unbounded` | TASK readiness is inside the budget (4177765211) | killed | 1 failed, 744 passed in 84.00s (0:01:23) |
+| 9 | `r7-task-insert-unbounded` | the TASK row insert (incl. the rate-limit lock wait) is inside the budget | killed | 1 failed, 743 passed in 52.33s |
+| 10 | `r7-task-failure-record-unbounded` | recording a TASK failure uses only the reserved slice | killed | 1 failed, 747 passed in 86.41s (0:01:26) |
+| 11 | `r7-task-insert-timeout-as-storage-error` | a lock_timeout on the task insert is a deadline, not a 503 | killed | 1 failed, 743 passed in 53.10s |
+| 12 | `r7-no-db-side-timeouts` | db_tx sets lock_timeout/statement_timeout inside the budget | killed | 1 failed, 154 passed in 15.46s |
+| 13 | `r7-db-timeout-not-a-deadline` | Postgres lock/statement timeouts are reported as the deadline | killed | 1 failed, 156 passed in 16.63s |
+| 14 | `r7-no-reserve` | a slice of the budget is reserved for recording a failure | killed | 1 failed, 157 passed in 16.39s |
+| 15 | `r7-truncated-stream-accepted` | a compressed stream must reach its end marker (4177765193) | killed | 1 failed, 409 passed in 30.02s |
+| 16 | `r7-trailing-data-accepted` | nothing may follow the compressed stream | killed | 1 failed, 415 passed in 29.42s |
+| 17 | `r7-pre-read-compressed-accepted` | a pre-read compressed body (cannot be verified) is refused | killed | 1 failed, 436 passed in 28.29s |
+
+Every other mutation was killed in the full run. Rows for the retargeted ones (same intent as before):
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 34 | `task-urls-not-reserved` | explicit URLs get the first evidence slots (finding 6) | killed | 1 failed, 701 passed in 45.49s |
+| 39 | `errors-not-recorded` | failures recorded on the task row (finding 8) | killed | 1 failed, 707 passed in 46.50s |
+| 40 | `task-no-readiness-gate` | TASK gated on readiness (finding 9) | killed | 1 failed, 715 passed in 51.05s |
+| 41 | `daily-no-readiness-gate` | DAILY gated on readiness (finding 10) | killed | 1 failed, 30 passed in 4.26s |
+| 52 | `m1-no-daily-budget` | DAILY run budget | killed | 1 failed, 277 passed in 25.55s |
+| 53 | `m1-no-task-budget` | TASK budget | killed | 1 failed, 732 passed in 53.14s |
+| 54 | `m2-no-owner-check-before-ai` | ownership re-checked before the AI call | killed | 1 failed, 272 passed in 18.63s |
+| 135 | `r5-mode-owner-not-kept` | the new .env gets the old one's mode and owner (cp -p and its check) | killed | 1 failed, 515 passed in 41.15s |
+| 136 | `r5-mode-owner-not-verified` | mode/owner of the temp copy verified before the rename | killed | 1 failed, 643 passed in 43.21s |
+| 142 | `r5-write-error-ignored` | a failed write (disk full) stops before the rename (the writer checks the producer) | killed | 1 failed, 639 passed in 41.36s |
+| 151 | `r6-fsync-result-ignored` | the flush result is checked | killed | 1 failed, 641 passed in 41.77s |
+
+Total: 168 mutations. 167 were killed in the full run, and the remaining one (#158) is killed since
+`8c6aab4`. Survivors: none.
+
+### 16.8 Final pytest gates (at `8c6aab4`)
+
+```
+foreground  Python 3.11.15  DB=postgres  748 passed in 55.03s
+background  Python 3.11.15  DB=postgres  748 passed in 60.28s (0:01:00)
+foreground  Python 3.11.15  DB=aidigest_it  748 passed in 57.46s
+background  Python 3.11.15  DB=aidigest_it  748 passed in 55.31s
+foreground  Python 3.12.3  DB=postgres  748 passed in 57.98s
+background  Python 3.12.3  DB=postgres  748 passed in 58.79s
+foreground  Python 3.12.3  DB=aidigest_it  748 passed in 59.76s
+background  Python 3.12.3  DB=aidigest_it  748 passed in 55.30s
+```

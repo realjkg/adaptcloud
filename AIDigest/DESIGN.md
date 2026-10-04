@@ -309,17 +309,6 @@ There is no list endpoint for tasks. If one is added, it must filter on `request
   created under a fresh random id.
 
 
-### 16.4 Compressed bodies are complete or refused (4177765193)
-
-The fetcher accepts only `gzip`, `x-gzip` and `deflate`, all decoded with `zlib.decompressobj`. After
-the last wire chunk it calls `flush()`, whose output counts against the byte cap. It then requires
-`decoder.eof`: a stream that never reached its end marker is truncated, and is refused instead of
-being returned as a silently partial body. It also requires an empty `unused_data`, so trailing
-garbage and a second gzip member are refused.
-
-A pre-read body (only in-process transports, never the network) has already been decoded by httpx,
-which does not check completeness, so a compressed pre-read body is refused.
-
 ### 16.2 One writer for `.env` (4177765138)
 
 `setup.sh` changes `.env` only through `env_replace FILE PRODUCER [ARGS...]`. The producer writes the
@@ -354,3 +343,14 @@ only reads `.env`, plus `cp .env .env.backup`, which writes the backup.
 - **Before a row exists:** if the budget ends during readiness or while waiting to claim or insert,
   there is nothing to record. The caller gets `DeadlineError`, and the scheduler logs it.
 - **Unbudgeted:** endpoints and the lease heartbeat use `db_tx(engine, None)`, a plain transaction.
+
+### 16.4 Compressed bodies are complete or refused (4177765193)
+
+The fetcher accepts only `gzip`, `x-gzip` and `deflate`, all decoded with `zlib.decompressobj`. After
+the last wire chunk it calls `flush()`, whose output counts against the byte cap. It then requires
+`decoder.eof`: a stream that never reached its end marker is truncated, and is refused instead of
+being returned as a silently partial body. It also requires an empty `unused_data`, so trailing
+garbage and a second gzip member are refused.
+
+A pre-read body (only in-process transports, never the network) has already been decoded by httpx,
+which does not check completeness, so a compressed pre-read body is refused.
