@@ -162,8 +162,9 @@ def create_app(settings: Settings, *, engine: AsyncEngine | None = None, ai: AIC
         return JSONResponse(await run_task(engine, ai, fetcher, who(request), body, task_config))
 
     @app.get("/agent/tasks/{task_id}")
-    async def read_task(task_id: str):
-        row = await get_task(engine, task_id)
+    async def read_task(task_id: str, request: Request):
+        # Per-user (DESIGN.md section 16): only the caller's own task; anyone else's is a plain 404.
+        row = await get_task(engine, task_id, who(request))
         if row is None:
             return JSONResponse({"error": "Task not found"}, status_code=404)
         return JSONResponse(jsonable(row))

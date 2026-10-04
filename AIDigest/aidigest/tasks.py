@@ -285,7 +285,7 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
     mode = resolve_mode(req.task, req.mode, req.urls)
     task_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    requested_by = requested_by.replace("\x00", "")[:320]
+    requested_by = _normalise_user(requested_by)
     await _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit)
 
     try:
@@ -314,7 +314,14 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
         raise mapped from exc
 
 
-async def get_task(engine: AsyncEngine, task_id: str) -> dict | None:
+def _normalise_user(user: str) -> str:
+    """The form stored in tasks.requested_by; reads compare against the same form."""
+    return user.replace("\x00", "")[:320]
+
+
+async def get_task(engine: AsyncEngine, task_id: str, requested_by: str) -> dict | None:
+    """The task only if `requested_by` created it (PR review 4177765103). Another user's task is
+    None, exactly like an unknown id, so its existence is not revealed."""
     try:
         uuid.UUID(task_id)
     except ValueError:
@@ -322,7 +329,8 @@ async def get_task(engine: AsyncEngine, task_id: str) -> dict | None:
     async with engine.connect() as conn:
         row = (await conn.execute(text(
             "SELECT id, requested_by, request_text, mode, status, result_json, error, created_at, completed_at "
-            "FROM aidigest.tasks WHERE id=:id"), {"id": task_id})).mappings().first()
+            "FROM aidigest.tasks WHERE id=:id AND requested_by=:by"),
+            {"id": task_id, "by": _normalise_user(requested_by)})).mappings().first()
     if row is None:
         return None
     out = dict(row)

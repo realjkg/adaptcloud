@@ -289,3 +289,22 @@ The challenger confirmed `.env` integrity under every signal and under disk-full
 | L | A symlinked `.env` failed closed with a misleading "mode and owner" error | Refused up front: "`.env` is a symlink; edit its target by hand or replace the link with a regular file". Writing through the link could reach a file outside the repository, and the rename would replace the link. A hard-linked `.env` loses the link: after the rename, the other names keep the old content (comment in setup.sh) | `test_setup_refuses_a_symlinked_env` |
 | L | `sync "$tmp" \|\| sync` swallowed an fsync error | `aidigest_flush` probes `sync FILE` on the existing `.env`. Where it works, a failure to flush the temp copy is an error ("Could not flush ...; .env was not changed"). Only where it is unsupported does plain `sync` stand in | `flush-fails` failure case; `test_setup_flushes_the_temp_copy` (per-file / plain-only) |
 
+## 16. Copilot review of PR #60 (0ed8b21): 2 High, 3 Medium
+
+### 16.1 Access policy (4177765103)
+
+Every request that reaches the service has passed Caddy basic auth and carries the proxy secret, so
+every caller is a member of the Adapt Cloud team. The data falls into three classes:
+
+| Class | Endpoints | Rule |
+|---|---|---|
+| public | `GET /health` | no identity needed; returns only `{"status":"ok"}` |
+| shared (team) | `GET /`, `GET /digest`, `GET /digest.json`, `GET /knowledge`, `GET /ops/status`, `POST /ops/run-daily` | the digest, the knowledge base and the DAILY runs belong to the team, not to a user. Knowledge saved by a TASK is team knowledge by design: it comes only from fetched public URLs, and `persist_knowledge: false` opts out |
+| per-user | `POST /agent/tasks`, `GET /agent/tasks/{id}` | a task (request text, result, error) belongs to the user who created it. Reads filter on `id AND requested_by`. Another user's task is a 404 with the same body as an unknown id, so its existence is not revealed |
+
+There is no list endpoint for tasks. If one is added, it must filter on `requested_by` too.
+- `test_every_route_has_an_access_policy` fails when a route is added without a classification.
+- `test_every_query_on_tasks_is_scoped_to_a_user` fails when a statement on `aidigest.tasks` does not
+  name `requested_by`. The one exception is the status update of the row that the same request just
+  created under a fresh random id.
+
