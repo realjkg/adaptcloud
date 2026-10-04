@@ -43,8 +43,10 @@ async def apply_schema(engine: AsyncEngine) -> None:
             await conn.execute(text(statement))
 
 
-async def readiness(engine: AsyncEngine) -> dict:
-    async with engine.connect() as conn:
+async def readiness(engine: AsyncEngine, budget=None) -> dict:
+    from aidigest.budget import db_tx
+
+    async with db_tx(engine, budget) as conn:
         rows = await conn.execute(
             text("SELECT table_name FROM information_schema.tables WHERE table_schema = :s ORDER BY table_name"),
             {"s": SCHEMA},

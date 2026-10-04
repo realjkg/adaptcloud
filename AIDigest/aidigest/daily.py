@@ -24,6 +24,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from aidigest.ai import bounded_str, finite_number, parse_json_array
+from aidigest.budget import Budget, db_tx, run_within
 from aidigest.db import readiness
 from aidigest.errors import AIDigestError, DeadlineError, StorageError, UpstreamError
 from aidigest.feeds import DEFAULT_PARSE_TIMEOUT, SOURCES, FeedItem, collect_feeds, url_id
@@ -139,9 +140,10 @@ def validate_daily_selection(selected: list[Any], candidates: list[FeedItem]) ->
     return list(accepted.values())
 
 
-async def _record_not_ready(engine: AsyncEngine, run_key: str, trigger: str, now: datetime, missing) -> None:
+async def _record_not_ready(engine: AsyncEngine, run_key: str, trigger: str, now: datetime, missing,
+                            budget: Budget | None = None) -> None:
     try:
-        async with engine.begin() as conn:
+        async with db_tx(engine, budget, reserve=True) as conn:
             await conn.execute(text(
                 "INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, error, created_at, completed_at) "
                 "VALUES (:id, 'daily', :key, :trigger, 'schema_not_ready', :error, :now, :now)"),
@@ -152,10 +154,11 @@ async def _record_not_ready(engine: AsyncEngine, run_key: str, trigger: str, now
 
 
 async def _claim(engine: AsyncEngine, run_key: str, trigger: str, now: datetime,
-                 cfg: DailyConfig) -> tuple[str, str | None, str | None]:
-    """Atomically claim the day. Returns (outcome, run_id, owner_token)."""
+                 cfg: DailyConfig, budget: Budget | None = None) -> tuple[str, str | None, str | None]:
+    """Atomically claim the day. Returns (outcome, run_id, owner_token). Waiting for the per-day
+    lock is bounded by the run budget (lock_timeout)."""
     run_id, owner = str(uuid.uuid4()), secrets.token_hex(16)
-    async with engine.begin() as conn:
+    async with db_tx(engine, budget) as conn:
         await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": run_key})
         # Only an EXPIRED lease may be taken over. Lease times come from the DATABASE clock
         # (round 2 L7), so replicas with skewed clocks agree on expiry.
@@ -177,7 +180,7 @@ async def _claim(engine: AsyncEngine, run_key: str, trigger: str, now: datetime,
 
 
 async def refresh_lease(engine: AsyncEngine, run_id: str, owner: str, lease_seconds: float) -> bool:
-    async with engine.begin() as conn:
+    async with db_tx(engine, None) as conn:
         result = await conn.execute(text(
             "UPDATE aidigest.runs SET lease_until = now() + make_interval(secs => :lease) "
             "WHERE id=:id AND owner=:owner AND status='running'"),
@@ -196,8 +199,8 @@ async def _heartbeat(engine, run_id, owner, cfg: DailyConfig) -> None:
             log.exception("DAILY lease heartbeat failed")
 
 
-async def _assert_owner(engine: AsyncEngine, run_id: str, owner: str) -> None:
-    async with engine.connect() as conn:
+async def _assert_owner(engine: AsyncEngine, run_id: str, owner: str, budget: Budget | None = None) -> None:
+    async with db_tx(engine, budget) as conn:
         row = (await conn.execute(text(
             "SELECT 1 FROM aidigest.runs WHERE id=:id AND owner=:owner AND status='running'"),
             {"id": run_id, "owner": owner})).scalar()
@@ -205,11 +208,11 @@ async def _assert_owner(engine: AsyncEngine, run_id: str, owner: str) -> None:
         raise LostLease(run_id)
 
 
-async def _new_candidates(engine: AsyncEngine, items: list[FeedItem]) -> list[FeedItem]:
+async def _new_candidates(engine: AsyncEngine, items: list[FeedItem], budget: Budget | None = None) -> list[FeedItem]:
     ranked = [i for i in sorted(items, key=lambda i: i.score, reverse=True) if i.score >= MIN_CANDIDATE_SCORE]
     if not ranked:
         return []
-    async with engine.connect() as conn:
+    async with db_tx(engine, budget) as conn:
         known = set((await conn.execute(
             text("SELECT url FROM aidigest.articles WHERE url = ANY(:urls)"),
             {"urls": [i.url for i in ranked]})).scalars())
@@ -217,11 +220,12 @@ async def _new_candidates(engine: AsyncEngine, items: list[FeedItem]) -> list[Fe
 
 
 async def _store_and_complete(engine: AsyncEngine, run_id: str, owner: str, selected: list[dict[str, Any]],
-                             now: datetime, candidates: int, errors_text: str | None) -> tuple[int, int]:
+                             now: datetime, candidates: int, errors_text: str | None,
+                             budget: Budget | None = None) -> tuple[int, int]:
     """One transaction: lock our run row (owner + running), insert, mark completed.
     Finding 4: count rows actually inserted (RETURNING), not attempted inserts."""
     accepted = knowledge_saved = 0
-    async with engine.begin() as conn:
+    async with db_tx(engine, budget) as conn:
         mine = (await conn.execute(text(
             "SELECT id FROM aidigest.runs WHERE id=:id AND owner=:owner AND status='running' FOR UPDATE"),
             {"id": run_id, "owner": owner})).scalar()
@@ -257,34 +261,45 @@ async def _store_and_complete(engine: AsyncEngine, run_id: str, owner: str, sele
     return accepted, knowledge_saved
 
 
-async def _finish_failed(engine: AsyncEngine, run_id: str, owner: str, error: str) -> None:
+async def _mark_failed(engine: AsyncEngine, run_id: str, owner: str, error: str, budget: Budget | None) -> None:
+    async with db_tx(engine, budget, reserve=True) as conn:
+        await conn.execute(text(
+            "UPDATE aidigest.runs SET status='failed', error=:error, completed_at=:done "
+            "WHERE id=:id AND owner=:owner AND status='running'"),
+            {"error": _db_text(error), "done": datetime.now(timezone.utc), "id": run_id, "owner": owner})
+
+
+async def _finish_failed(engine: AsyncEngine, run_id: str, owner: str, error: str,
+                         budget: Budget | None = None) -> None:
+    """Record the failure within the budget's reserved slice; if even that is not possible, log it
+    and give up (the lease expires and the attempt is counted as abandoned by the next claim)."""
     try:
-        async with engine.begin() as conn:
-            await conn.execute(text(
-                "UPDATE aidigest.runs SET status='failed', error=:error, completed_at=:done "
-                "WHERE id=:id AND owner=:owner AND status='running'"),
-                {"error": _db_text(error), "done": datetime.now(timezone.utc), "id": run_id, "owner": owner})
-    except SQLAlchemyError:
+        if budget is None:
+            await _mark_failed(engine, run_id, owner, error, None)
+        else:
+            await run_within(budget, _mark_failed(engine, run_id, owner, error, budget),
+                             "recording the failure", reserve=True)
+    except (SQLAlchemyError, DeadlineError):
         log.exception("Could not record failed DAILY run %s", run_id)
 
 
 async def _execute(engine, ai, fetcher, run_id: str, owner: str, run_key: str, now: datetime,
-                   cfg: DailyConfig) -> dict:
+                   cfg: DailyConfig, budget: Budget | None = None) -> dict:
     items, source_errors = await collect_feeds(fetcher, parse_timeout=cfg.parse_timeout)
     if len(source_errors) == len(SOURCES):
         # Round 2 L2: e.g. a boot before egress works. Fail (retryable within the daily attempt
         # cap) instead of completing the day with nothing.
         raise UpstreamError("All feeds failed: " + " | ".join(source_errors))
     errors_text = " | ".join(source_errors) or None
-    candidates = await _new_candidates(engine, items)
+    candidates = await _new_candidates(engine, items, budget)
     selected: list[dict[str, Any]] = []
     if candidates:
-        await _assert_owner(engine, run_id, owner)  # never spend an AI call on a run we no longer own
+        await _assert_owner(engine, run_id, owner, budget)  # never spend an AI call on a run we no longer own
         system, user = build_daily_prompt(candidates)
         raw = await ai.complete(system=system, user=user)  # the single AI call
         selected = validate_daily_selection(parse_json_array(raw), candidates)
     accepted, knowledge_saved = await _store_and_complete(
-        engine, run_id, owner, selected, now, len(candidates), errors_text)
+        engine, run_id, owner, selected, now, len(candidates), errors_text, budget)
     return {"status": "completed", "run_id": run_id, "run_key": run_key, "candidates": len(candidates),
             "accepted": accepted, "knowledge_saved": knowledge_saved, "source_errors": source_errors}
 
@@ -292,16 +307,31 @@ async def _execute(engine, ai, fetcher, run_id: str, owner: str, run_key: str, n
 async def run_daily(engine: AsyncEngine, ai, fetcher, *, trigger: str, now: datetime | None = None,
                     config: DailyConfig | None = None) -> dict:
     cfg = config or DailyConfig()
+    # Review 4177765160: ONE absolute deadline for readiness, the claim (incl. its lock wait), the run
+    # and the final recording, taken at entry; recording a failure uses the reserved slice.
+    budget = Budget(cfg.budget_seconds)
+    over = f"DAILY run budget of {cfg.budget_seconds:g}s exceeded"
     started = now or datetime.now(timezone.utc)   # only for the run_key date and created_at; leases use the DB clock
     run_key = f"daily:{started.astimezone(timezone.utc).date().isoformat()}"
 
-    state = await readiness(engine)  # findings 9/10: never run on a broken schema
-    if not state["ready"]:
+    try:
+        state = await run_within(budget, readiness(engine, budget), "readiness")
+    except DeadlineError as exc:
+        log.error("DAILY %s: database not answering within the budget (readiness)", run_key)
+        raise DeadlineError(f"{over} (database not answering)") from exc
+    if not state["ready"]:  # findings 9/10: never run on a broken schema
         log.error("DAILY skipped: SCHEMA_NOT_READY (missing %s)", state["missing_tables"])
-        await _record_not_ready(engine, run_key, trigger, started, state["missing_tables"])
+        with contextlib.suppress(DeadlineError):
+            await run_within(budget, _record_not_ready(engine, run_key, trigger, started, state["missing_tables"],
+                                                       budget), "recording SCHEMA_NOT_READY", reserve=True)
         return {"status": "schema_not_ready", "run_key": run_key, "missing_tables": state["missing_tables"]}
 
-    outcome, run_id, owner = await _claim(engine, run_key, trigger, started, cfg)
+    try:
+        outcome, run_id, owner = await run_within(budget, _claim(engine, run_key, trigger, started, cfg, budget),
+                                                  "the claim")
+    except DeadlineError as exc:   # nothing claimed: nothing to record, reported to the caller
+        log.error("DAILY %s: could not claim the day within the budget (lock held or database silent)", run_key)
+        raise DeadlineError(f"{over} (waiting to claim the day)") from exc
     if outcome == "attempts_exhausted":
         log.warning("DAILY %s: %d failed attempts today; not retrying", run_key, cfg.max_attempts)
         return {"status": "attempts_exhausted", "run_key": run_key, "max_attempts": cfg.max_attempts}
@@ -311,17 +341,17 @@ async def run_daily(engine: AsyncEngine, ai, fetcher, *, trigger: str, now: date
 
     heartbeat = asyncio.create_task(_heartbeat(engine, run_id, owner, cfg))
     try:
-        return await asyncio.wait_for(
-            _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg), cfg.budget_seconds)
+        return await run_within(budget, _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg, budget),
+                                "the run")
     except LostLease:
         log.warning("DAILY %s lost its lease to another run; exiting without side effects", run_id)
         return {"status": "lost_lease", "run_id": run_id, "run_key": run_key}
-    except TimeoutError as exc:
-        await _finish_failed(engine, run_id, owner, f"run budget of {cfg.budget_seconds:g}s exceeded")
-        raise DeadlineError(f"DAILY run budget of {cfg.budget_seconds:g}s exceeded") from exc
+    except DeadlineError as exc:
+        await _finish_failed(engine, run_id, owner, f"run budget of {cfg.budget_seconds:g}s exceeded", budget)
+        raise DeadlineError(over) from exc
     except Exception as exc:
         message = str(exc) if isinstance(exc, AIDigestError) else f"{type(exc).__name__}: {exc}"
-        await _finish_failed(engine, run_id, owner, message)
+        await _finish_failed(engine, run_id, owner, message, budget)
         if isinstance(exc, SQLAlchemyError):
             raise StorageError("Database error during DAILY run") from exc
         raise

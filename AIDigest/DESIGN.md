@@ -319,3 +319,21 @@ garbage and a second gzip member are refused.
 
 A pre-read body (only in-process transports, never the network) has already been decoded by httpx,
 which does not check completeness, so a compressed pre-read body is refused.
+
+### 16.3 Absolute run budgets (4177765160, 4177765211)
+
+`aidigest/budget.py`: `Budget(seconds)` takes one absolute deadline when a DAILY run or TASK starts.
+
+- **Steps:** readiness, the claim or task-row insert (including the advisory-lock wait), the run,
+  and the final status recording each get only the time that is left (`run_within`, client side).
+- **Transactions:** every DAILY/TASK transaction is opened by `db_tx`. It sets
+  `SET LOCAL lock_timeout` and `statement_timeout` 0.1 s below the time left, so Postgres itself
+  ends a lock wait or a slow statement and the backend does not stay queued. SQLSTATE 55P03 and
+  57014 are reported as the budget running out (`DeadlineError`, 504).
+- **Reserve:** `min(5 s, budget/2)` is kept back for recording a failure. A run that used up its
+  working time still marks itself `failed` (TASK row / DAILY run row) before the deadline. If even
+  that cannot be written (the DB is silent), it is logged and the call still returns on time
+  (fail safe). A DAILY row left `running` is taken over as `abandoned` after its lease.
+- **Before a row exists:** if the budget ends during readiness or while waiting to claim or insert,
+  there is nothing to record. The caller gets `DeadlineError`, and the scheduler logs it.
+- **Unbudgeted:** endpoints and the lease heartbeat use `db_tx(engine, None)`, a plain transaction.

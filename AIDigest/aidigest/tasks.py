@@ -3,7 +3,6 @@ evidence -> ONE Claude synthesis -> validate -> optional source-backed knowledge
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -18,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from aidigest.ai import bounded_str, finite_number, parse_json_object
+from aidigest.budget import Budget, db_tx, is_db_timeout, run_within
 from aidigest.db import readiness
 from aidigest.errors import (
     AIDigestError,
@@ -110,11 +110,11 @@ def extract_terms(task: str) -> list[str]:
     return [w for w in words if len(w) > 3 and w not in STOPWORDS][:5]
 
 
-async def _knowledge_evidence(engine: AsyncEngine, task: str) -> list[dict]:
+async def _knowledge_evidence(engine: AsyncEngine, task: str, budget: Budget | None = None) -> list[dict]:
     terms = extract_terms(task)
     if not terms:
         return []
-    async with engine.connect() as conn:
+    async with db_tx(engine, budget) as conn:
         rows = await conn.execute(text(
             "SELECT topic, statement, source_url FROM aidigest.knowledge "
             "WHERE lower(topic || ' ' || statement) LIKE :p ORDER BY created_at DESC LIMIT 12"),
@@ -122,8 +122,8 @@ async def _knowledge_evidence(engine: AsyncEngine, task: str) -> list[dict]:
         return [{"kind": "knowledge", "source": r.topic, "url": r.source_url, "text": r.statement} for r in rows]
 
 
-async def _digest_evidence(engine: AsyncEngine) -> list[dict]:
-    async with engine.connect() as conn:
+async def _digest_evidence(engine: AsyncEngine, budget: Budget | None = None) -> list[dict]:
+    async with db_tx(engine, budget) as conn:
         rows = await conn.execute(text(
             "SELECT title, url, summary, why_adapt FROM aidigest.articles "
             "ORDER BY created_at DESC, score DESC LIMIT 10"))
@@ -132,7 +132,7 @@ async def _digest_evidence(engine: AsyncEngine) -> list[dict]:
 
 
 async def gather_evidence(engine: AsyncEngine, fetcher, req: TaskRequest, mode: str,
-                          parse_timeout: float = DEFAULT_PARSE_TIMEOUT) -> list[dict]:
+                          parse_timeout: float = DEFAULT_PARSE_TIMEOUT, budget: Budget | None = None) -> list[dict]:
     """Finding 6: explicit URLs take the first evidence slots; the cap is applied afterwards.
     Page cleaning runs in a worker thread under a deadline (H1)."""
     evidence: list[dict] = []
@@ -141,9 +141,9 @@ async def gather_evidence(engine: AsyncEngine, fetcher, req: TaskRequest, mode: 
         cleaned = await run_parser(clean_text, page.text, timeout=parse_timeout)
         evidence.append({"kind": "url", "source": validate_url(page.url).host, "url": page.url,
                          "text": cleaned[:MAX_URL_TEXT]})
-    evidence.extend(await _knowledge_evidence(engine, req.task))
+    evidence.extend(await _knowledge_evidence(engine, req.task, budget))
     if mode != "knowledge_lookup":
-        evidence.extend(await _digest_evidence(engine))
+        evidence.extend(await _digest_evidence(engine, budget))
     if not req.urls and mode in FEED_MODES:
         items, _errors = await collect_feeds(fetcher, parse_timeout=parse_timeout)
         for item in sorted(items, key=lambda i: i.score, reverse=True)[:8]:
@@ -221,9 +221,10 @@ def sanitize_task_result(parsed: dict, observed: set[str], persist: bool,
     return result, knowledge[:MAX_KNOWLEDGE_SAVED]
 
 
-async def _save_knowledge(engine: AsyncEngine, knowledge: list[dict], now: datetime) -> int:
+async def _save_knowledge(engine: AsyncEngine, knowledge: list[dict], now: datetime,
+                          budget: Budget | None = None) -> int:
     saved = 0
-    async with engine.begin() as conn:
+    async with db_tx(engine, budget) as conn:
         for k in knowledge:
             row = (await conn.execute(text(
                 "INSERT INTO aidigest.knowledge (id, topic, statement, source_url, confidence, created_at) "
@@ -235,8 +236,9 @@ async def _save_knowledge(engine: AsyncEngine, knowledge: list[dict], now: datet
     return saved
 
 
-async def _finish_task(engine, task_id: str, status: str, *, result=None, error=None) -> None:
-    async with engine.begin() as conn:
+async def _finish_task(engine, task_id: str, status: str, *, result=None, error=None,
+                       budget: Budget | None = None, reserve: bool = False) -> None:
+    async with db_tx(engine, budget, reserve=reserve) as conn:
         await conn.execute(text(
             "UPDATE aidigest.tasks SET status=:status, result_json=:result, error=:error, completed_at=:done "
             "WHERE id=:id"),
@@ -245,11 +247,12 @@ async def _finish_task(engine, task_id: str, status: str, *, result=None, error=
 
 
 async def _create_task_row(engine: AsyncEngine, task_id: str, requested_by: str, req: TaskRequest, mode: str,
-                           now: datetime, hourly_limit: int) -> None:
+                           now: datetime, hourly_limit: int, budget: Budget | None = None) -> None:
     """Insert the task row unless the user's hourly cap is reached (M6). The per-user advisory
-    lock makes count-then-insert atomic across concurrent requests and workers."""
+    lock makes count-then-insert atomic across concurrent requests and workers; waiting for it is
+    bounded by the task budget (lock_timeout)."""
     try:
-        async with engine.begin() as conn:
+        async with db_tx(engine, budget) as conn:
             await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": "task:" + requested_by})
             recent = (await conn.execute(text(
                 "SELECT count(*) FROM aidigest.tasks WHERE requested_by=:by AND created_at > :since"),
@@ -261,40 +264,54 @@ async def _create_task_row(engine: AsyncEngine, task_id: str, requested_by: str,
                 "VALUES (:id, :by, :req, :mode, 'running', :now)"),
                 {"id": task_id, "by": requested_by, "req": req.task, "mode": mode, "now": now})
     except SQLAlchemyError as exc:
+        if is_db_timeout(exc):
+            raise   # the budget ran out while waiting: reported as a deadline by run_within
         raise StorageError("Could not create task") from exc
 
 
-async def _execute_task(engine, ai, fetcher, req: TaskRequest, mode: str, now: datetime, cfg: TaskConfig) -> dict:
-    evidence = await gather_evidence(engine, fetcher, req, mode, cfg.parse_timeout)
+async def _execute_task(engine, ai, fetcher, req: TaskRequest, mode: str, now: datetime, cfg: TaskConfig,
+                        budget: Budget | None = None) -> dict:
+    evidence = await gather_evidence(engine, fetcher, req, mode, cfg.parse_timeout, budget)
     observed = {e["url"] for e in evidence if e.get("url")}
     fetched = {e["url"] for e in evidence if e["kind"] == "url"}
     system, user = build_task_prompt(mode, req.task, evidence)
     raw = await ai.complete(system=system, user=user)  # the single AI call
     result, knowledge = sanitize_task_result(parse_json_object(raw), observed, req.persist_knowledge, fetched)
-    result["knowledge_saved"] = await _save_knowledge(engine, knowledge, now)
+    result["knowledge_saved"] = await _save_knowledge(engine, knowledge, now, budget)
     return result
 
 
 async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: TaskRequest,
                    config: TaskConfig | None = None) -> dict:
     cfg = config or TaskConfig()
-    state = await readiness(engine)  # finding 9: gate BEFORE creating a task row
-    if not state["ready"]:
+    # Review 4177765211: ONE absolute deadline for everything below, taken at entry.
+    budget = Budget(cfg.budget_seconds)
+    over = f"Task budget of {cfg.budget_seconds:g}s exceeded"
+    try:
+        state = await run_within(budget, readiness(engine, budget), "readiness")
+    except DeadlineError as exc:
+        raise DeadlineError(f"{over} (database not answering)") from exc
+    if not state["ready"]:  # finding 9: gate BEFORE creating a task row
         raise NotReadyError(state["missing_tables"])
 
     mode = resolve_mode(req.task, req.mode, req.urls)
     task_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     requested_by = _normalise_user(requested_by)
-    await _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit)
+    try:
+        await run_within(budget, _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit,
+                                                  budget), "task creation")
+    except DeadlineError as exc:   # no row exists: nothing to record, the caller gets 504
+        raise DeadlineError(f"{over} (waiting to create the task)") from exc
 
     try:
-        result = await asyncio.wait_for(_execute_task(engine, ai, fetcher, req, mode, now, cfg), cfg.budget_seconds)
-        await _finish_task(engine, task_id, "completed", result=result)
+        result = await run_within(budget, _execute_task(engine, ai, fetcher, req, mode, now, cfg, budget), "the task")
+        await run_within(budget, _finish_task(engine, task_id, "completed", result=result, budget=budget),
+                         "recording the result")
         return {"id": task_id, "status": "completed", "mode": mode, "result": result}
     except Exception as exc:  # finding 8: classify, record on the task row, re-raise mapped
-        if isinstance(exc, TimeoutError):
-            mapped: AIDigestError = DeadlineError(f"Task budget of {cfg.budget_seconds:g}s exceeded")
+        if isinstance(exc, DeadlineError):
+            mapped: AIDigestError = DeadlineError(over)
         elif isinstance(exc, AIDigestError):
             mapped = exc
         elif isinstance(exc, SQLAlchemyError):
@@ -302,12 +319,13 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
         else:
             log.exception("Unexpected error in task %s", task_id)
             mapped = AIDigestError("Internal error")
-        detail = str(mapped) if isinstance(exc, TimeoutError) else (
+        detail = str(mapped) if isinstance(exc, DeadlineError) else (
             str(exc) if isinstance(exc, AIDigestError) else f"{type(exc).__name__}: {exc}")
-        try:
-            await _finish_task(engine, task_id, "failed",
-                               error=f"{mapped.status_code}: {detail}".replace("\x00", "")[:1500])
-        except SQLAlchemyError:
+        try:   # the reserved slice: recording the failure cannot outlast the budget either
+            await run_within(budget, _finish_task(
+                engine, task_id, "failed", error=f"{mapped.status_code}: {detail}".replace("\x00", "")[:1500],
+                budget=budget, reserve=True), "recording the failure", reserve=True)
+        except (SQLAlchemyError, DeadlineError):
             log.exception("Could not record failure for task %s", task_id)
         if mapped is exc:
             raise
@@ -326,7 +344,7 @@ async def get_task(engine: AsyncEngine, task_id: str, requested_by: str) -> dict
         uuid.UUID(task_id)
     except ValueError:
         return None
-    async with engine.connect() as conn:
+    async with db_tx(engine, None) as conn:
         row = (await conn.execute(text(
             "SELECT id, requested_by, request_text, mode, status, result_json, error, created_at, completed_at "
             "FROM aidigest.tasks WHERE id=:id AND requested_by=:by"),
