@@ -1795,7 +1795,9 @@ Run without `-x` in the foreground over `test_setup_sh.py`, each mutation is kil
 - `setup_bash_matrix.sh` cannot reset an inherited ignore inside its containers (no suitable tool in
   the images); it detects one and refuses to run. In practice it is not reachable, because the
   daemon starts the containers.
-- The `sync FILE` probe uses `.env` itself, so if fsync of `.env` fails, the script falls back to
-  plain `sync`. That is safe, because `.env` is then not replaced unless plain `sync` succeeds.
+- The `sync FILE` probe uses `.env` itself. If fsync of `.env` fails, the probe takes this for an old
+  `sync` without file arguments, and the script falls back to plain `sync`, which reports no errors
+  on Linux. An fsync error on the temp copy could then go unnoticed. That needs an I/O error under
+  `.env` at that moment, and the rename itself is still atomic.
 - The end-to-end run of section 11.9 was not repeated: this round changes only setup.sh, tests and
   scripts.
