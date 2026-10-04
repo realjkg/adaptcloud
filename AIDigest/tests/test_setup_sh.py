@@ -239,13 +239,14 @@ def test_setup_sigkill_never_truncates_env(tmp_path, point, target):
     assert (tmp_path / ".env").read_text() == _ORIGINAL
 
 
-_FAILURES = {
+_FAILURES = {  # hook, the message that must explain it
     # a real ENOSPC from the kernel for one line of the copy (what a full disk does)
-    "disk-full": _MKTEMP_RECORD + 'printf() { if [[ "${2:-}" == FILLER_2=* ]]; then builtin printf "$@" > /dev/full; '
-                 'else builtin printf "$@"; fi; }\n',
-    "copy-fails": _MKTEMP_RECORD + "cp() { return 1; }\n",
-    "mode-not-kept": _MKTEMP_RECORD + 'cp() { command cp "$@" && chmod 0666 "${@: -1}"; }\n',
-    "rename-fails": _MKTEMP_RECORD + "mv() { return 1; }\n",
+    "disk-full": (_MKTEMP_RECORD + 'printf() { if [[ "${2:-}" == FILLER_2=* ]]; then builtin printf "$@" > /dev/full; '
+                  'else builtin printf "$@"; fi; }\n', "Could not write"),
+    # cp -p hitting a full disk: a real ENOSPC, the temp copy keeps mktemp's mode 600 (= .env's)
+    "copy-fails": (_MKTEMP_RECORD + 'cp() { command cp "$1" /dev/full; }\n', "Could not copy"),
+    "mode-not-kept": (_MKTEMP_RECORD + 'cp() { command cp "$@" && chmod 0666 "${@: -1}"; }\n', "mode and owner"),
+    "rename-fails": (_MKTEMP_RECORD + "mv() { return 1; }\n", "Could not replace"),
 }
 
 
@@ -254,11 +255,16 @@ def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure):
     """Any failure before the rename: exit 1 with a clear message, .env byte-identical, and the temp
     copy removed by the EXIT cleanup."""
     env_file = tmp_path / ".env"
-    proc = _run_fill(tmp_path, _FAILURES[failure])
+    hook, message = _FAILURES[failure]
+    env_file.write_text(_ORIGINAL)
+    env_file.chmod(0o600)   # as setup.sh writes it, so only the step under test can stop the replace
+    proc = subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(env_file)],
+                          cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log")},
+                          capture_output=True, text=True, timeout=60)
     names = _created(tmp_path)
     assert len(names) == 1, names
     assert proc.returncode == 1, (proc.returncode, proc.stdout, proc.stderr)
-    assert "was not changed" in proc.stdout + proc.stderr
+    assert message in proc.stdout + proc.stderr and ".env was not changed" in proc.stdout + proc.stderr
     assert env_file.read_text() == _ORIGINAL
     assert not Path(names[0]).exists() and not list(tmp_path.glob(".env.aidigest.*"))
 
