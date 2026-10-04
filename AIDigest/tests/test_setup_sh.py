@@ -173,6 +173,8 @@ _SIGNAL_POINTS = {
     # the file exists but its name has not reached the shell yet
     "after-mktemp": 'mktemp() { local t; t=$(command mktemp "$@") || return; ' + _RECORD
                     + '_signal; builtin printf "%s\\n" "$t"; }\n',
+    # the temp file exists (created mode 600) and nothing is copied into it yet
+    "before-copy": _MKTEMP_RECORD + 'cp() { _signal; command cp "$@"; }\n',
     "during-copy": _MKTEMP_RECORD
                    + 'printf() { builtin printf "$@"; [[ "${2:-}" != FILLER_2=* ]] || _signal; }\n',
     # the new content is complete and .env is about to be replaced (cat: an in-place rewrite)
@@ -267,6 +269,21 @@ def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure):
     assert message in proc.stdout + proc.stderr and ".env was not changed" in proc.stdout + proc.stderr
     assert env_file.read_text() == _ORIGINAL
     assert not Path(names[0]).exists() and not list(tmp_path.glob(".env.aidigest.*"))
+
+
+def test_setup_temp_file_is_private_before_any_secret_is_copied(tmp_path):
+    """The temp copy exists with mode 600 before cp -p writes .env's content into it (only then does it
+    take .env's mode)."""
+    hook = _MKTEMP_RECORD + 'cp() { stat -c %a "${@: -1}" >> "$MODES"; command cp "$@"; }\n'
+    env_file = tmp_path / ".env"
+    env_file.write_text(_ORIGINAL)
+    env_file.chmod(0o644)
+    proc = subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(env_file)], cwd=tmp_path,
+                          env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
+                               "MODES": str(tmp_path / "modes.log")}, capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (tmp_path / "modes.log").read_text().split() == ["600"]
+    assert stat.S_IMODE(env_file.stat().st_mode) == 0o644 and env_file.read_text() == _FILLED
 
 
 def test_setup_fill_keeps_mode_and_owner(tmp_path):
