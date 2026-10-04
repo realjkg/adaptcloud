@@ -54,8 +54,9 @@ Bounds (all optional, safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST
 
 AIDigest connects as its own role that owns **only** schema `aidigest`. It needs no
 database-level `CREATE` (startup skips `CREATE SCHEMA` when the schema exists) and has no access
-to the homeschool tables in `public`. Run this as an admin role that has `CREATEROLE` and `CREATE`
-on the database (a superuser works too). Replace `<admin>` with that admin role's name:
+to the homeschool tables in `public`. Run this as the database owner with `CREATEROLE` (on managed
+Postgres, the admin/owner role you were given; a superuser works too). Replace `<admin>` with that
+role's name and `<dbname>` with the database name (`SELECT current_database();`):
 
 ```sql
 CREATE ROLE aidigest_app LOGIN PASSWORD '<generate a strong password>';

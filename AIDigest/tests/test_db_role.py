@@ -98,10 +98,13 @@ async def test_documented_role_sql_works_for_non_superuser_admin(pg_url):
             if exists:
                 await conn.execute(text(f"DROP OWNED BY {role}"))
                 await conn.execute(text(f"DROP ROLE {role}"))
-        # A typical managed-Postgres admin: CREATEROLE + CREATE on the database, not a superuser.
+        # A typical managed-Postgres admin: owns the database and has CREATEROLE, not a superuser.
         await conn.execute(text("CREATE ROLE dba_admin LOGIN CREATEROLE"))
         dbname = await current_db(conn)
-        await conn.execute(text(f'GRANT CREATE ON DATABASE "{dbname}" TO dba_admin'))
+        await conn.execute(text(f'ALTER DATABASE "{dbname}" OWNER TO dba_admin'))
+        # Hardened like many managed databases: no CONNECT for PUBLIC, so the README's
+        # GRANT CONNECT ON DATABASE <dbname> must name the right database (round 3 M2).
+        await conn.execute(text(f'REVOKE CONNECT ON DATABASE "{dbname}" FROM PUBLIC'))
         await conn.execute(text("CREATE TABLE IF NOT EXISTS public.homeschool_secret (v text)"))
         await conn.execute(text("REVOKE ALL ON public.homeschool_secret FROM PUBLIC"))
     admin = create_async_engine(as_role(pg_url, "dba_admin"), poolclass=NullPool,
@@ -129,6 +132,8 @@ async def test_documented_role_sql_works_for_non_superuser_admin(pg_url):
         await app_engine.dispose()
         await admin.dispose()
         async with su.connect() as conn:
+            await conn.execute(text(f'ALTER DATABASE "{await current_db(conn)}" OWNER TO postgres'))
+            await conn.execute(text(f'GRANT CONNECT ON DATABASE "{await current_db(conn)}" TO PUBLIC'))
             await conn.execute(text("DROP SCHEMA IF EXISTS aidigest CASCADE"))
             await conn.execute(text("DROP TABLE IF EXISTS public.homeschool_secret"))
             for role in ("aidigest_app", "dba_admin"):
