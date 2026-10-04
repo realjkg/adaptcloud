@@ -36,9 +36,18 @@ class Mutation:
 
 
 M = Mutation
-# setup.sh aidigest_fill_empty lines (round 4 M1), used by more than one mutation
-R4_TRAP = "  trap '[[ -z \"$tmp\" ]] || rm -f \"$tmp\"; exit 130' INT TERM   # never leave a copy of the secrets behind\n"
-R4_MKTEMP = "  tmp=$(trap '' INT TERM; mktemp \"${file}.aidigest.XXXXXX\")   # mktemp creates it mode 600\n"
+# setup.sh aidigest_fill_empty lines (rounds 4-5), used by more than one mutation
+R5_TRAPS = ("  trap 'aidigest_tmp_cleanup' EXIT\n"
+            "  trap 'aidigest_tmp_cleanup; exit 129' HUP\n"
+            "  trap 'aidigest_tmp_cleanup; exit 130' INT\n"
+            "  trap 'aidigest_tmp_cleanup; exit 131' QUIT\n"
+            "  trap 'aidigest_tmp_cleanup; exit 143' TERM\n")
+R5_MKTEMP = ("  AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp \"${file}.aidigest.XXXXXX\") \\\n"
+             "    || error \"Could not create a temporary file next to ${file}; ${unchanged}.\"\n")
+R5_KEEP_MODE = ("  cp -p \"$file\" \"$AIDIGEST_TMP\" \\\n"
+                "    && [[ \"$(aidigest_mode_owner \"$AIDIGEST_TMP\")\" == \"$(aidigest_mode_owner \"$file\")\" ]] \\\n"
+                "    || error \"Could not give the temporary copy the mode and owner of ${file}; ${unchanged}.\"\n")
+R5_RENAME = '  mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."\n'
 MUTATIONS: list[Mutation] = [
     # ── Auth ──────────────────────────────────────────────────────────────────
     M("auth-secret-always-ok", "proxy shared secret is verified",
@@ -353,18 +362,15 @@ MUTATIONS: list[Mutation] = [
     M("r3-m1-setup-reserved-user", "setup.sh refuses the placeholder user name",
       [("../setup.sh", '  [[ "$AIDIGEST_BASIC_AUTH_USER" != aidigest-disabled ]] || error', "  true || error")]),
     M("r3-note-no-temp-trap", "setup.sh removes its temp file on INT/TERM",
-      [("../setup.sh", R4_TRAP, "")]),
+      [("../setup.sh", "  trap 'aidigest_tmp_cleanup; exit 130' INT\n", ""),
+       ("../setup.sh", "  trap 'aidigest_tmp_cleanup; exit 143' TERM\n", "")]),
     M("r3-m2-readme-hardcoded-db", "README role SQL grants CONNECT on <dbname> (needs a non-postgres test DB)",
       [("README.md", "GRANT CONNECT ON DATABASE <dbname> TO aidigest_app;", "GRANT CONNECT ON DATABASE postgres TO aidigest_app;")]),
     # ═══════════════ challenger round 4 ═══════════════
-    M("r4-m1-trap-after-mktemp", "setup.sh installs the temp-file trap BEFORE mktemp (the race)",
-      [("../setup.sh", R4_TRAP + R4_MKTEMP, R4_MKTEMP + R4_TRAP)]),
-    M("r4-m1-mktemp-not-shielded", "mktemp ignores INT/TERM (a group signal cannot orphan the file)",
-      [("../setup.sh", "  tmp=$(trap '' INT TERM; mktemp ", "  tmp=$(mktemp ")]),
-    M("r4-m1-rewrite-not-shielded", "the in-place rewrite ignores INT/TERM (Ctrl-C cannot truncate .env)",
-      [("../setup.sh", "  (trap '' INT TERM; cat \"$tmp\" > \"$file\")", "  (cat \"$tmp\" > \"$file\")")]),
-    M("r4-m1-rewrite-in-shell", "the in-place rewrite runs in a shielded child, not in the trapping shell",
-      [("../setup.sh", "  (trap '' INT TERM; cat \"$tmp\" > \"$file\")", "  cat \"$tmp\" > \"$file\"")]),
+    M("r4-m1-trap-after-mktemp", "setup.sh installs the temp-file traps BEFORE mktemp (the race)",
+      [("../setup.sh", R5_TRAPS + R5_MKTEMP, R5_MKTEMP + R5_TRAPS)]),
+    M("r4-m1-mktemp-not-shielded", "mktemp ignores the signals (a group signal cannot orphan the file)",
+      [("../setup.sh", "AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp ", "AIDIGEST_TMP=$(mktemp ")]),
     M("r4-l1-settings-allows-marker", "Settings rejects a user containing the heredoc marker",
       [("aidigest/config.py", " or value == SENTINEL_USER or HEREDOC_MARKER in value):", " or value == SENTINEL_USER):")]),
     M("r4-l1-setup-allows-marker", "setup.sh rejects a user containing the heredoc marker",
@@ -381,6 +387,31 @@ MUTATIONS: list[Mutation] = [
         "        AIDIGEST_VALUE_END <<AIDIGEST_VALUE_END\n",
         "        <<AIDIGEST_USER_END\n        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled}\n"
         "        AIDIGEST_USER_END <<AIDIGEST_VALUE_END\n")]),
+    # ═══════════════ challenger round 4 Lows (follow-up of f3c711b) ═══════════════
+    M("r5-in-place-rewrite", ".env replaced by an atomic rename, not rewritten in place",
+      [("../setup.sh", R5_RENAME, '  cat "$AIDIGEST_TMP" > "$file"; rm -f "$AIDIGEST_TMP"\n')]),
+    M("r5-in-place-rewrite-shielded", "no in-place rewrite, even with the round-4 signal shield",
+      [("../setup.sh", R5_RENAME, '  (trap \'\' HUP INT QUIT TERM; cat "$AIDIGEST_TMP" > "$file"); rm -f "$AIDIGEST_TMP"\n')]),
+    M("r5-mode-owner-not-kept", "the new .env gets the old one's mode and owner (cp -p)",
+      [("../setup.sh", R5_KEEP_MODE, "")]),
+    M("r5-mode-owner-not-verified", "mode/owner of the temp copy verified before the rename",
+      [("../setup.sh", '    && [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \\\n', "")]),
+    M("r5-no-hup-trap", "SIGHUP (SSH disconnect) removes the temp copy, exit 129",
+      [("../setup.sh", "  trap 'aidigest_tmp_cleanup; exit 129' HUP\n", "")]),
+    M("r5-no-quit-trap", "SIGQUIT removes the temp copy, exit 131",
+      [("../setup.sh", "  trap 'aidigest_tmp_cleanup; exit 131' QUIT\n", "")]),
+    M("r5-no-exit-cleanup", "the temp copy is removed on any exit (e.g. a failed write)",
+      [("../setup.sh", "  trap 'aidigest_tmp_cleanup' EXIT\n", "")]),
+    M("r5-mktemp-shield-int-term-only", "mktemp ignores HUP and QUIT too",
+      [("../setup.sh", "AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp ", "AIDIGEST_TMP=$(trap '' INT TERM; mktemp ")]),
+    M("r5-write-error-ignored", "a failed write (disk full) stops before the rename",
+      [("../setup.sh", "    printf '%s\\n' \"$l\" || error ", "    printf '%s\\n' \"$l\" || true ")]),
+    M("r5-rename-error-ignored", "a failed rename is reported, not success",
+      [("../setup.sh", '"$file" || error "Could not replace ${file}; ${unchanged}."', '"$file" || true')]),
+    M("r5-gitignore-no-env-star", ".gitignore covers leftover .env.aidigest.* copies",
+      [("../.gitignore", ".env.*\n!.env.example\n", "!.env.example\n")]),
+    M("r5-gitignore-example-ignored", ".env.example stays tracked",
+      [("../.gitignore", ".env.*\n!.env.example\n", ".env.*\n")]),
 ]
 
 
@@ -424,7 +455,7 @@ def copy_tree(dest: Path) -> Path:
     app = dest / "AIDigest"
     shutil.copytree(ROOT, app, ignore=shutil.ignore_patterns(
         "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv", "scripts"))
-    for name in ("setup.sh", "Caddyfile", "docker-compose.yml", ".env.example", "caddy-entrypoint.sh"):
+    for name in ("setup.sh", "Caddyfile", "docker-compose.yml", ".env.example", "caddy-entrypoint.sh", ".gitignore"):
         shutil.copy2(ROOT.parent / name, dest / name)
     return app
 
