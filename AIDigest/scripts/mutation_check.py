@@ -418,6 +418,19 @@ MUTATIONS: list[Mutation] = [
       [("../.gitignore", ".env.*\n!.env.example\n", "!.env.example\n")]),
     M("r5-gitignore-example-ignored", ".env.example stays tracked",
       [("../.gitignore", ".env.*\n!.env.example\n", ".env.*\n")]),
+    # ═══════════════ review of 80c1871 ═══════════════
+    M("r6-tests-inherit-ignored-signals", "signal tests reset inherited SIG_IGN in the child (nohup / background job)",
+      [("tests/test_setup_sh.py", "                          preexec_fn=_default_signals)\n", ")\n")]),
+    M("r6-symlink-followed", "a symlinked .env is refused with a clear message",
+      [("../setup.sh", '  [[ ! -L "$file" ]] \\\n    || error "${file} is a symlink;', '  true \\\n    || error "${file} is a symlink;')]),
+    M("r6-fsync-error-swallowed", "a failed fsync of the temp copy stops the replace (old `sync tmp || sync`)",
+      [("../setup.sh", "aidigest_flush() { if sync \"$2\" 2>/dev/null; then sync \"$1\"; else sync; fi; }",
+        "aidigest_flush() { sync \"$1\" 2>/dev/null || sync; }")]),
+    M("r6-fsync-plain-only", "the temp copy itself is flushed where `sync FILE` works",
+      [("../setup.sh", "aidigest_flush() { if sync \"$2\" 2>/dev/null; then sync \"$1\"; else sync; fi; }",
+        "aidigest_flush() { sync; }")]),
+    M("r6-fsync-result-ignored", "the flush result is checked",
+      [("../setup.sh", '"$file" || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."', '"$file" || true')]),
 ]
 
 
