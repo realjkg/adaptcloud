@@ -161,6 +161,19 @@ run_case "secret with ' and braces"     "ops" "$KNOWN_HASH" "abc'def{env.HOME}01
 run_case "hash is not a bcrypt hash"    "ops" "not a bcrypt hash at all" "$SECRET" 401
 run_case "hash with a double quote"     "ops" '$2a$10$"broken' "$SECRET" 401
 run_case "hash with spaces"             "ops" '$2a$10$ broken hash value' "$SECRET" 401
+# Round 4 L1: a user containing the Caddyfile heredoc marker (AIDIGEST_VALUE_END) is made only of
+# allowed characters but ends the heredoc early, so `caddy adapt` failed and Caddy restart-looped.
+# The entrypoint replaces it: Caddy adapts, the UI stays up, /aidigest/* is 401 for it.
+run_case "user is the heredoc marker"           "AIDIGEST_VALUE_END"       "$KNOWN_HASH" "$SECRET" 401
+run_case "user = x + heredoc marker"            "xAIDIGEST_VALUE_END"      "$KNOWN_HASH" "$SECRET" 401
+run_case "user = ops- + heredoc marker"         "ops-AIDIGEST_VALUE_END"   "$KNOWN_HASH" "$SECRET" 401
+run_case "user = heredoc marker + -ops"         "AIDIGEST_VALUE_END-ops"   "$KNOWN_HASH" "$SECRET" 401
+run_case "user with the marker in the middle"   "opsAIDIGEST_VALUE_ENDops" "$KNOWN_HASH" "$SECRET" 401
+# Near miss: the rule is exactly "contains the marker" (case-sensitive, like Caddy), so this works.
+run_case "user is the marker in lower case"     "aidigest_value_end"       "$KNOWN_HASH" "$SECRET" 502
+# The hash goes through the same heredoc (a valid bcrypt hash cannot contain "_"); the secret does not.
+run_case "hash contains the heredoc marker"     "ops" '$2a$10$AIDIGEST_VALUE_END' "$SECRET" 401
+run_case "secret contains the heredoc marker"   "ops" "$KNOWN_HASH" "AIDIGEST_VALUE_END0123456789abcdef0123456789" 502
 run_raw_case "no AIDIGEST_* variables at all"
 run_raw_case "user with a space"        "ops admin" "$KNOWN_HASH" "$SECRET"
 run_raw_case "user with a double quote" 'o"ps'      "$KNOWN_HASH" "$SECRET"

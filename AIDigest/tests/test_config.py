@@ -146,3 +146,39 @@ def test_production_requires_basic_auth_user():
 @pytest.mark.parametrize("user", ["ops", "ops.admin", "ops_1@adapt.cloud", "a" * 64])
 def test_basic_auth_user_accepts_safe_values(user):
     assert make_settings(**{**GOOD_PROD, "aidigest_basic_auth_user": user}).aidigest_basic_auth_user == user
+
+
+# ── Round 4 L1: the Caddyfile heredoc marker must not occur in the user name ──
+# The user is substituted between <<AIDIGEST_VALUE_END ... AIDIGEST_VALUE_END in the Caddyfile; Caddy
+# ends a heredoc as soon as the text read so far ends with the marker, so a user containing it
+# (anywhere, any position) breaks `caddy adapt` although every character is allowed.
+MARKER_USERS = ["AIDIGEST_VALUE_END", "xAIDIGEST_VALUE_END", "ops-AIDIGEST_VALUE_END", "AIDIGEST_VALUE_END-ops",
+                "opsAIDIGEST_VALUE_ENDops"]
+
+
+@pytest.mark.parametrize("user", MARKER_USERS)
+@pytest.mark.parametrize("production", ["true", "false"])
+def test_basic_auth_user_rejects_the_caddyfile_heredoc_marker(user, production):
+    with pytest.raises(ValidationError, match="AIDIGEST_VALUE_END"):
+        make_settings(**{**GOOD_PROD, "production": production, "aidigest_basic_auth_user": user})
+
+
+@pytest.mark.parametrize("user", ["aidigest_value_end", "AIDIGEST_VALUE_EN", "AIDIGEST_VALUE-END"])
+def test_basic_auth_user_accepts_near_misses_of_the_marker(user):
+    """The rule is exactly 'contains the marker' (Caddy compares case-sensitively); the matrix
+    shows Caddy accepts these."""
+    assert make_settings(**{**GOOD_PROD, "aidigest_basic_auth_user": user}).aidigest_basic_auth_user == user
+
+
+def test_heredoc_marker_is_the_one_the_caddyfile_uses():
+    """Every heredoc in the Caddyfile uses config.HEREDOC_MARKER, and the entrypoint and setup.sh
+    check that same marker (a renamed marker cannot silently leave a validator behind)."""
+    import re
+    from pathlib import Path
+
+    from aidigest.config import HEREDOC_MARKER
+    repo = Path(__file__).resolve().parents[2]
+    caddyfile = (repo / "Caddyfile").read_text()
+    assert set(re.findall(r"<<([A-Za-z0-9_-]+)", caddyfile)) == {HEREDOC_MARKER}
+    assert f"HEREDOC_MARKER={HEREDOC_MARKER}\n" in (repo / "caddy-entrypoint.sh").read_text()
+    assert f"!= *{HEREDOC_MARKER}* ]]" in (repo / "setup.sh").read_text()

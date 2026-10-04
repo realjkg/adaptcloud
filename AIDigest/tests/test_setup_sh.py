@@ -145,7 +145,10 @@ def test_empty_aidigest_keys_from_env_example_are_filled_in_place(tmp_path):
 
 
 # ── Round 3 M1: setup.sh refuses user names Caddy/Settings would reject ───────
-@pytest.mark.parametrize("user", ["ops admin", " ", 'o"ps', "{ops}", "ops'", "a" * 65, "aidigest-disabled"])
+@pytest.mark.parametrize("user", ["ops admin", " ", 'o"ps', "{ops}", "ops'", "a" * 65, "aidigest-disabled",
+                                  # round 4 L1: the Caddyfile heredoc marker, exact or as a substring
+                                  "AIDIGEST_VALUE_END", "xAIDIGEST_VALUE_END", "ops-AIDIGEST_VALUE_END",
+                                  "AIDIGEST_VALUE_END-ops"])
 def test_setup_rejects_unsafe_basic_auth_user(tmp_path, user):
     env_file = _prepare(tmp_path)
     before = env_file.read_bytes()
@@ -155,26 +158,111 @@ def test_setup_rejects_unsafe_basic_auth_user(tmp_path, user):
     assert not list(tmp_path.glob(".env.aidigest.*")), "no temp file may be left behind"
 
 
-def test_setup_temp_file_removed_on_interrupt(tmp_path):
-    """Round 3 note: the 600-mode temp copy made while filling empty keys is removed on SIGTERM,
-    and .env is left untouched (it is only rewritten after the copy is complete)."""
-    import signal
-    import time
+# ── Round 4 M1: INT/TERM at any point never leaves the temp copy behind or .env half-written ──
+# Deterministic: the signal is sent by a hook at a defined point inside the real aidigest_fill_empty
+# (no polling, no sleeps), so the result does not depend on scheduling. The hooks shadow the commands
+# the function runs (mktemp, printf, cat) with shell functions that call the real command and send
+# the signal either to the shell running the function ($$, also correct inside a command
+# substitution) or to its whole process group (0: what a terminal Ctrl-C does).
+_RECORD = 'builtin printf "%s\\n" "$t" >> "$CREATED"; '
+_MKTEMP_RECORD = 'mktemp() { local t; t=$(command mktemp "$@") || return; ' + _RECORD + 'builtin printf "%s\\n" "$t"; }\n'
+_SIGNAL_POINTS = {
+    # the challenger's race: the signal lands before the file exists (old code: no trap yet)
+    "before-mktemp": 'mktemp() { _signal; local t; t=$(command mktemp "$@") || return; '
+                     + _RECORD + 'builtin printf "%s\\n" "$t"; }\n',
+    # the file exists but its name has not reached the shell yet
+    "after-mktemp": 'mktemp() { local t; t=$(command mktemp "$@") || return; ' + _RECORD
+                    + '_signal; builtin printf "%s\\n" "$t"; }\n',
+    "during-copy": _MKTEMP_RECORD
+                   + 'printf() { builtin printf "$@"; [[ "${2:-}" != FILLER_2=* ]] || _signal; }\n',
+    # .env has been truncated for the in-place rewrite and nothing is written yet
+    "during-rewrite": _MKTEMP_RECORD + 'cat() { _signal; command cat "$@"; }\n',
+}
+_SIGNAL_HELPER = 'if [[ "${TARGET:-}" == group ]]; then _signal() { kill -s "$SIG" 0; }; else _signal() { kill -s "$SIG" $$; }; fi\n'
+_FILLER = "".join(f"FILLER_{i}=value-{i}\n" for i in range(5))
 
+
+def _fill_empty_script(hook: str) -> str:
     text_ = (REPO / "setup.sh").read_text()
     start = text_.index("aidigest_fill_empty() {")
     func = text_[start:text_.index("\n}\n", start) + 3]
+    return ("set -euo pipefail\n" + _SIGNAL_HELPER + hook + func
+            + 'aidigest_fill_empty "$1" AIDIGEST_PROXY_SECRET "AIDIGEST_PROXY_SECRET=new"\n')
+
+
+def _run_fill(tmp_path: Path, hook: str, **env) -> subprocess.CompletedProcess:
+    # start_new_session: the script gets its own process group, so "kill 0" cannot reach pytest
+    return subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(tmp_path / ".env")],
+                          cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
+                                             **env},
+                          capture_output=True, text=True, timeout=60, start_new_session=True)
+
+
+@pytest.mark.parametrize("target", ["shell", "group"])
+@pytest.mark.parametrize("sig", ["TERM", "INT"])
+@pytest.mark.parametrize("point", sorted(_SIGNAL_POINTS))
+def test_setup_temp_file_removed_on_interrupt(tmp_path, point, sig, target):
+    """The 600-mode temp copy made while filling empty keys is removed whenever INT/TERM arrives
+    (exit 130). .env is either untouched or (signal during the in-place rewrite) completely rewritten:
+    never truncated or partial."""
     env_file = tmp_path / ".env"
-    content = "".join(f"FILLER_{i}=value-{i}\n" for i in range(150_000)) + "AIDIGEST_PROXY_SECRET=\n"
+    content = _FILLER + "AIDIGEST_PROXY_SECRET=\n"
     env_file.write_text(content)
-    script = func + '\naidigest_fill_empty "$1" AIDIGEST_PROXY_SECRET "AIDIGEST_PROXY_SECRET=new"\n'
-    proc = subprocess.Popen(["bash", "-c", script, "fill", str(env_file)], cwd=tmp_path)
-    for _ in range(200):                                  # wait until the temp copy exists
-        if list(tmp_path.glob(".env.aidigest.*")):
-            break
-        time.sleep(0.01)
-    assert list(tmp_path.glob(".env.aidigest.*")), "temp file never appeared"
-    proc.send_signal(signal.SIGTERM)
-    assert proc.wait(timeout=20) == 130
-    assert not list(tmp_path.glob(".env.aidigest.*")), "temp file with secrets left behind"
-    assert env_file.read_text() == content
+    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], SIG=sig, TARGET=target)
+    created = tmp_path / "created.log"
+    names = created.read_text().split() if created.exists() else []
+    assert len(names) == 1 and names[0].startswith(str(tmp_path / ".env.aidigest.")), names
+    assert proc.returncode == 130, (proc.returncode, proc.stderr)
+    assert not Path(names[0]).exists(), "temp file with secrets left behind"
+    assert not list(tmp_path.glob(".env.aidigest.*"))
+    expected = _FILLER + "AIDIGEST_PROXY_SECRET=new\n" if point == "during-rewrite" else content
+    assert env_file.read_text() == expected
+
+
+def test_setup_fill_empty_without_signal_still_fills(tmp_path):
+    """Control for the hooks above: with the recording hook and no signal the function completes."""
+    env_file = tmp_path / ".env"
+    env_file.write_text("A=1\nAIDIGEST_PROXY_SECRET=\nB=2\n")
+    proc = _run_fill(tmp_path, _MKTEMP_RECORD)
+    assert proc.returncode == 0, proc.stderr
+    assert env_file.read_text() == "A=1\nAIDIGEST_PROXY_SECRET=new\nB=2\n"
+    assert len((tmp_path / "created.log").read_text().split()) == 1
+    assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+def test_setup_accepts_a_near_miss_of_the_heredoc_marker(tmp_path):
+    env_file = _prepare(tmp_path)
+    proc = _run(tmp_path, ["--aidigest"], "aidigest_value_end\n" + ANSWERS.split("\n", 1)[1])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "AIDIGEST_BASIC_AUTH_USER=aidigest_value_end\n" in env_file.read_text()
+
+
+# ── Round 4 L1: caddy-entrypoint.sh replaces a user containing the heredoc marker ──
+# The real entrypoint with a stub `caddy` that prints the environment it is started with (the Caddy
+# matrix shows the same end to end with the real Caddy image).
+SENTINEL_USER = "aidigest-disabled"
+
+
+def _entrypoint_env(tmp_path: Path, user: str, hash_: str = FAKE_HASH) -> dict:
+    stub = tmp_path / "bin"
+    stub.mkdir(exist_ok=True)
+    (stub / "caddy").write_text("#!/bin/sh\nenv\n")
+    (stub / "caddy").chmod(0o755)
+    proc = subprocess.run(["sh", str(REPO / "caddy-entrypoint.sh"), "adapt"], capture_output=True, text=True,
+                          timeout=30, env={"PATH": f"{stub}:{os.environ['PATH']}", "AIDIGEST_BASIC_AUTH_USER": user,
+                                           "AIDIGEST_BASIC_AUTH_HASH": hash_})
+    assert proc.returncode == 0, proc.stderr
+    return dict(line.split("=", 1) for line in proc.stdout.splitlines() if "=" in line)
+
+
+@pytest.mark.parametrize("user", ["AIDIGEST_VALUE_END", "xAIDIGEST_VALUE_END", "ops-AIDIGEST_VALUE_END",
+                                  "AIDIGEST_VALUE_END-ops", "opsAIDIGEST_VALUE_ENDops"])
+def test_entrypoint_replaces_user_containing_the_heredoc_marker(tmp_path, user):
+    env = _entrypoint_env(tmp_path, user)
+    assert env["AIDIGEST_BASIC_AUTH_USER"] == SENTINEL_USER
+    assert env["AIDIGEST_BASIC_AUTH_HASH"] == FAKE_HASH
+
+
+@pytest.mark.parametrize("user", ["ops", "aidigest_value_end", "AIDIGEST_VALUE_EN"])
+def test_entrypoint_keeps_a_valid_user(tmp_path, user):
+    assert _entrypoint_env(tmp_path, user)["AIDIGEST_BASIC_AUTH_USER"] == user
