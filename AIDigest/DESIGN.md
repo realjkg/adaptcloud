@@ -320,6 +320,23 @@ garbage and a second gzip member are refused.
 A pre-read body (only in-process transports, never the network) has already been decoded by httpx,
 which does not check completeness, so a compressed pre-read body is refused.
 
+### 16.2 One writer for `.env` (4177765138)
+
+`setup.sh` changes `.env` only through `env_replace FILE PRODUCER [ARGS...]`. The producer writes the
+complete new content to stdout. It lands in a temp file next to `.env`, which gets `.env`'s mode and
+owner (`cp -p`, verified; 600 for a new file), is flushed, and is renamed over `.env`, under the
+HUP/INT/QUIT/TERM/EXIT traps of section 14. A symlinked `.env` is refused (section 15). Three paths
+use it:
+- filling empty AIDigest keys and appending missing ones, done in ONE replace by `aidigest_append`,
+  and only if something changes (an up-to-date `.env` is not touched);
+- the normal upgrade of a pre-PR `.env`, which only appends;
+- writing a fresh `.env` in the full setup (also after a confirmed overwrite; the backup is made
+  first).
+
+There is no `>`, `>>`, `tee`, `sed -i` or `cp` onto `.env` left in `setup.sh` or the Makefile. A
+static test enforces it, and the only `mv` onto `.env` is the rename of the temp copy. The Makefile
+only reads `.env`, plus `cp .env .env.backup`, which writes the backup.
+
 ### 16.3 Absolute run budgets (4177765160, 4177765211)
 
 `aidigest/budget.py`: `Budget(seconds)` takes one absolute deadline when a DAILY run or TASK starts.
