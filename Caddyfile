@@ -14,23 +14,35 @@
   # any client-supplied value). See AIDigest/DESIGN.md.
   #
   # Fail closed without ever breaking Caddy (it is the only ingress for the homeschool UI):
-  # unset/empty values fall back to non-empty sentinels, so basic_auth always adapts, and the
-  # route answers 401 before basic_auth whenever AIDigest is not FULLY configured. The sentinel
-  # hash is bcrypt of a random value that was discarded - no password matches it.
+  #  - unset/empty values fall back to non-empty sentinels, so basic_auth always adapts; the
+  #    sentinel hash is bcrypt of a random value that was discarded - no password matches it;
+  #  - env placeholders are substituted into the Caddyfile text BEFORE tokenizing, so the user and hash
+  #    are wrapped in heredoc tokens: spaces, quotes, backticks and braces stay inside one token
+  #    (round 3 M1). The proxy secret is not substituted at all: it is read at request time
+  #    from {env.AIDIGEST_PROXY_SECRET};
+  #  - the guard answers 401 before basic_auth unless all three values are present AND valid
+  #    (user 1-64 of A-Z a-z 0-9 . _ @ -, a 60-char bcrypt hash, a 32+ char printable secret)
+  #    and none is a sentinel. Settings and setup.sh enforce the same rules, and
+  #    caddy-entrypoint.sh replaces malformed user/hash values with the sentinels before Caddy
+  #    starts (Caddy itself refuses to load a hash that is not "$..." or base64).
   redir /aidigest /aidigest/ 308
   handle_path /aidigest/* {
     route {
-      @aidigest_unconfigured expression `{env.AIDIGEST_BASIC_AUTH_USER} in ["", "aidigest-disabled"] || {env.AIDIGEST_BASIC_AUTH_HASH} in ["", "$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW"] || {env.AIDIGEST_PROXY_SECRET} == ""`
+      @aidigest_unconfigured expression `!({env.AIDIGEST_BASIC_AUTH_USER}.matches(r"^[A-Za-z0-9._@-]+$") && size({env.AIDIGEST_BASIC_AUTH_USER}) <= 64 && {env.AIDIGEST_BASIC_AUTH_USER} != "aidigest-disabled") || !({env.AIDIGEST_BASIC_AUTH_HASH}.matches(r"^\$2[aby]\$[0-9][0-9]\$[./A-Za-z0-9]+$") && size({env.AIDIGEST_BASIC_AUTH_HASH}) == 60 && {env.AIDIGEST_BASIC_AUTH_HASH} != "$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW") || !({env.AIDIGEST_PROXY_SECRET}.matches(r"^[!-~]+$") && size({env.AIDIGEST_PROXY_SECRET}) >= 32)`
       respond @aidigest_unconfigured 401
       request_body {
         max_size 64KB
       }
       basic_auth {
-        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled} {$AIDIGEST_BASIC_AUTH_HASH:$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
+        <<AIDIGEST_VALUE_END
+        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled}
+        AIDIGEST_VALUE_END <<AIDIGEST_VALUE_END
+        {$AIDIGEST_BASIC_AUTH_HASH:$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
+        AIDIGEST_VALUE_END
       }
       reverse_proxy aidigest:8000 {
-        header_up X-AIDigest-User         {http.auth.user.id}
-        header_up X-AIDigest-Proxy-Secret {$AIDIGEST_PROXY_SECRET}
+        header_up X-AIDigest-User         "{http.auth.user.id}"
+        header_up X-AIDigest-Proxy-Secret "{env.AIDIGEST_PROXY_SECRET}"
       }
     }
   }

@@ -158,7 +158,7 @@ def test_setup_rejects_unsafe_basic_auth_user(tmp_path, user):
 def test_setup_temp_file_removed_on_interrupt(tmp_path):
     """Round 3 note: the 600-mode temp file used to fill empty keys is removed on INT/TERM."""
     text_ = (REPO / "setup.sh").read_text()
-    assert "trap" in text_ and ".env.aidigest." in text_
+    assert "trap" in text_ and ".aidigest.XXXXXX" in text_
     fill = text_[text_.index("aidigest_fill_empty() {"):]
     fill = fill[:fill.index("\n}\n")]
     assert "trap " in fill and "INT" in fill and "TERM" in fill

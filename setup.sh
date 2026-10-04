@@ -37,7 +37,10 @@ aidigest_collect() {
   info "AIDigest (served at https://<host>/aidigest behind Caddy basic auth)"
   IFS= read -rp "     AIDIGEST_BASIC_AUTH_USER [aidigest]: " AIDIGEST_BASIC_AUTH_USER || true
   AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-aidigest}
-  [[ "$AIDIGEST_BASIC_AUTH_USER" =~ ^[A-Za-z0-9._@-]+$ ]] || error "User name may contain only letters, digits and . _ @ -"
+  # Same rule as the service (Settings) and Caddy's guard: 1-64 of A-Z a-z 0-9 . _ @ -
+  [[ "$AIDIGEST_BASIC_AUTH_USER" =~ ^[A-Za-z0-9._@-]{1,64}$ ]] \
+    || error "User name must be 1-64 characters of letters, digits and . _ @ - (no spaces or quotes)"
+  [[ "$AIDIGEST_BASIC_AUTH_USER" != aidigest-disabled ]] || error "'aidigest-disabled' is reserved; choose another user name"
   while true; do
     IFS= read -rsp "     AIDigest password (16+ chars): " AIDIGEST_PASSWORD || error "No password given."; echo
     [[ ${#AIDIGEST_PASSWORD} -ge 16 ]] && break
@@ -65,6 +68,7 @@ aidigest_collect() {
 aidigest_fill_empty() {
   local file=$1 key=$2 newline=$3 tmp l
   tmp=$(mktemp "${file}.aidigest.XXXXXX")   # mktemp creates it mode 600
+  trap 'rm -f "$tmp"; exit 130' INT TERM     # never leave a copy of the secrets behind
   while IFS= read -r l || [[ -n "$l" ]]; do
     if [[ "$l" == "${key}=" || "$l" == "${key}=''" || "$l" == "${key}=\"\"" ]]; then
       printf '%s\n' "$newline"
@@ -74,6 +78,7 @@ aidigest_fill_empty() {
   done < "$file" > "$tmp"
   cat "$tmp" > "$file"   # rewrite in place: keeps the file's inode, owner and mode
   rm -f "$tmp"
+  trap - INT TERM
 }
 
 # A key that already has a value is never modified; an EMPTY AIDigest key is filled in place;

@@ -16,6 +16,7 @@ def make_settings(**overrides):
         anthropic_api_key="sk-ant-test-not-a-real-key",
         aidigest_database_url="postgresql+asyncpg://unused@127.0.0.1:1/unused",
         aidigest_proxy_secret=PROXY_SECRET,
+        aidigest_basic_auth_user="operator",
         aidigest_scheduler_enabled=False,
         production="false",
     )

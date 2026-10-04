@@ -16,6 +16,10 @@ _PLACEHOLDER_DB_URLS = {
 }
 _DAILY_TIME = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 MIN_PROXY_SECRET_LEN = 32
+# Round 3 M1: values that end up in Caddy's configuration are restricted at the source.
+SAFE_USER = re.compile(r"[A-Za-z0-9._@-]{1,64}")
+SAFE_SECRET = re.compile(r"[!-~]*")          # printable ASCII: no whitespace, control or non-ASCII
+SENTINEL_USER = "aidigest-disabled"        # Caddy's placeholder for "not configured"
 
 
 def _looks_placeholder(value: str) -> bool:
@@ -40,6 +44,9 @@ class Settings(BaseSettings):
 
     # ── Auth: shared secret Caddy sends with every proxied request ───────────
     aidigest_proxy_secret: str = ""
+    # Caddy's basic-auth user. The service only validates it (so a value Caddy would refuse is
+    # caught at startup); authentication itself happens in Caddy.
+    aidigest_basic_auth_user: str = ""
 
     # ── DAILY schedule (UTC, HH:MM) and run bounds ────────────────────────────
     aidigest_daily_time: str = "12:30"
@@ -61,6 +68,22 @@ class Settings(BaseSettings):
     aidigest_parse_timeout_seconds: float = 10.0
 
     production: str = "false"
+
+    @field_validator("aidigest_proxy_secret")
+    @classmethod
+    def _secret_characters(cls, value: str) -> str:
+        if not SAFE_SECRET.fullmatch(value):
+            raise ValueError("AIDIGEST_PROXY_SECRET must be printable ASCII without whitespace or control "
+                             "characters (openssl rand -hex 32)")
+        return value
+
+    @field_validator("aidigest_basic_auth_user")
+    @classmethod
+    def _user_characters(cls, value: str) -> str:
+        if value and (not SAFE_USER.fullmatch(value) or value == SENTINEL_USER):
+            raise ValueError("AIDIGEST_BASIC_AUTH_USER must be 1-64 characters of A-Z a-z 0-9 . _ @ - "
+                             f"and not the placeholder {SENTINEL_USER!r}")
+        return value
 
     @field_validator("aidigest_daily_time")
     @classmethod
@@ -88,6 +111,8 @@ class Settings(BaseSettings):
         url = self.aidigest_database_url
         if not url or url in _PLACEHOLDER_DB_URLS or "replace_me" in url.lower():
             problems.append("AIDIGEST_DATABASE_URL is missing or a placeholder")
+        if not self.aidigest_basic_auth_user:
+            problems.append("AIDIGEST_BASIC_AUTH_USER is missing")
         secret = self.aidigest_proxy_secret
         if len(secret) < MIN_PROXY_SECRET_LEN or _looks_placeholder(secret):
             problems.append(

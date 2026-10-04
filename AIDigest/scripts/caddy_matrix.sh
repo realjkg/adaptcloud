@@ -9,13 +9,19 @@
 #        401 = denied by Caddy, 502 = authentication passed (upstream unreachable)
 #      Only the fully configured combination with the right password may reach 502.
 #
-# Usage: AIDigest/scripts/caddy_matrix.sh [Caddyfile] [docker-compose.yml]
+# Caddy is started exactly as docker-compose does: the compose "command" (caddy-entrypoint.sh,
+# which sanitises malformed AIDigest values) with the same files mounted.
+#
+# Usage: AIDigest/scripts/caddy_matrix.sh [Caddyfile] [docker-compose.yml] [caddy-entrypoint.sh]
 # Needs docker, the caddy:2-alpine image and python3. Exit 0 = all expectations met.
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 CADDYFILE=$(realpath "${1:-$HERE/../../Caddyfile}")
 COMPOSE=$(realpath "${2:-$HERE/../../docker-compose.yml}")
+ENTRYPOINT=$(realpath "${3:-$HERE/../../caddy-entrypoint.sh}")
+EXPECTED_COMMAND='["/bin/sh","/usr/local/bin/caddy-entrypoint.sh"]'
+
 IMAGE=caddy:2-alpine
 PASSWORD="matrix-password-1234567"
 WORK=$(mktemp -d)
@@ -33,6 +39,7 @@ KNOWN_HASH=$(printf '%s\n' "$PASSWORD" | docker run --rm -i "$IMAGE" caddy hash-
 # The repo's `:443 { tls internal }` issues no certificate for an unknown SNI (pre-existing); the probe copy
 # adds on_demand issuance so a client inside the network can complete TLS. Nothing else differs.
 sed 's/^  tls internal$/  tls internal {\n    on_demand\n  }/' "$CADDYFILE" > "$WORK/Caddyfile"
+caddy_mounts() { echo -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$ENTRYPOINT:/usr/local/bin/caddy-entrypoint.sh:ro"; }
 docker network create "$NET" >/dev/null
 # Stand-in for the homeschool UI: every case must keep it reachable (Caddy must never stop).
 docker run -d --name "ui-matrix-$$" --network "$NET" --network-alias ui "$IMAGE" \
@@ -61,6 +68,8 @@ import json, sys
 env = json.load(sys.stdin)["services"]["caddy"].get("environment") or {}
 for k, v in sorted(env.items()):
     print(k + "=" + (v or "").replace("$$", "$"))' < "$WORK/compose.json" > "$WORK/caddy.env"
+  python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["services"]["caddy"].get("command"), separators=(",", ":")))' \
+    < "$WORK/compose.json" > "$WORK/caddy.command"
 }
 
 probe() {  # $1 path  $2 user  $3 password (no user = no credentials) -> HTTP status from inside the network
@@ -83,16 +92,19 @@ run_case() {  # $1 label  $2 user  $3 hash  $4 secret  $5 expected status for op
     expect "docker compose config" "rendered" "ERROR: $(tail -c 160 "$WORK/compose.err" | tr '\n' ' ')"; return
   fi
   sed 's/=.*$/=<...>/' "$WORK/caddy.env" | sed 's/^/   caddy env: /'
-  if docker run --rm --env-file "$WORK/caddy.env" -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" \
-       caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>"$WORK/adapt.err"; then
-    expect "caddy adapt" "adapted" "adapted"
+  expect "compose caddy command" "$EXPECTED_COMMAND" "$(cat "$WORK/caddy.command")"
+  # shellcheck disable=SC2046
+  if docker run --rm --env-file "$WORK/caddy.env" $(caddy_mounts) "$IMAGE" \
+       /bin/sh /usr/local/bin/caddy-entrypoint.sh adapt >/dev/null 2>"$WORK/adapt.err"; then
+    expect "caddy adapt (via entrypoint)" "adapted" "adapted"
   else
-    expect "caddy adapt" "adapted" "ERROR: $(tail -c 160 "$WORK/adapt.err" | tr '\n' ' ')"
+    expect "caddy adapt (via entrypoint)" "adapted" "ERROR: $(tail -c 160 "$WORK/adapt.err" | tr '\n' ' ')"
     return
   fi
   docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
+  # shellcheck disable=SC2046
   docker run -d --name "caddy-matrix-$$" --network "$NET" --network-alias caddy --env-file "$WORK/caddy.env" \
-    -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" >/dev/null
+    $(caddy_mounts) "$IMAGE" /bin/sh /usr/local/bin/caddy-entrypoint.sh >/dev/null
   sleep 2
   local user=${2:-ops}
   expect "homeschool UI /" 200 "$(probe / "" "")"
@@ -140,6 +152,7 @@ run_case "secret with \" and braces"     "ops" "$KNOWN_HASH" 'abc"def{ghi}jkl012
 run_case "secret with ' and braces"     "ops" "$KNOWN_HASH" "abc'def{env.HOME}0123456789abcdef0123" 502
 run_case "hash is not a bcrypt hash"    "ops" "not a bcrypt hash at all" "$SECRET" 401
 run_case "hash with a double quote"     "ops" '$2a$10$"broken' "$SECRET" 401
+run_case "hash with spaces"             "ops" '$2a$10$ broken hash value' "$SECRET" 401
 run_raw_case
 
 echo

@@ -94,6 +94,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - AIDIGEST_DATABASE_URL=${AIDIGEST_DATABASE_URL:-}
       - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:-}
+      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-}   # validated only (Caddy authenticates)
       - AIDIGEST_MODEL=${AIDIGEST_MODEL:-claude-sonnet-5-5}
       - AIDIGEST_DAILY_TIME=${AIDIGEST_DAILY_TIME:-12:30}
       - PRODUCTION=true
@@ -116,8 +117,11 @@ services:
     ports:
       - "0.0.0.0:80:80"
       - "0.0.0.0:443:443"
+    # Sanitises the AIDigest values first so Caddy always starts (see caddy-entrypoint.sh).
+    command: ["/bin/sh", "/usr/local/bin/caddy-entrypoint.sh"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-entrypoint.sh:/usr/local/bin/caddy-entrypoint.sh:ro
       - caddy_data:/data
     # Unconfigured AIDigest -> non-empty sentinels (Caddy must always adapt) and /aidigest/* is 401.
     # The sentinel hash is bcrypt of a discarded random value; see the Caddyfile.
