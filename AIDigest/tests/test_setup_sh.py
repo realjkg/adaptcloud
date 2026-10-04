@@ -204,13 +204,13 @@ def _fill_empty_script(hook: str, path: str = "fill") -> str:
     """The real error() helper and the real .env writer block of setup.sh (from its AIDIGEST_TMP global
     to the end of aidigest_env_lines), the hook first, then one call of the given path."""
     text_ = (REPO / "setup.sh").read_text()
-    error_line = next(ln for ln in text_.splitlines() if ln.startswith("error()"))
+    error_line = "\n".join(ln for ln in text_.splitlines() if ln.startswith(("error()", "info()")))
     last = text_.find("aidigest_env_lines() {")
     last = last if last >= 0 else text_.index("aidigest_fill_empty() {")
     start = text_.find('AIDIGEST_TMP=""')
     start = start if 0 <= start < last else last
     block = text_[start:text_.index("\n}\n", last) + 3]
-    return ("set -euo pipefail\nRED=; RESET=\n" + error_line + "\n" + _SIGNAL_HELPER + _FIXED_DATE + hook + block
+    return ("set -euo pipefail\nRED=; CYAN=; RESET=\n" + error_line + "\n" + _SIGNAL_HELPER + _FIXED_DATE + hook + block
             + _CALLS[path])
 
 
@@ -308,14 +308,15 @@ def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure, pat
 
 
 def test_setup_temp_file_is_private_before_any_secret_is_copied(tmp_path):
-    """The temp copy exists with mode 600 before cp -p writes .env's content into it (only then does it
-    take .env's mode)."""
+    """The temp copy exists with mode 600 before cp -p copies .env (the OLD content, briefly at the old
+    mode) into it; it is chmod 600 again before any new content is written."""
     hook = _MKTEMP_RECORD + 'cp() { stat -c %a "${@: -1}" >> "$MODES"; command cp "$@"; }\n'
     env_file = tmp_path / ".env"
     proc = _run_fill(tmp_path, hook, mode=0o644, MODES=str(tmp_path / "modes.log"))
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert (tmp_path / "modes.log").read_text().split() == ["600"]
-    assert stat.S_IMODE(env_file.stat().st_mode) == 0o644 and env_file.read_text() == _FILLED
+    # review of ae012a0, L2: the replaced .env is 600 (it was 644)
+    assert stat.S_IMODE(env_file.stat().st_mode) == 0o600 and env_file.read_text() == _FILLED
 
 
 @pytest.mark.parametrize("path", sorted(_CALLS))

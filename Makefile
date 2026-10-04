@@ -80,9 +80,8 @@ update:          ## Pull latest images and restart
 	docker compose pull
 	docker compose up -d --build
 
-backup-env:      ## Copy .env to .env.backup (never commit either file)
-	cp .env .env.backup
-	@echo ".env backed up to .env.backup"
+backup-env:      ## Back .env up to .env.backup (atomic, mode 600; never commit either file)
+	@bash setup.sh --backup-env
 
 clean:           ## Remove stopped containers and dangling images (data stays in database)
 	docker compose down --remove-orphans

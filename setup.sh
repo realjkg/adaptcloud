@@ -20,9 +20,10 @@ blank()   { echo ""; }
 
 MODE=full
 case "${1:-}" in
-  "")         ;;
-  --aidigest) MODE=aidigest ;;
-  *)          echo "Usage: bash setup.sh [--aidigest]" >&2; exit 2 ;;
+  "")           ;;
+  --aidigest)   MODE=aidigest ;;
+  --backup-env) MODE=backup-env ;;
+  *)            echo "Usage: bash setup.sh [--aidigest | --backup-env]" >&2; exit 2 ;;
 esac
 
 # ── AIDigest helpers ──────────────────────────────────────────────────────────
@@ -69,9 +70,11 @@ aidigest_collect() {
 
 # ── The .env writer: the ONLY way setup.sh changes .env (review 4177765138) ──────
 # env_replace FILE PRODUCER [ARGS...] runs PRODUCER (which writes the complete new content to stdout,
-# reading FILE if it needs to) into a temp file next to FILE, gives it FILE's mode and owner (cp -p,
-# verified; mode 600 for a new FILE), flushes it, and renames it over FILE (atomic). Filling empty
-# keys, appending missing ones and writing a fresh .env all go through it.
+# reading FILE if it needs to) into a temp file next to FILE and renames it over FILE (atomic). The
+# temp file has FILE's owner and group (cp -p, verified) and mode 600 BEFORE anything new is written
+# into it, so the replaced FILE is always mode 600: .env and its backups hold secrets, and a looser
+# mode is tightened, with a notice (review of ae012a0, L2). Filling empty keys, appending missing
+# ones, writing a fresh .env and backing .env up (.env.backup) all go through it.
 #
 # .env is never written in place: until the rename it is untouched, so no signal (HUP on an SSH
 # disconnect, Ctrl-C, QUIT, TERM, even KILL) and no I/O error (disk full) can leave it truncated or
@@ -82,7 +85,8 @@ aidigest_collect() {
 # ".env.*".
 AIDIGEST_TMP=""   # global, so the EXIT trap still sees it once the function has been left
 aidigest_tmp_cleanup() { if [[ -n "$AIDIGEST_TMP" ]]; then rm -f "$AIDIGEST_TMP"; AIDIGEST_TMP=""; fi; }
-aidigest_mode_owner() { ls -ldn "$1" | awk '{ print substr($1, 1, 10), $3, $4 }'; }
+aidigest_mode() { ls -ldn "$1" | awk '{ print substr($1, 1, 10) }'; }
+aidigest_owner() { ls -ldn "$1" | awk '{ print $3, $4 }'; }
 # fsync $1. `sync FILE` (GNU coreutils 8.24+) is probed on $2, an existing directory: where it works,
 # a failure to flush $1 is an error; only where it is unsupported does a plain `sync` stand in.
 aidigest_flush() { if sync "$2" 2>/dev/null; then sync "$1"; else sync; fi; }
@@ -101,11 +105,16 @@ env_replace() {
   trap 'aidigest_tmp_cleanup; exit 143' TERM
   AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp "${file}.aidigest.XXXXXX") \
     || error "Could not create a temporary file next to ${file}; ${unchanged}."
-  if [[ -e "$file" ]]; then   # a new file keeps mktemp's mode 600
+  if [[ -e "$file" ]]; then   # owner and group from FILE (a new file: mktemp's, i.e. the caller's)
     cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); ${unchanged}."
-    [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \
-      || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."
+    if [[ "$(aidigest_mode "$file")" != "-rw-------" ]]; then
+      info "${file} was $(aidigest_mode "$file"); it holds secrets, so it is written with mode 600 (-rw-------)"
+    fi
   fi
+  chmod 600 "$AIDIGEST_TMP"
+  [[ "$(aidigest_mode "$AIDIGEST_TMP")" == "-rw-------" ]] \
+    && { [[ ! -e "$file" ]] || [[ "$(aidigest_owner "$AIDIGEST_TMP")" == "$(aidigest_owner "$file")" ]]; } \
+    || error "Could not give the temporary copy mode 600 and the mode and owner of ${file}; ${unchanged}."
   "$@" > "$AIDIGEST_TMP" || error "Could not write ${AIDIGEST_TMP} (disk full?); ${unchanged}."
   aidigest_flush "$AIDIGEST_TMP" "$(dirname -- "$file")" \
     || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."
@@ -177,7 +186,16 @@ aidigest_only() {
   exit 0
 }
 
+# .env.backup through the same writer (review of ae012a0, L8): mode 600, atomic, a symlink refused.
+backup_env_only() {
+  [[ -f .env ]] || error ".env not found; nothing to back up."
+  env_replace .env.backup cat .env
+  success ".env backed up to .env.backup (mode 600 — never commit either file)"
+  exit 0
+}
+
 if [[ "$MODE" == aidigest ]]; then aidigest_only; fi
+if [[ "$MODE" == backup-env ]]; then backup_env_only; fi
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 blank
@@ -200,8 +218,8 @@ if [[ -f .env ]]; then
       warn "encrypted student record (voice profiles, configs, audit log) PERMANENTLY unreadable."
       IFS= read -rp "   Type OVERWRITE to continue: " CONFIRM || CONFIRM=""
       [[ "$CONFIRM" == "OVERWRITE" ]] || error "Not confirmed; .env left unchanged."
-      cp .env .env.backup
-      success "Existing .env backed up to .env.backup"
+      env_replace .env.backup cat .env
+      success "Existing .env backed up to .env.backup (mode 600)"
       ;;
     *) info "Keeping existing .env. Run 'make start' to launch."; exit 0 ;;
   esac
@@ -292,7 +310,7 @@ DISABLE_API_DOCS=true
 PRODUCTION=true
 EOF
 }
-env_replace .env setup_env_content   # new .env: mode 600; overwrite: atomic, the backup was made above
+env_replace .env setup_env_content   # mode 600 from the start; overwrite: atomic, backup made above
 chmod 600 .env
 success ".env written (mode 600 — only readable by you)"
 
