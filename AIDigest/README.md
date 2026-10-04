@@ -109,8 +109,9 @@ All endpoints are served under `https://<host>/aidigest` and require Caddy basic
 - GET /digest
 - GET /digest.json
 - GET /knowledge?q=finops
-- POST /agent/tasks (429 with Retry-After after the per-user hourly cap)
-- GET /agent/tasks/{id}
+- POST /agent/tasks (429 with Retry-After after the per-user hourly cap; with the single basic-auth
+  account Caddy ships with, that cap is shared by the whole team)
+- GET /agent/tasks/{id} (only the user who created the task; anyone else gets 404)
 
 Example task body (strictly validated; unknown fields are rejected):
 
@@ -124,6 +125,11 @@ Example task body (strictly validated; unknown fields are rejected):
 ```
 
 `mode` is one of `auto`, `research`, `compare`, `summarize`, `knowledge_lookup`, `build_brief`, `opportunity_analysis`. `urls` takes at most 3 HTTPS URLs.
+
+`persist_knowledge` (default `true`) saves the model's knowledge points from this task. They are
+model output written with your task text in the prompt, everyone can read them via `/knowledge`, and
+they are used as evidence in other users' tasks. Send `false` when the task text must stay private.
+See DESIGN.md section 16.1.
 
 ```bash
 curl -sk -u "$AIDIGEST_BASIC_AUTH_USER" -H 'content-type: application/json' \

@@ -299,8 +299,28 @@ every caller is a member of the Adapt Cloud team. The data falls into three clas
 | Class | Endpoints | Rule |
 |---|---|---|
 | public | `GET /health` | no identity needed; returns only `{"status":"ok"}` |
-| shared (team) | `GET /`, `GET /digest`, `GET /digest.json`, `GET /knowledge`, `GET /ops/status`, `POST /ops/run-daily` | the digest, the knowledge base and the DAILY runs belong to the team, not to a user. Knowledge saved by a TASK is team knowledge by design: it comes only from fetched public URLs, and `persist_knowledge: false` opts out |
+| shared (team) | `GET /`, `GET /digest`, `GET /digest.json`, `GET /knowledge`, `GET /ops/status`, `POST /ops/run-daily` | the digest, the knowledge base and the DAILY runs belong to the team, not to a user. Knowledge saved by a TASK is team knowledge by design; see "Knowledge saved by a TASK" below |
 | per-user | `POST /agent/tasks`, `GET /agent/tasks/{id}` | a task (request text, result, error) belongs to the user who created it. Reads filter on `id AND requested_by`. Another user's task is a 404 with the same body as an unknown id, so its existence is not revealed |
+
+**One user in the shipped deployment (review of ae012a0, L3).** Caddy's `basic_auth` is configured
+with a single account (`AIDIGEST_BASIC_AUTH_USER`), so `X-AIDigest-User`, and with it
+`requested_by`, is the same for everyone who knows that password.
+- The per-user rules above therefore separate users only once Caddy has more than one account.
+  Today every caller sees every task.
+- The hourly task limit (`AIDIGEST_TASK_HOURLY_LIMIT`, 20) is a team-wide limit, not one per
+  person.
+
+**Knowledge saved by a TASK (review of ae012a0, L4).** `persist_knowledge` defaults to `true`.
+- **What it is:** a knowledge point is MODEL OUTPUT (topic, statement, confidence), written by the
+  model from a prompt that contains the user's private task text, next to the fetched evidence.
+- **What is checked:** its `source_url` must be a URL fetched in that task, and its confidence must
+  be >= 0.75. Nothing checks that the statement contains only what the page says. It can repeat or
+  paraphrase details of the task text.
+- **Who sees it:** every caller can read it via `GET /knowledge`, and it is fed into other users'
+  tasks as evidence (`_knowledge_evidence`).
+- **Opting out:** a user whose task text must stay private sends `"persist_knowledge": false`.
+- This is the designed behaviour (a shared team knowledge base), documented here so it is not
+  mistaken for a per-user store.
 
 There is no list endpoint for tasks. If one is added, it must filter on `requested_by` too.
 - `test_every_route_has_an_access_policy` fails when a route is added without a classification.
