@@ -44,9 +44,10 @@ R5_TRAPS = ("  trap 'aidigest_tmp_cleanup' EXIT\n"
             "  trap 'aidigest_tmp_cleanup; exit 143' TERM\n")
 R5_MKTEMP = ("  AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp \"${file}.aidigest.XXXXXX\") \\\n"
              "    || error \"Could not create a temporary file next to ${file}; ${unchanged}.\"\n")
-R5_KEEP_MODE = ("  cp -p \"$file\" \"$AIDIGEST_TMP\" \\\n"
-                "    && [[ \"$(aidigest_mode_owner \"$AIDIGEST_TMP\")\" == \"$(aidigest_mode_owner \"$file\")\" ]] \\\n"
-                "    || error \"Could not give the temporary copy the mode and owner of ${file}; ${unchanged}.\"\n")
+R5_KEEP_MODE = ('  cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); '
+                '${unchanged}."\n')
+R5_CHECK_MODE = ('  [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \\\n'
+                 '    || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."\n')
 R5_RENAME = '  mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."\n'
 MUTATIONS: list[Mutation] = [
     # ── Auth ──────────────────────────────────────────────────────────────────
@@ -392,10 +393,12 @@ MUTATIONS: list[Mutation] = [
       [("../setup.sh", R5_RENAME, '  cat "$AIDIGEST_TMP" > "$file"; rm -f "$AIDIGEST_TMP"\n')]),
     M("r5-in-place-rewrite-shielded", "no in-place rewrite, even with the round-4 signal shield",
       [("../setup.sh", R5_RENAME, '  (trap \'\' HUP INT QUIT TERM; cat "$AIDIGEST_TMP" > "$file"); rm -f "$AIDIGEST_TMP"\n')]),
-    M("r5-mode-owner-not-kept", "the new .env gets the old one's mode and owner (cp -p)",
-      [("../setup.sh", R5_KEEP_MODE, "")]),
+    M("r5-mode-owner-not-kept", "the new .env gets the old one's mode and owner (cp -p and its check)",
+      [("../setup.sh", R5_KEEP_MODE + R5_CHECK_MODE, "")]),
     M("r5-mode-owner-not-verified", "mode/owner of the temp copy verified before the rename",
-      [("../setup.sh", '    && [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \\\n', "")]),
+      [("../setup.sh", R5_CHECK_MODE, "")]),
+    M("r5-copy-error-ignored", "a failed copy (disk full) stops before the rename",
+      [("../setup.sh", '  cp -p "$file" "$AIDIGEST_TMP" || error ', '  cp -p "$file" "$AIDIGEST_TMP" || true ')]),
     M("r5-no-hup-trap", "SIGHUP (SSH disconnect) removes the temp copy, exit 129",
       [("../setup.sh", "  trap 'aidigest_tmp_cleanup; exit 129' HUP\n", "")]),
     M("r5-no-quit-trap", "SIGQUIT removes the temp copy, exit 131",

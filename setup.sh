@@ -90,8 +90,8 @@ aidigest_fill_empty() {
   trap 'aidigest_tmp_cleanup; exit 143' TERM
   AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp "${file}.aidigest.XXXXXX") \
     || error "Could not create a temporary file next to ${file}; ${unchanged}."
-  cp -p "$file" "$AIDIGEST_TMP" \
-    && [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \
+  cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); ${unchanged}."
+  [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \
     || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."
   while IFS= read -r l || [[ -n "$l" ]]; do
     if [[ "$l" == "${key}=" || "$l" == "${key}=''" || "$l" == "${key}=\"\"" ]]; then
