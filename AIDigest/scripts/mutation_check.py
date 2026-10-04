@@ -374,7 +374,7 @@ def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, fl
 
 
 def py312_interpreter() -> str:
-    """The interpreter for python="py312" mutations. Missing or unusable is a hard error (exit 2),
+    """The interpreter for python="py312" mutations. Missing or unusable is a hard error (exit 1),
     never a silent pass: a mutation that is not evaluated must not look killed or survived."""
     python = os.environ.get("MUTATION_PY312", "")
     if not python:

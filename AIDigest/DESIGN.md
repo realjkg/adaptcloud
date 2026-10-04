@@ -67,12 +67,24 @@ never call Claude or the internet.
    compose network can reach it. Caddy is the only public entry.
 2. Caddy protects `/aidigest/*` with `basic_auth`; user and bcrypt hash come
    from `AIDIGEST_BASIC_AUTH_USER` / `AIDIGEST_BASIC_AUTH_HASH` (bcrypt cost 10).
-   Compose maps unset/empty values to non-empty sentinels (user
-   `aidigest-disabled`, a bcrypt hash of a discarded random value; the Caddyfile has
-   the same defaults for runs outside compose), so Caddy always adapts - it is the only
-   ingress for the homeschool UI. A `route` answers 401 before `basic_auth` whenever a
-   sentinel or an empty user/hash/proxy secret is in effect, so every partial
-   configuration fails closed (`scripts/caddy_matrix.sh`, all combinations, real Caddy).
+   Caddy is the only ingress for the homeschool UI, so no AIDigest value may stop it:
+   - compose starts Caddy through `caddy-entrypoint.sh`, which replaces a missing or
+     malformed user/hash with non-empty sentinels (user `aidigest-disabled`, a bcrypt
+     hash of a discarded random value). Caddy refuses to provision a hash that is neither
+     `$...` nor base64, which no Caddyfile quoting can prevent;
+   - in the Caddyfile the user and hash are heredoc tokens (env placeholders are
+     substituted before tokenizing, so spaces, quotes and braces stay inside one token),
+     with the same sentinels as defaults when the variables are unset;
+   - the proxy secret is never substituted into the Caddyfile; it is read at request time
+     from `{env.AIDIGEST_PROXY_SECRET}`;
+   - a guard `route` answers 401 before `basic_auth` unless user, hash and secret are all
+     present, well-formed (user 1-64 of `A-Za-z0-9._@-`, a 60-char bcrypt hash, a 32+ char
+     printable secret without whitespace) and not sentinels.
+
+   Settings and `setup.sh` enforce the same user/secret rules. `scripts/caddy_matrix.sh`
+   checks 22 cases against the real Caddy, inside and outside compose: every case adapts,
+   the UI stays at 200, and `/aidigest/*` is reachable only with a complete, valid
+   configuration and the right password.
 3. After authentication Caddy sets `X-AIDigest-User` to `{http.auth.user.id}`.
    `header_up` replaces any client-supplied value. The UI route strips both
    AIDigest headers (`header_up -X-AIDigest-User`, `-X-AIDigest-Proxy-Secret`),
@@ -102,7 +114,7 @@ never call Claude or the internet.
 | **Cost blow-up** | Exactly one Claude call per DAILY run and per TASK (no planner, no loop, no tools); no call when there are no candidates, readiness fails or the lease is lost; explicit `effort` and `AIDIGEST_AI_MAX_TOKENS`; global AI concurrency semaphore (2); per-user TASK cap (20/hour, 429 + Retry-After, atomic under an advisory lock); DAILY attempts capped per day (3, then 429); <=12 DAILY candidates; <=24 TASK evidence items; <=3 explicit URLs; Caddy `request_body max_size 64KB` | `test_daily.py`, `test_tasks.py`, `test_ai.py` |
 | **NUL bytes** (Postgres TEXT rejects them; previously a 503 and a wasted AI call on every retry) | Rejected with 422/400 in task text, URLs and `q`; stripped from feed/page text, model output and stored error text | `test_tasks.py`, `test_daily.py`, `test_api.py` |
 | **Basic-auth CPU DoS on the shared Caddy** | bcrypt cost 10 instead of Caddy's default 14 (about 16x less CPU per failed attempt) with a 16+ character password; stock Caddy has no rate-limit directive (it needs a plugin), so none is configured | documented (L3) |
-| **Ops: AIDigest breaking the homeschool stack** | AIDigest is an opt-in compose profile; compose evaluates `:?` even for inactive profiles, so its variables have defaults: the service's are empty (it then refuses to start), Caddy's are non-empty sentinels so Caddy always adapts, and a guard route answers 401 for any missing/partial combination. A pre-PR `.env` renders and starts the base stack unchanged. `setup.sh --aidigest` only appends missing keys; the overwrite path needs a typed `OVERWRITE` because a new `MASTER_SECRET` makes student data unreadable | `test_setup_sh.py`, compose proof in EVIDENCE.md |
+| **Ops: AIDigest breaking the homeschool stack** | AIDigest is an opt-in compose profile; compose evaluates `:?` even for inactive profiles, so its variables default to empty: the service then refuses to start, while `caddy-entrypoint.sh` substitutes sentinels for missing/malformed values so Caddy always starts, and a guard route answers 401 for any missing, partial or malformed combination. A pre-PR `.env` renders and starts the base stack unchanged. `setup.sh --aidigest` only appends missing keys; the overwrite path needs a typed `OVERWRITE` because a new `MASTER_SECRET` makes student data unreadable | `test_setup_sh.py`, compose proof in EVIDENCE.md |
 | **Weak or missing secrets in production** | `Settings` validator refuses to start when `PRODUCTION=true` and `ANTHROPIC_API_KEY`, `AIDIGEST_DATABASE_URL` or `AIDIGEST_PROXY_SECRET` is missing, a placeholder, or (secret) shorter than 32 chars; limits are validated (lease > budget, heartbeat < lease, positive caps) | `test_config.py` |
 | **Database blast radius** | Dedicated role that owns only schema `aidigest`; no database CREATE (startup skips `CREATE SCHEMA` when it exists); no access to `public.*` homeschool tables | `test_db_role.py` |
 | **Running on a broken schema** | Startup applies schema; `/ops/status` lists missing tables; TASK returns 503 before creating a task; DAILY records `schema_not_ready` and makes no AI call | `test_api.py`, `test_tasks.py`, `test_daily.py` |
@@ -215,3 +227,16 @@ Rollback:
 | L6 | Parser threads share the default executor | Dedicated `ThreadPoolExecutor(4, "aidigest-parse")`; timed-out parses finish in the background (linear, ~0.2 s/MB) without growing the pool | `test_feeds.py::test_parsing_uses_dedicated_bounded_executor` |
 | L7 | Lease times from the replica clock | `now()` / `make_interval` in SQL for claim, refresh and expiry | `test_daily.py::test_lease_uses_database_clock_not_replica_clock` (replica clock a year off) and the takeover tests (expiry set in the DB) |
 | L8 | Version mismatch | `USER_AGENT` uses `aidigest.__version__` (0.4.0), as `/ops/status` does | `test_api.py::test_version_is_consistent`, `test_fetcher.py::test_user_agent_carries_package_version` |
+
+## 12. Challenger round 3 (review of 7e710a0): findings -> fixes
+
+| ID | Finding | Fix | Tests |
+|---|---|---|---|
+| M1 | Unquoted Caddyfile placeholders: a hand-edited value with spaces (proxy secret, user) split into extra tokens, `caddy adapt` failed, Caddy exited, homeschool down | Heredoc tokens for user/hash; proxy secret read at request time (`{env.*}`); guard validates formats; `caddy-entrypoint.sh` sanitises malformed user/hash (Caddy refuses non-`$`/non-base64 hashes at provision time - found by the new matrix cases); Settings rejects whitespace/control/non-ASCII in the secret and unsafe/placeholder user names (user required in production); setup.sh applies the same user rule | `scripts/caddy_matrix.sh` (22 cases incl. spaces, `"`, `'`, backtick, braces in user/secret/hash, inside and outside compose; UI 200 in every case); `test_config.py::test_proxy_secret_rejects_whitespace_and_control_characters`, `::test_basic_auth_user_rejects_unsafe_values`, `::test_production_requires_basic_auth_user`; `test_setup_sh.py::test_setup_rejects_unsafe_basic_auth_user` |
+| M2 | Role SQL test hard-coded the database `postgres` and string-edited URLs | `current_database()`, URLs rebuilt with `URL.create`; `AIDIGEST_TEST_DBNAME` runs the whole suite against any database name; the test admin owns the database and PUBLIC CONNECT is revoked, so a README naming the wrong database fails | `test_db_role.py` (both tests + `test_as_role_rebuilds_the_url`); full suite on 3.11.15 and 3.12.3 against `aidigest_it` and `postgres`; mutation `r3-m2-readme-hardcoded-db` (run with `AIDIGEST_TEST_DBNAME=aidigest_it`) |
+| note | setup.sh temp file not removed on interrupt | `trap 'rm -f "$tmp"; exit 130' INT TERM` around the rewrite | `test_setup_sh.py::test_setup_temp_file_removed_on_interrupt` (SIGTERM to the real function mid-rewrite: exit 130, no temp file, `.env` unchanged) |
+| note | py312 mutation could silently report SURVIVED | `MUTATION_PY312` must be a working 3.12.x interpreter with pytest; otherwise the run exits non-zero before doing any work | shown in EVIDENCE.md section 12 |
+
+The README role SQL is now documented to run as the database owner: `GRANT CONNECT ON DATABASE`
+is silently a no-op for a non-owner ("no privileges were granted"), which the hardened test
+exposed.

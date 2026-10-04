@@ -2,9 +2,11 @@
 
 Branch `feat/ai-digest-initial` (PR #60), base `f96765d`. Recorded 2026-10-03.
 
-Sections 1-9 record the initial implementation (`351e7b2`). **Section 10 records challenger
-round 1; section 11 records challenger round 2 and supersedes all earlier gate results**
-(497 tests on Python 3.11.15 and 3.12.3, 113/113 mutations killed, Caddy matrix green).
+Sections 1-9 record the initial implementation (`351e7b2`). Section 10 records challenger
+round 1 and section 11 challenger round 2. **Section 12 records challenger round 3 and
+supersedes all earlier gate results** (543 tests on Python 3.11.15 and 3.12.3, each against a
+test database named `aidigest_it` and one named `postgres`; 125/125 mutations killed; Caddy
+matrix 22 cases green).
 
 Toolchain: Python 3.11.15 (container image: python:3.12-slim), pytest 9.1.1,
 pytest-asyncio 1.4.0, FastAPI 0.142.2, SQLAlchemy 2.1.3, asyncpg 0.31.0,
@@ -810,3 +812,262 @@ startup: Catch-up DAILY failed -> UpstreamError: All feeds failed: ... ConnectEr
 4.3 run-daily                                   -> 429 attempts_exhausted (3 failed attempts today)
 runs: failed|schedule, failed|operator, failed|operator; lease_until - created_at = 1200 s (DB clock, UTC)
 ```
+
+## 12. Challenger round 3 (review of `7e710a0`: 0 High, 2 Medium, 0 Low)
+
+This section supersedes sections 1-11 for gate results.
+
+| SHA | What |
+|---|---|
+| `3c7f775` | M2: role SQL test uses `current_database()`, rebuilds URLs with `URL.create`; `AIDIGEST_TEST_DBNAME` (red against `aidigest_it` first) |
+| `56eefc1` | M1: failing tests (red) - Settings/setup.sh user and secret rules, temp-file trap, 17 new Caddy matrix cases |
+| `efa9b3d` | M1: heredoc tokens for user/hash, proxy secret read at request time, format-checking guard, `caddy-entrypoint.sh`, Settings `aidigest_basic_auth_user`, setup.sh rules + trap |
+| `7a8bba5` | M2: documented role SQL runs as the database owner (PUBLIC CONNECT revoked in the test); README updated |
+| `73bb6ff` | 12 round-3 mutations (125 total); compose sentinels removed (the entrypoint is the single sanitising mechanism); behavioural trap test; outside-compose matrix cases; `MUTATION_PY312` fails loudly |
+| this commit | DESIGN.md section 12 and auth text, this evidence |
+
+### 12.1 Red
+
+```
+M2 (the hard-coded-`postgres` role test, run against a test database named aidigest_it, Python 3.11.15):
+FAILED tests/test_db_role.py::test_documented_role_sql_works_for_non_superuser_admin
+1 failed, 17 passed in 4.17s
+
+M1 (56eefc1, Python 3.11.15):
+39 failed, 504 passed     (test_config user/secret rules, test_setup_sh user rules + temp-file trap)
+
+M1 scripts/caddy_matrix.sh against the 7e710a0 Caddyfile: 8 failure(s)
+  FAIL  caddy adapt                                  expected adapted got ERROR: ding after '$2a$10$mZKy5KJqT3IqqmojZUpjReRscVM59tdmcQ7Qv7Yr.eCvV9W5/STFa', at /etc/caddy/Caddyfile:31, at /etc/caddy/Caddyfile:37, at /etc/caddy/Caddyfile:38"} 
+  FAIL  caddy adapt                                  expected adapted got ERROR: tokens for 'basic_auth': username and password cannot be empty or missing, at /etc/caddy/Caddyfile:31, at /etc/caddy/Caddyfile:37, at /etc/caddy/Caddyfile:38"} 
+  FAIL  configured user:<right password>             expected 401 got 502
+  FAIL  configured user:<right password>             expected 401 got 502
+  FAIL  configured user:<right password>             expected 401 got 502
+  FAIL  configured user:<right password>             expected 401 got 502
+  FAIL  caddy adapt                                  expected adapted got ERROR: proxy': wrong argument count or unexpected line ending after 'passphrase', at /etc/caddy/Caddyfile:35, at /etc/caddy/Caddyfile:37, at /etc/caddy/Caddyfile:38"} 
+  FAIL  caddy adapt                                  expected adapted got ERROR: or 'basic_auth': wrong argument count or unexpected line ending after 'a', at /etc/caddy/Caddyfile:31, at /etc/caddy/Caddyfile:37, at /etc/caddy/Caddyfile:38"} 
+```
+
+The four `502` lines are usernames with `"`, `'`, braces and a backtick: the old Caddyfile let them
+through to the service. The adapt errors are a username/secret with spaces and a non-bcrypt hash.
+
+### 12.2 Green: two Python versions x two database names, no skips
+
+```
+$ AIDIGEST_TEST_DBNAME=aidigest_it /tmp/adv/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.11.15
+543 passed in 37.82s
+$ AIDIGEST_TEST_DBNAME=postgres /tmp/adv/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.11.15
+543 passed in 38.70s
+$ AIDIGEST_TEST_DBNAME=aidigest_it /tmp/adv312/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.12.3
+543 passed in 40.42s
+$ AIDIGEST_TEST_DBNAME=postgres /tmp/adv312/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.12.3
+543 passed in 38.38s
+```
+
+`AIDIGEST_TEST_DBNAME` makes the fixture create that database in the private cluster
+(ports 29650-29659) and point every DB test at it.
+
+### 12.3 M1: `scripts/caddy_matrix.sh` (real Caddy v2.11.6; compose cases start Caddy through `caddy-entrypoint.sh`)
+
+22 cases, 143 checks, every case: `caddy adapt` succeeds, the homeschool UI answers 200, and
+`/aidigest/*` is 401 unless user, hash and secret are all present and valid (then 502 here, because
+the matrix has no AIDigest backend - i.e. Caddy let the request through).
+
+```
+== user empty, hash empty
+== user set,   hash empty
+== user empty, hash set
+== user set,   hash set
+== user+hash set, no secret
+== user with a space
+== user is a single space
+== user with a double quote
+== user with a single quote
+== user with braces
+== user with a backtick
+== secret with spaces
+== secret with " and braces
+== secret with ' and braces
+== hash is not a bcrypt hash
+== hash with a double quote
+== hash with spaces
+== outside compose: no AIDIGEST_* variables at all
+== outside compose: user with a space
+== outside compose: user with a double quote
+== outside compose: user with braces
+== outside compose: secret with spaces
+
+== user with a space
+  ok    compose caddy command                        ["/bin/sh","/usr/local/bin/caddy-entrypoint.sh"]
+  ok    caddy adapt (via entrypoint)                 adapted
+  ok    homeschool UI /                              200
+  ok    no credentials                               401
+  ok    configured user:<right password>             401
+  ok    aidigest-disabled:<right password>           401
+  ok    configured user:<wrong password>             401
+== hash is not a bcrypt hash
+  ok    compose caddy command                        ["/bin/sh","/usr/local/bin/caddy-entrypoint.sh"]
+  ok    caddy adapt (via entrypoint)                 adapted
+  ok    homeschool UI /                              200
+  ok    no credentials                               401
+  ok    configured user:<right password>             401
+  ok    aidigest-disabled:<right password>           401
+  ok    configured user:<wrong password>             401
+== outside compose: user with braces
+  ok    caddy adapt                                  adapted
+  ok    homeschool UI /                              200
+  ok    no credentials                               401
+  ok    aidigest-disabled:<right password>           401
+  ok    configured user:<right password>             401
+
+caddy matrix: all expectations met
+```
+
+The "outside compose" cases run plain `caddy run` with no entrypoint, so the Caddyfile alone
+(heredoc tokens + guard) must cope. A non-bcrypt hash outside compose still stops Caddy at
+provision time (Caddy refuses a hash that is neither `$...` nor base64); compose always starts
+Caddy through the entrypoint, and the matrix asserts the compose `command`. A newline in the
+username is not in the matrix: `docker --env-file` cannot carry one; the entrypoint rejects
+multi-line values (`single_line`) and Settings/setup.sh reject control characters.
+
+Scan for other unquoted interpolation: `grep -n '{\$' Caddyfile` lists only the two heredoc
+bodies (user, hash); the proxy secret is now `{env.*}` (runtime, a
+quoted `header_up` value). A comment that contained a literal placeholder was reworded, because
+Caddy substitutes inside comments too.
+
+### 12.4 Base stack with a pre-PR `.env`
+
+```
+$ docker compose --env-file pre-PR.env config --services
+api
+ui
+caddy
+$ docker compose --env-file pre-PR.env config -q; echo $?
+0
+$ (pre-PR.env) caddy command, environment, mounts as rendered
+command: ['/bin/sh', '/usr/local/bin/caddy-entrypoint.sh']
+environment: {'AIDIGEST_BASIC_AUTH_HASH': '', 'AIDIGEST_BASIC_AUTH_USER': '', 'AIDIGEST_PROXY_SECRET': ''}
+mounts: ['Caddyfile:/etc/caddy/Caddyfile', 'caddy-entrypoint.sh:/usr/local/bin/caddy-entrypoint.sh', 'caddy_data:/data']
+```
+
+### 12.5 Mutation check: 125 mutations (113 + 12 new)
+
+```
+$ AIDIGEST_TEST_DBNAME=aidigest_it MUTATION_PY312=/tmp/adv312/bin/python $PY scripts/mutation_check.py
+py312 interpreter: /tmp/adv312/bin/python
+test database name: aidigest_it
+baseline: PASS (543 passed in 38.55s)
+125/125 mutations killed, 0 survived.
+```
+
+Round-3 and replaced rows:
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 95 | `r2-m2-entrypoint-keeps-bad-user` | entrypoint replaces a missing/malformed user (Caddy must start) | killed | caddy matrix: 2 failure(s) |
+| 96 | `r2-m2-compose-skips-entrypoint` | compose starts Caddy through caddy-entrypoint.sh | killed | caddy matrix: 17 failure(s) |
+| 97 | `r2-m2-guard-ignores-secret` | /aidigest/* is 401 without a proxy secret (Caddy) | killed | caddy matrix: 3 failure(s) |
+| 114 | `r3-m1-user-hash-not-heredoc` | user/hash are heredoc tokens (spaces/quotes cannot split them) | killed | caddy matrix: 1 failure(s) |
+| 115 | `r3-m1-secret-substituted-into-caddyfile` | proxy secret read at request time, not substituted | killed | caddy matrix: 2 failure(s) |
+| 116 | `r3-m1-guard-no-user-format` | guard requires a well-formed user | killed | caddy matrix: 3 failure(s) |
+| 117 | `r3-m1-guard-no-secret-format` | guard requires a printable, whitespace-free secret | killed | caddy matrix: 2 failure(s) |
+| 118 | `r3-m1-entrypoint-keeps-bad-hash` | entrypoint replaces a malformed hash (Caddy must start) | killed | caddy matrix: 7 failure(s) |
+| 119 | `r3-m1-settings-secret-chars` | Settings rejects whitespace/control in the proxy secret | killed | 1 failed, 181 passed in 12.10s |
+| 120 | `r3-m1-settings-user-chars` | Settings rejects unsafe basic-auth user names | killed | 1 failed, 193 passed in 12.99s |
+| 121 | `r3-m1-settings-user-required` | production requires the basic-auth user | killed | 1 failed, 213 passed in 12.59s |
+| 122 | `r3-m1-setup-user-length` | setup.sh limits the user name to 64 characters | killed | 1 failed, 473 passed in 34.54s |
+| 123 | `r3-m1-setup-reserved-user` | setup.sh refuses the placeholder user name | killed | 1 failed, 474 passed in 31.83s |
+| 124 | `r3-note-no-temp-trap` | setup.sh removes its temp file on INT/TERM | killed | 1 failed, 475 passed in 30.26s |
+| 125 | `r3-m2-readme-hardcoded-db` | README role SQL grants CONNECT on <dbname> (needs a non-postgres test DB) | killed | 1 failed, 270 passed in 20.96s |
+
+Survivors on the first round-3 pass, and what killed them:
+- `r3-m1-user-hash-not-heredoc`, `r3-m1-guard-no-user-format`: inside compose the entrypoint
+  already replaced the bad user, so neither control was exercised. Added the "outside compose"
+  matrix cases (no entrypoint).
+- `r2-m2-no-user-sentinel`, `r2-m2-no-hash-sentinel` (compose `:-sentinel` defaults): redundant with
+  the entrypoint. Removed the compose defaults; the entrypoint is the single mechanism, covered by
+  `r2-m2-entrypoint-keeps-bad-user`, `r3-m1-entrypoint-keeps-bad-hash` and
+  `r2-m2-compose-skips-entrypoint`.
+- `r3-note-no-temp-trap`: the text assertion still matched `trap - INT TERM`. Replaced with a
+  behavioural test (SIGTERM to the real `aidigest_fill_empty` while it rewrites a 150k-line `.env`).
+
+`r3-m2-readme-hardcoded-db` is killed only when the test database is not `postgres`, which is why
+the run uses `AIDIGEST_TEST_DBNAME=aidigest_it`.
+
+`MUTATION_PY312` missing or wrong now stops the run before any work:
+
+```
+$ env -u MUTATION_PY312 $PY scripts/mutation_check.py
+MUTATION_PY312 is not set; it must point to a Python 3.12.x interpreter with requirements-dev.txt installed (needed for the py312 mutations)
+exit=1
+$ MUTATION_PY312=/tmp/adv/bin/python $PY scripts/mutation_check.py   # a 3.11 interpreter
+MUTATION_PY312='/tmp/adv/bin/python' is Python 3.11.15, expected 3.12.x
+exit=1
+$ MUTATION_PY312=/nonexistent/python $PY scripts/mutation_check.py
+MUTATION_PY312='/nonexistent/python' is not usable: [Errno 2] No such file or directory: '/nonexistent/python'
+exit=1
+```
+
+### 12.6 Gates
+
+```
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts && echo compile-ok
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && sh -n caddy-entrypoint.sh && echo syntax-ok
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+```
+
+### 12.7 Secret scan (all changes since `f96765d`)
+
+```
+$ detect-secrets scan <51 files changed since f96765d>
+findings: 20
+  .env.example Basic Auth Credentials line 33
+  .env.example Basic Auth Credentials line 36
+  AIDigest/aidigest/auth.py Secret Keyword line 13
+  AIDigest/aidigest/config.py Basic Auth Credentials line 14
+  AIDigest/aidigest/config.py Basic Auth Credentials line 42
+  AIDigest/scripts/caddy_matrix.sh Secret Keyword line 26
+  AIDigest/tests/fakes.py Secret Keyword line 8
+  AIDigest/tests/fakes.py Secret Keyword line 16
+  AIDigest/tests/test_auth.py Secret Keyword line 45
+  AIDigest/tests/test_auth.py Secret Keyword line 96
+  AIDigest/tests/test_config.py Secret Keyword line 10
+  AIDigest/tests/test_config.py Secret Keyword line 34
+  AIDigest/tests/test_config.py Secret Keyword line 35
+  AIDigest/tests/test_config.py Secret Keyword line 37
+  AIDigest/tests/test_config.py Secret Keyword line 38
+  AIDigest/tests/test_config.py Basic Auth Credentials line 40
+  AIDigest/tests/test_db_role.py Basic Auth Credentials line 147
+  AIDigest/tests/test_fetcher.py Basic Auth Credentials line 41
+  AIDigest/tests/test_setup_sh.py Basic Auth Credentials line 22
+  setup.sh Basic Auth Credentials line 56
+```
+
+New since section 11:
+- `tests/test_db_role.py:147`: the URL `postgresql+asyncpg://admin:xpostgres@...` in
+  `test_as_role_rebuilds_the_url`, a fixture password chosen to contain `postgres@`.
+- `caddy-entrypoint.sh` `SENTINEL_HASH`: the same never-matching placeholder hash as section 11.8,
+  now in one place instead of compose.
+
+The regex scan of added lines finds only the fixtures and placeholders already triaged in
+sections 5, 10 and 11 (the `++` lines are earlier scan output quoted in this file).
+
+### 12.8 Note: `GRANT CONNECT ON DATABASE` needs the owner
+
+With PUBLIC CONNECT revoked, the README's `GRANT CONNECT ON DATABASE <dbname> TO aidigest_app` run
+by a non-owner CREATEROLE admin is a silent no-op (`WARNING: no privileges were granted`), and the
+app role cannot connect. The test now makes its admin the database owner, and the README says to
+run the role SQL as the database owner.
+
+### 12.9 Not re-run
+
+The end-to-end run of section 11.9 was not repeated: this round changes only the Caddy layer
+(covered end to end by the matrix with the real Caddy image), Settings/setup.sh validation and
+tests.
+
