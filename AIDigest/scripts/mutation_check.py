@@ -44,10 +44,14 @@ R5_TRAPS = ("  trap 'aidigest_tmp_cleanup' EXIT\n"
             "  trap 'aidigest_tmp_cleanup; exit 143' TERM\n")
 R5_MKTEMP = ("  AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp \"${file}.aidigest.XXXXXX\") \\\n"
              "    || error \"Could not create a temporary file next to ${file}; ${unchanged}.\"\n")
-R5_KEEP_MODE = ('  cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); '
+R5_KEEP_MODE = ('    cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); '
                 '${unchanged}."\n')
-R5_CHECK_MODE = ('  [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \\\n'
-                 '    || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."\n')
+R5_CHECK_MODE = ('    [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \\\n'
+                 '      || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."\n')
+R7_TASK_FAILURE_RECORD = (
+    '            await run_within(budget, _finish_task(\n'
+    '                engine, task_id, "failed", error=f"{mapped.status_code}: {detail}".replace("\\x00", "")[:1500],\n'
+    '                budget=budget, reserve=True), "recording the failure", reserve=True)\n')
 R5_RENAME = '  mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."\n'
 MUTATIONS: list[Mutation] = [
     # ── Auth ──────────────────────────────────────────────────────────────────
@@ -128,8 +132,8 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/tasks.py", "if isinstance(url, str) and url in observed and url not in citations:",
         "if isinstance(url, str) and url not in citations:")]),
     M("task-urls-not-reserved", "explicit URLs get the first evidence slots (finding 6)",
-      [("aidigest/tasks.py", "    evidence.extend(await _knowledge_evidence(engine, req.task))",
-        "    evidence[:0] = await _knowledge_evidence(engine, req.task)")]),
+      [("aidigest/tasks.py", "    evidence.extend(await _knowledge_evidence(engine, req.task, budget))",
+        "    evidence[:0] = await _knowledge_evidence(engine, req.task, budget)")]),
     M("task-more-than-3-urls", "at most 3 explicit URLs (finding 7)",
       [("aidigest/tasks.py", "urls: list[str] = Field(default_factory=list, max_length=MAX_URLS)",
         "urls: list[str] = Field(default_factory=list)"),
@@ -144,12 +148,13 @@ MUTATIONS: list[Mutation] = [
        ("aidigest/errors.py", "class AIError(AIDigestError):\n    status_code = 502",
         "class AIError(AIDigestError):\n    status_code = 400")]),
     M("errors-not-recorded", "failures recorded on the task row (finding 8)",
-      [("aidigest/tasks.py", '            await _finish_task(engine, task_id, "failed",\n                               error=f"{mapped.status_code}: {detail}".replace("\\x00", "")[:1500])',
-        "            pass")]),
+      [("aidigest/tasks.py", R7_TASK_FAILURE_RECORD, "            pass\n")]),
     M("task-no-readiness-gate", "TASK gated on readiness (finding 9)",
-      [("aidigest/tasks.py", '    if not state["ready"]:\n        raise NotReadyError', '    if False:\n        raise NotReadyError')]),
+      [("aidigest/tasks.py", '    if not state["ready"]:  # finding 9: gate BEFORE creating a task row\n        raise NotReadyError',
+        '    if False:\n        raise NotReadyError')]),
     M("daily-no-readiness-gate", "DAILY gated on readiness (finding 10)",
-      [("aidigest/daily.py", '    if not state["ready"]:\n        log.error(', '    if False:\n        log.error(')]),
+      [("aidigest/daily.py", '    if not state["ready"]:  # findings 9/10: never run on a broken schema\n        log.error(',
+        '    if False:\n        log.error(')]),
     M("status-always-200", "/ops/status reports not-ready as 503 (finding 1)",
       [("aidigest/app.py", 'status_code=200 if state["ready"] else 503)', "status_code=200)")]),
     M("daily-no-duplicate-guard", "one DAILY run per day (unique run row)",
@@ -184,14 +189,14 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/fetcher.py", "return await asyncio.wait_for(self._fetch(url), self.total_timeout)",
         "return await self._fetch(url)")]),
     M("m1-no-daily-budget", "DAILY run budget",
-      [("aidigest/daily.py", "        return await asyncio.wait_for(\n            _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg), cfg.budget_seconds)",
-        "        return await _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg)")]),
+      [("aidigest/daily.py", "        return await run_within(budget, _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg, budget),\n                                \"the run\")",
+        "        return await _execute(engine, ai, fetcher, run_id, owner, run_key, started, cfg, budget)")]),
     M("m1-no-task-budget", "TASK budget",
-      [("aidigest/tasks.py", "result = await asyncio.wait_for(_execute_task(engine, ai, fetcher, req, mode, now, cfg), cfg.budget_seconds)",
-        "result = await _execute_task(engine, ai, fetcher, req, mode, now, cfg)")]),
+      [("aidigest/tasks.py", 'result = await run_within(budget, _execute_task(engine, ai, fetcher, req, mode, now, cfg, budget), "the task")',
+        "result = await _execute_task(engine, ai, fetcher, req, mode, now, cfg, budget)")]),
     # M2: lease / owner token
     M("m2-no-owner-check-before-ai", "ownership re-checked before the AI call",
-      [("aidigest/daily.py", "        await _assert_owner(engine, run_id, owner)  # never spend an AI call on a run we no longer own",
+      [("aidigest/daily.py", "        await _assert_owner(engine, run_id, owner, budget)  # never spend an AI call on a run we no longer own",
         "        pass")]),
     M("m2-store-without-owner", "store+complete requires owner and running",
       [("aidigest/daily.py", "        if mine is None:\n            raise LostLease(run_id)", "        if False:\n            raise LostLease(run_id)")]),
@@ -407,8 +412,8 @@ MUTATIONS: list[Mutation] = [
       [("../setup.sh", "  trap 'aidigest_tmp_cleanup' EXIT\n", "")]),
     M("r5-mktemp-shield-int-term-only", "mktemp ignores HUP and QUIT too",
       [("../setup.sh", "AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp ", "AIDIGEST_TMP=$(trap '' INT TERM; mktemp ")]),
-    M("r5-write-error-ignored", "a failed write (disk full) stops before the rename",
-      [("../setup.sh", "    printf '%s\\n' \"$l\" || error ", "    printf '%s\\n' \"$l\" || true ")]),
+    M("r5-write-error-ignored", "a failed write (disk full) stops before the rename (the writer checks the producer)",
+      [("../setup.sh", '  "$@" > "$AIDIGEST_TMP" || error ', '  "$@" > "$AIDIGEST_TMP" || true ')]),
     M("r5-rename-error-ignored", "a failed rename is reported, not success",
       [("../setup.sh", '"$file" || error "Could not replace ${file}; ${unchanged}."', '"$file" || true')]),
     M("r5-temp-not-private", "the temp copy is created mode 600, before any secret is copied into it",
@@ -430,7 +435,52 @@ MUTATIONS: list[Mutation] = [
       [("../setup.sh", "aidigest_flush() { if sync \"$2\" 2>/dev/null; then sync \"$1\"; else sync; fi; }",
         "aidigest_flush() { sync; }")]),
     M("r6-fsync-result-ignored", "the flush result is checked",
-      [("../setup.sh", '"$file" || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."', '"$file" || true')]),
+      [("../setup.sh", '    || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."', '    || true')]),
+    # ═══════════════ Copilot review of PR #60 (0ed8b21) ═══════════════
+    M("r7-task-read-not-scoped", "a task is readable only by its requester (IDOR, 4177765103)",
+      [("aidigest/tasks.py", '"FROM aidigest.tasks WHERE id=:id AND requested_by=:by"', '"FROM aidigest.tasks WHERE id=:id"')]),
+    M("r7-append-in-place", "the upgrade (append) path replaces .env atomically (4177765138)",
+      [("../setup.sh", '  env_replace "$file" aidigest_env_lines "$file" "${#fill[@]}" ${fill[@]+"${fill[@]}"} ${add[@]+"${add[@]}"}',
+        '  local new; new=$(aidigest_env_lines "$file" "${#fill[@]}" ${fill[@]+"${fill[@]}"} ${add[@]+"${add[@]}"}); '
+        'printf \'%s\\n\' "$new" > "$file"')]),
+    M("r7-full-setup-in-place", "the full setup writes .env through the same writer",
+      [("../setup.sh", "env_replace .env setup_env_content   #", "setup_env_content > .env   #")]),
+    M("r7-producer-write-error-ignored", "the .env producer fails on a failed write (disk full)",
+      [("../setup.sh", "    printf '%s\\n' \"$l\" || return 1", "    printf '%s\\n' \"$l\" || true")]),
+    M("r7-daily-readiness-unbounded", "DAILY readiness is inside the budget (4177765160)",
+      [("aidigest/daily.py", '        state = await run_within(budget, readiness(engine, budget), "readiness")',
+        "        state = await readiness(engine, budget)")]),
+    M("r7-daily-claim-unbounded", "the DAILY claim (incl. its lock wait) is inside the budget",
+      [("aidigest/daily.py", 'await run_within(budget, _claim(engine, run_key, trigger, started, cfg, budget),\n                                                  "the claim")',
+        "await _claim(engine, run_key, trigger, started, cfg, budget)")]),
+    M("r7-daily-failure-record-unbounded", "recording a DAILY failure uses only the reserved slice",
+      [("aidigest/daily.py", '            await run_within(budget, _mark_failed(engine, run_id, owner, error, budget),\n                             "recording the failure", reserve=True)',
+        "            await _mark_failed(engine, run_id, owner, error, budget)")]),
+    M("r7-task-readiness-unbounded", "TASK readiness is inside the budget (4177765211)",
+      [("aidigest/tasks.py", '        state = await run_within(budget, readiness(engine, budget), "readiness")',
+        "        state = await readiness(engine, budget)")]),
+    M("r7-task-insert-unbounded", "the TASK row insert (incl. the rate-limit lock wait) is inside the budget",
+      [("aidigest/tasks.py", '        await run_within(budget, _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit,\n                                                  budget), "task creation")',
+        "        await _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit, budget)")]),
+    M("r7-task-failure-record-unbounded", "recording a TASK failure uses only the reserved slice",
+      [("aidigest/tasks.py", R7_TASK_FAILURE_RECORD,
+        '            await _finish_task(engine, task_id, "failed", error=f"{mapped.status_code}: {detail}"[:1500])\n')]),
+    M("r7-task-insert-timeout-as-storage-error", "a lock_timeout on the task insert is a deadline, not a 503",
+      [("aidigest/tasks.py", "        if is_db_timeout(exc):\n            raise   # the budget ran out", "        if False:\n            raise   # the budget ran out")]),
+    M("r7-no-db-side-timeouts", "db_tx sets lock_timeout/statement_timeout inside the budget",
+      [("aidigest/budget.py", "        if budget is not None:\n            ms =", "        if False:\n            ms =")]),
+    M("r7-db-timeout-not-a-deadline", "Postgres lock/statement timeouts are reported as the deadline",
+      [("aidigest/budget.py", '        if getattr(seen, "sqlstate", None) in TIMEOUT_SQLSTATES:\n            return True',
+        '        if False:\n            return True')]),
+    M("r7-no-reserve", "a slice of the budget is reserved for recording a failure",
+      [("aidigest/budget.py", "        self.reserve = min(RESERVE_SECONDS, seconds / 2)", "        self.reserve = 0.0")]),
+    M("r7-truncated-stream-accepted", "a compressed stream must reach its end marker (4177765193)",
+      [("aidigest/fetcher.py", "                if not decoder.eof:\n                    raise", "                if False:\n                    raise")]),
+    M("r7-trailing-data-accepted", "nothing may follow the compressed stream",
+      [("aidigest/fetcher.py", "                if decoder.unused_data:\n                    raise", "                if False:\n                    raise")]),
+    M("r7-pre-read-compressed-accepted", "a pre-read compressed body (cannot be verified) is refused",
+      [("aidigest/fetcher.py", "            if decoder is not None:\n                raise UpstreamError(\"Compressed body was decoded",
+        "            if False:\n                raise UpstreamError(\"Compressed body was decoded")]),
 ]
 
 
@@ -474,7 +524,8 @@ def copy_tree(dest: Path) -> Path:
     app = dest / "AIDigest"
     shutil.copytree(ROOT, app, ignore=shutil.ignore_patterns(
         "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv", "scripts"))
-    for name in ("setup.sh", "Caddyfile", "docker-compose.yml", ".env.example", "caddy-entrypoint.sh", ".gitignore"):
+    for name in ("setup.sh", "Caddyfile", "docker-compose.yml", ".env.example", "caddy-entrypoint.sh", ".gitignore",
+                 "Makefile"):
         shutil.copy2(ROOT.parent / name, dest / name)
     return app
 
