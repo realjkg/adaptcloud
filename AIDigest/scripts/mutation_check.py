@@ -7,6 +7,10 @@ source substitution, run the test suite, and require at least one test to FAIL
 control is untested. Also asserts every substitution target exists exactly once,
 so a refactor cannot silently turn a mutation into a no-op.
 
+Each kill is confirmed (review of ae012a0): the first failing test is recorded, then re-run alone on
+the mutated tree (must fail) and on the unmutated baseline (must pass); otherwise the mutation is
+SUSPECT (a flaky or unrelated test killed it), which fails the run like a survivor.
+
 Usage:  python scripts/mutation_check.py [--only NAME_SUBSTRING] [--out results.md]
 """
 
@@ -46,8 +50,9 @@ R5_MKTEMP = ("  AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp \"${file}.aidig
              "    || error \"Could not create a temporary file next to ${file}; ${unchanged}.\"\n")
 R5_KEEP_MODE = ('    cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); '
                 '${unchanged}."\n')
-R5_CHECK_MODE = ('    [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \\\n'
-                 '      || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."\n')
+R5_CHECK_MODE = ('  [[ "$(aidigest_mode "$AIDIGEST_TMP")" == "-rw-------" ]] \\\n'
+                 '    && { [[ ! -e "$file" ]] || [[ "$(aidigest_owner "$AIDIGEST_TMP")" == "$(aidigest_owner "$file")" ]]; } \\\n'
+                 '    || error "Could not give the temporary copy mode 600 and the mode and owner of ${file}; ${unchanged}."\n')
 R7_TASK_FAILURE_RECORD = (
     '            await run_within(budget, _finish_task(\n'
     '                engine, task_id, "failed", error=f"{mapped.status_code}: {detail}".replace("\\x00", "")[:1500],\n'
@@ -398,8 +403,8 @@ MUTATIONS: list[Mutation] = [
       [("../setup.sh", R5_RENAME, '  cat "$AIDIGEST_TMP" > "$file"; rm -f "$AIDIGEST_TMP"\n')]),
     M("r5-in-place-rewrite-shielded", "no in-place rewrite, even with the round-4 signal shield",
       [("../setup.sh", R5_RENAME, '  (trap \'\' HUP INT QUIT TERM; cat "$AIDIGEST_TMP" > "$file"); rm -f "$AIDIGEST_TMP"\n')]),
-    M("r5-mode-owner-not-kept", "the new .env gets the old one's mode and owner (cp -p and its check)",
-      [("../setup.sh", R5_KEEP_MODE + R5_CHECK_MODE, "")]),
+    M("r5-mode-owner-not-kept", "the new .env gets the old one's owner and group (cp -p)",
+      [("../setup.sh", R5_KEEP_MODE, "")]),
     M("r5-mode-owner-not-verified", "mode/owner of the temp copy verified before the rename",
       [("../setup.sh", R5_CHECK_MODE, "")]),
     M("r5-copy-error-ignored", "a failed copy (disk full) stops before the rename",
@@ -451,8 +456,8 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/daily.py", '        state = await run_within(budget, readiness(engine, budget), "readiness")',
         "        state = await readiness(engine, budget)")]),
     M("r7-daily-claim-unbounded", "the DAILY claim (incl. its lock wait) is inside the budget",
-      [("aidigest/daily.py", 'await run_within(budget, _claim(engine, run_key, trigger, started, cfg, budget),\n                                                  "the claim")',
-        "await _claim(engine, run_key, trigger, started, cfg, budget)")]),
+      [("aidigest/daily.py", 'await run_within(\n            budget, _claim(engine, run_key, trigger, started, cfg, budget, claim_id, claim_owner), "the claim")',
+        "await _claim(engine, run_key, trigger, started, cfg, budget, claim_id, claim_owner)")]),
     M("r7-daily-failure-record-unbounded", "recording a DAILY failure uses only the reserved slice",
       [("aidigest/daily.py", '            await run_within(budget, _mark_failed(engine, run_id, owner, error, budget),\n                             "recording the failure", reserve=True)',
         "            await _mark_failed(engine, run_id, owner, error, budget)")]),
@@ -460,15 +465,15 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/tasks.py", '        state = await run_within(budget, readiness(engine, budget), "readiness")',
         "        state = await readiness(engine, budget)")]),
     M("r7-task-insert-unbounded", "the TASK row insert (incl. the rate-limit lock wait) is inside the budget",
-      [("aidigest/tasks.py", '        await run_within(budget, _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit,\n                                                  budget), "task creation")',
-        "        await _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit, budget)")]),
+      [("aidigest/tasks.py", '        await run_within(budget, _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit,\n                                                  budget, stale_before), "task creation")',
+        "        await _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit, budget, stale_before)")]),
     M("r7-task-failure-record-unbounded", "recording a TASK failure uses only the reserved slice",
       [("aidigest/tasks.py", R7_TASK_FAILURE_RECORD,
         '            await _finish_task(engine, task_id, "failed", error=f"{mapped.status_code}: {detail}"[:1500])\n')]),
     M("r7-task-insert-timeout-as-storage-error", "a lock_timeout on the task insert is a deadline, not a 503",
       [("aidigest/tasks.py", "        if is_db_timeout(exc):\n            raise   # the budget ran out", "        if False:\n            raise   # the budget ran out")]),
     M("r7-no-db-side-timeouts", "db_tx sets lock_timeout/statement_timeout inside the budget",
-      [("aidigest/budget.py", "        if budget is not None:\n            ms =", "        if False:\n            ms =")]),
+      [("aidigest/budget.py", "        if budget is not None:\n            left = budget.left(reserve)", "        if False:\n            left = budget.left(reserve)")]),
     M("r7-db-timeout-not-a-deadline", "Postgres lock/statement timeouts are reported as the deadline",
       [("aidigest/budget.py", '        if getattr(seen, "sqlstate", None) in TIMEOUT_SQLSTATES:\n            return True',
         '        if False:\n            return True')]),
@@ -481,25 +486,128 @@ MUTATIONS: list[Mutation] = [
     M("r7-pre-read-compressed-accepted", "a pre-read compressed body (cannot be verified) is refused",
       [("aidigest/fetcher.py", "            if decoder is not None:\n                raise UpstreamError(\"Compressed body was decoded",
         "            if False:\n                raise UpstreamError(\"Compressed body was decoded")]),
+    # ═══════════════ challenger review of ae012a0 ═══════════════
+    # M1: a DB frozen at TCP level
+    M("r8-run-within-awaits-cleanup", "at the deadline the step is abandoned, its cleanup not awaited (M1)",
+      [("aidigest/budget.py", '        _abandon(task)\n        raise DeadlineError(f"Time budget of {budget.seconds:g}s exhausted during {what}")',
+        '        task.cancel()\n        await asyncio.gather(task, return_exceptions=True)\n'
+        '        raise DeadlineError(f"Time budget of {budget.seconds:g}s exhausted during {what}")')]),
+    M("r8-heartbeat-stop-unbounded", "the end of a DAILY run waits for its heartbeat only briefly (M1)",
+      [("aidigest/daily.py", "        done, _ = await asyncio.wait({heartbeat}, timeout=HEARTBEAT_STOP_SECONDS)",
+        "        await asyncio.gather(heartbeat, return_exceptions=True)\n        done = True")]),
+    M("r8-close-unbounded", "closing an abandoned connection is bounded, then aborted (pool slots come back)",
+      [("aidigest/db.py", "            await asyncio.wait_for(super().close(timeout=timeout),\n"
+        "                                   CLOSE_TIMEOUT_SECONDS if timeout is None else timeout)",
+        "            await super().close(timeout=timeout)")]),
+    M("r8-no-connect-timeout", "a new connection is bounded by the connect timeout",
+      [("aidigest/db.py", 'connect_args={"timeout": CONNECT_TIMEOUT_SECONDS,\n', "connect_args={\n")]),
+    # M2 + L1: the challenger's surviving mutants
+    M("r8-db-timeouts-session-level", "the DB timeouts are SET LOCAL, not left on the pooled session (M2)",
+      [("aidigest/budget.py", "set_config('lock_timeout', :lock, true), \"\n                                    \"set_config('statement_timeout', :stmt, true)",
+        "set_config('lock_timeout', :lock, false), \"\n                                    \"set_config('statement_timeout', :stmt, false)")]),
+    M("r8-db-margin-negative", "Postgres ends a wait BEFORE the client-side deadline (L1, challenger's mutant)",
+      [("aidigest/budget.py", "DB_MARGIN_SECONDS = 0.1 ", "DB_MARGIN_SECONDS = -0.04 ")]),
+    M("r8-lock-timeout-not-earlier", "a lock wait ends as a lock timeout (55P03), not a statement timeout",
+      [("aidigest/budget.py", "LOCK_EARLIER_SECONDS = 0.05 ", "LOCK_EARLIER_SECONDS = 0.0 ")]),
+    # L6: only the budget's own timeout is a deadline
+    M("r8-any-db-timeout-is-the-deadline", "an operator cancel long before the deadline keeps its own error (L6)",
+      [("aidigest/budget.py", "and budget.left(reserve) <= ATTRIBUTION_SECONDS:", ":")]),
+    M("r8-step-timeout-is-the-deadline", "a TimeoutError raised inside a step is not the budget (L6)",
+      [("aidigest/budget.py", "    exc = task.exception()\n    if exc is None:",
+        "    exc = task.exception()\n    if isinstance(exc, TimeoutError):\n"
+        "        raise DeadlineError(\"mapped\") from exc\n    if exc is None:")]),
+    M("r8-task-unreachable-not-mapped", "TASK: a DB that cannot be reached is 503, not a raw TimeoutError",
+      [("aidigest/tasks.py", "    except DB_UNREACHABLE as exc:   # e.g. the connect timeout: its own error, not the budget (L6)",
+        "    except () as exc:")]),
+    M("r8-daily-unreachable-not-mapped", "DAILY: a DB that cannot be reached is 503, not a raw TimeoutError",
+      [("aidigest/daily.py", "    except DB_UNREACHABLE as exc:   # e.g. the connect timeout: its own error, not the budget (L6)",
+        "    except () as exc:")]),
+    # L7: no stranded running rows
+    M("r8-task-no-abandon-cleanup", "a task row whose COMMIT outlived the deadline is failed at once (L7)",
+      [("aidigest/tasks.py", "        await _abandon_task_row(engine, task_id, requested_by, budget)\n", "        pass\n")]),
+    M("r8-task-no-stale-cleanup", "stale running task rows are failed on the user's next request (L7)",
+      [("aidigest/tasks.py", "            if stale_before is not None:\n", "            if False:\n")]),
+    M("r8-daily-no-abandon-cleanup", "a claim whose COMMIT outlived the deadline frees the day at once (L7)",
+      [("aidigest/daily.py", "        await _finish_failed(engine, claim_id, claim_owner, ABANDONED_CLAIM, budget)\n", "        pass\n")]),
+    # L5: the sweep over aidigest.tasks
+    M("r8-sweep-or-requested-by", "no OR requested_by escape hatch (L5)",
+      [("aidigest/tasks.py", '"FROM aidigest.tasks WHERE id=:id AND requested_by=:by"', '"FROM aidigest.tasks WHERE id=:id OR requested_by=:by"')]),
+    M("r8-sweep-stale-cleanup-unscoped", "the stale cleanup touches only the caller's rows (L5)",
+      [("aidigest/tasks.py", '"WHERE requested_by=:by AND status=\'running\' AND created_at < :stale"',
+        '"WHERE status=\'running\' AND created_at < :stale"')]),
+    M("r8-sweep-abandon-unscoped", "even the cleanup of our own fresh id names requested_by (L5, sweep only)",
+      [("aidigest/tasks.py", '"WHERE id=:id AND requested_by=:by AND status=\'running\'"', '"WHERE id=:id AND status=\'running\'"')]),
+    M("r8-sweep-fragmented-unscoped", "the sweep sees through any number of string fragments (L5)",
+      [("aidigest/tasks.py", '"FROM aidigest.tasks WHERE id=:id AND requested_by=:by"',
+        '"FROM aidig" "est.ta" "sks WH" "ERE id=:id"')]),
+    M("r8-sweep-plus-concat-unscoped", "the sweep sees through + concatenation (L5)",
+      [("aidigest/tasks.py", '"FROM aidigest.tasks WHERE id=:id AND requested_by=:by"', '"FROM aidigest.tasks " + "WHERE id=:id"')]),
+    # L2 / L8: setup.sh
+    M("r8-temp-not-made-private", "the temp copy is chmod 600 before new content is written (L2)",
+      [("../setup.sh", '  chmod 600 "$AIDIGEST_TMP"\n', "")]),
+    M("r8-backup-by-cp", "--backup-env goes through the writer (L8)",
+      [("../setup.sh", "  env_replace .env.backup cat .env\n  success \".env backed up", "  cp .env .env.backup\n  success \".env backed up")]),
+    M("r8-overwrite-backup-by-cp", "the overwrite path backs .env up through the writer (L8)",
+      [("../setup.sh", "      env_replace .env.backup cat .env\n      success", "      cp .env .env.backup\n      success")]),
+    M("r8-makefile-backup-by-cp", "make backup-env goes through the writer (L8)",
+      [("../Makefile", "\t@bash setup.sh --backup-env", "\tcp .env .env.backup")]),
 ]
 
 
-def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, float]:
+def _python_for(m: "Mutation | None") -> str:
+    if m is not None and m.python == "py312":
+        return py312_interpreter()  # raises: such a mutation is never reported as evaluated
+    return sys.executable
+
+
+def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, float, str | None]:
+    """(green, last output line, seconds, killing test). The killing test is the node id of the first
+    failure (-x -rf); for the Caddy runner it is the matrix itself."""
     start = time.monotonic()
     if m is not None and m.runner == "caddy":
         cmd = ["bash", str(ROOT / "scripts" / "caddy_matrix.sh"), str(workdir.parent / "Caddyfile"),
                str(workdir.parent / "docker-compose.yml"), str(workdir.parent / "caddy-entrypoint.sh")]
     else:
-        python = sys.executable
-        if m is not None and m.python == "py312":
-            python = py312_interpreter()  # raises: such a mutation is never reported as evaluated
-        cmd = [python, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider"]
+        cmd = [_python_for(m), "-m", "pytest", "-x", "-q", "-rfE", "-p", "no:cacheprovider"]
     try:
         proc = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True, timeout=900)
     except subprocess.TimeoutExpired:
-        return False, "suite timed out (900 s)", time.monotonic() - start
+        return False, "suite timed out (900 s)", time.monotonic() - start, None
     tail = (proc.stdout.strip().splitlines() or [""])[-1]
-    return proc.returncode == 0, tail, time.monotonic() - start
+    killer = None
+    if proc.returncode != 0:
+        if m is not None and m.runner == "caddy":
+            killer = "scripts/caddy_matrix.sh"
+        else:
+            summary = proc.stdout.split("short test summary info", 1)[-1]   # not captured log lines
+            for line in summary.splitlines():
+                node = line.split(" ", 1)[1].split(" - ", 1)[0].strip() if " " in line else ""
+                if line.startswith(("FAILED ", "ERROR ")) and "::" in node:
+                    killer = node
+                    break
+    return proc.returncode == 0, tail, time.monotonic() - start, killer
+
+
+def confirm_kill(work: Path, base: Path, m: "Mutation", killer: str | None) -> str | None:
+    """Review of ae012a0: a kill counts only if the killing test, run on its own, fails on the
+    mutated tree AND passes on the unmutated baseline. Otherwise (a flaky or unrelated test, or a
+    collection error) the kill is suspect; the reason is returned."""
+    if m.runner == "caddy":
+        return None
+    if not killer or "::" not in killer:
+        return f"no failing test identified ({killer!r})"
+    python = _python_for(m)
+
+    def passes(tree: Path) -> bool:
+        proc = subprocess.run([python, "-m", "pytest", "-q", "-p", "no:cacheprovider", killer], cwd=tree,
+                              capture_output=True, text=True, timeout=900)
+        return proc.returncode == 0
+
+    if passes(work):
+        return f"{killer} passes when re-run on the mutated tree (flaky?)"
+    if not passes(base):
+        return f"{killer} also fails on the unmutated baseline (unrelated)"
+    return None
 
 
 def py312_interpreter() -> str:
@@ -542,13 +650,13 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="aidigest-mut-") as tmp:
         base = copy_tree(Path(tmp) / "baseline")
-        ok, tail, secs = run_suite(base)
+        ok, tail, secs, _ = run_suite(base)
         print(f"baseline: {'PASS' if ok else 'FAIL'} ({tail}) {secs:.0f}s", flush=True)
         if not ok:
             print("Baseline must be green before mutating.")
             return 2
 
-        rows, survived = [], 0
+        rows, survived, suspect = [], 0, 0
         for m in selected:
             work = copy_tree(Path(tmp) / m.name)
             for rel, old, new in m.edits:
@@ -559,21 +667,29 @@ def main() -> int:
                     print(f"{m.name}: target found {count}x in {rel}; fix the mutation definition")
                     return 2
                 path.write_text(src.replace(old, new))
-            green, tail, secs = run_suite(work, m)
-            verdict = "SURVIVED" if green else "killed"
-            survived += green
-            rows.append((m.name, m.control, verdict, tail))
-            print(f"{verdict:<8} {m.name:<38} {tail} ({secs:.0f}s)", flush=True)
+            green, tail, secs, killer = run_suite(work, m)
+            if green:
+                verdict, survived = "SURVIVED", survived + 1
+            else:
+                reason = confirm_kill(work, base, m, killer)
+                verdict = "killed" if reason is None else "SUSPECT"
+                if reason is not None:
+                    suspect += 1
+                    tail = f"{tail} - {reason}"
+            rows.append((m.name, m.control, verdict, killer or "", tail))
+            print(f"{verdict:<8} {m.name:<38} by {killer or '-'}: {tail} ({secs:.0f}s)", flush=True)
             shutil.rmtree(work.parent, ignore_errors=True)
 
-    lines = ["| # | Mutation | Control reverted | Result | Suite tail |", "|---|---|---|---|---|"]
-    lines += [f"| {i} | `{n}` | {c} | {v} | {t} |" for i, (n, c, v, t) in enumerate(rows, 1)]
-    lines.append(f"\n{len(rows) - survived}/{len(rows)} mutations killed, {survived} survived.")
+    lines = ["| # | Mutation | Control reverted | Result | Killed by | Suite tail |", "|---|---|---|---|---|---|"]
+    lines += [f"| {i} | `{n}` | {c} | {v} | `{k}` | {t} |" for i, (n, c, v, k, t) in enumerate(rows, 1)]
+    killed = len(rows) - survived - suspect
+    lines.append(f"\n{killed}/{len(rows)} mutations killed (each kill confirmed by re-running the killing "
+                 f"test on the mutated and the baseline tree), {survived} survived, {suspect} suspect.")
     report = "\n".join(lines)
     print("\n" + report)
     if args.out:
         Path(args.out).write_text(report + "\n")
-    return 1 if survived else 0
+    return 1 if survived or suspect else 0
 
 
 if __name__ == "__main__":
