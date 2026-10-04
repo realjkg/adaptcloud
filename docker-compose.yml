@@ -13,6 +13,16 @@ version: '3.9'
 #                       Neon example:
 #                         postgresql+asyncpg://sage:pass@ep-xxx.us-east-2.aws.neon.tech/sagedb?ssl=require
 #
+# Optional AIDigest (profile "aidigest"; enable with COMPOSE_PROFILES=aidigest or
+# "make aidigest-start"). Its variables are NOT required for the base stack:
+#   AIDIGEST_DATABASE_URL     least-privilege role that owns schema "aidigest"
+#   AIDIGEST_PROXY_SECRET     Caddy -> AIDigest shared secret (openssl rand -hex 32)
+#   AIDIGEST_BASIC_AUTH_USER  Basic-auth user for https://<host>/aidigest/*
+#   AIDIGEST_BASIC_AUTH_HASH  bcrypt hash of that user's password (caddy hash-password)
+# Missing or partial values fail closed without breaking Caddy: Caddy falls back to
+# sentinel credentials and answers /aidigest/* with 401; the aidigest container refuses to
+# start (PRODUCTION=true validation).
+#
 # Storage model:
 #   All persistent data (encryption keys, voice profiles, audit log) lives in
 #   the managed PostgreSQL database. The API container is fully stateless —
@@ -69,6 +79,36 @@ services:
     cap_add:
       - NET_BIND_SERVICE
 
+  # AIDigest — AI intelligence service (AIDigest/). Opt-in profile; reachable only
+  # through Caddy at /aidigest/* (basic auth + proxy shared secret). Compose evaluates
+  # ":?" even for inactive profiles, so the values default to empty here and the
+  # service itself refuses to start without them (fail closed).
+  aidigest:
+    profiles: ["aidigest"]
+    build:
+      context: ./AIDigest
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AIDIGEST_DATABASE_URL=${AIDIGEST_DATABASE_URL:-}
+      - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:-}
+      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-}   # validated only (Caddy authenticates)
+      - AIDIGEST_MODEL=${AIDIGEST_MODEL:-claude-sonnet-5-5}
+      - AIDIGEST_DAILY_TIME=${AIDIGEST_DAILY_TIME:-12:30}
+      - PRODUCTION=true
+    read_only: true                    # stateless container — all state in Postgres
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - internal
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   # TLS termination — serves the entire pod over HTTPS (port 443)
   # Tablets and other LAN devices connect here. Run "make caddy-trust" once
   # per device to install the local root CA so there are no cert warnings.
@@ -77,9 +117,19 @@ services:
     ports:
       - "0.0.0.0:80:80"
       - "0.0.0.0:443:443"
+    # Sanitises the AIDigest values first so Caddy always starts (see caddy-entrypoint.sh).
+    command: ["/bin/sh", "/usr/local/bin/caddy-entrypoint.sh"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-entrypoint.sh:/usr/local/bin/caddy-entrypoint.sh:ro
       - caddy_data:/data
+    # Plain values (may be empty or malformed): caddy-entrypoint.sh (the "command" below)
+    # replaces anything Caddy could not load with the "not configured" sentinels, and the
+    # Caddyfile guard then answers /aidigest/* with 401.
+    environment:
+      - AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER:-}
+      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:-}
+      - AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET:-}
     networks:
       - internal
     depends_on:

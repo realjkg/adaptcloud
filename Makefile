@@ -1,9 +1,12 @@
 SHELL := /bin/bash
-.PHONY: setup start stop restart logs logs-api logs-ui status caddy-trust update backup-env clean help
+.PHONY: setup setup-aidigest start stop restart logs logs-api logs-ui logs-aidigest status aidigest-start aidigest-status aidigest-run-daily caddy-trust update backup-env clean help
 
 ##@ First-time setup
 setup:           ## Run interactive first-run wizard (generates .env, pulls images, starts services)
 	@bash setup.sh
+
+setup-aidigest:  ## Add AIDigest settings to an EXISTING .env (append-only, never changes existing keys)
+	@bash setup.sh --aidigest
 
 ##@ Day-to-day operations
 start:           ## Start Sage in the background
@@ -27,6 +30,9 @@ logs-api:        ## Tail API logs only
 logs-ui:         ## Tail UI logs only
 	docker compose logs -f ui
 
+logs-aidigest:   ## Tail AIDigest logs only
+	docker compose logs -f aidigest
+
 status:          ## Show container health and last 20 API log lines
 	@echo "=== Container status ==="
 	docker compose ps
@@ -36,6 +42,23 @@ status:          ## Show container health and last 20 API log lines
 	@echo ""
 	@echo "=== Recent API logs ==="
 	docker compose logs --tail=20 api
+
+# AIDigest calls go through Caddy (basic auth); curl prompts for the password.
+AIDIGEST_USER = $(shell grep -E '^AIDIGEST_BASIC_AUTH_USER=' .env 2>/dev/null | cut -d= -f2- | tr -d "'\"")
+
+aidigest-start:  ## Start AIDigest (profile "aidigest") — needs the AIDIGEST_* values in .env
+	@for v in AIDIGEST_DATABASE_URL AIDIGEST_PROXY_SECRET AIDIGEST_BASIC_AUTH_USER AIDIGEST_BASIC_AUTH_HASH; do \
+	  grep -Eq "^$$v=.+" .env 2>/dev/null || { echo "$$v is missing from .env — run 'make setup-aidigest'"; exit 1; }; \
+	done
+	docker compose --profile aidigest up -d --build aidigest caddy
+
+aidigest-status: ## AIDigest readiness via Caddy (/aidigest/ops/status) — run before first use
+	@test -n "$(AIDIGEST_USER)" || { echo "AIDIGEST_BASIC_AUTH_USER is not set in .env (run 'make setup')"; exit 1; }
+	@curl -sk --fail-with-body -u "$(AIDIGEST_USER)" https://localhost/aidigest/ops/status | python3 -m json.tool
+
+aidigest-run-daily: ## Trigger today's AIDigest DAILY run (409 if it already ran)
+	@test -n "$(AIDIGEST_USER)" || { echo "AIDIGEST_BASIC_AUTH_USER is not set in .env (run 'make setup')"; exit 1; }
+	@curl -sk --fail-with-body -u "$(AIDIGEST_USER)" -X POST https://localhost/aidigest/ops/run-daily | python3 -m json.tool
 
 caddy-trust:     ## Export Caddy's root CA cert — install on each LAN tablet once
 	@docker compose exec caddy cat /data/pki/authorities/local/root.crt > sage-root-ca.crt 2>/dev/null || \

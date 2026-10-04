@@ -1,0 +1,1803 @@
+# AIDigest verification evidence
+
+Branch `feat/ai-digest-initial` (PR #60), base `f96765d`. Recorded 2026-10-03.
+
+Sections 1-9 record the initial implementation (`351e7b2`). Section 10 records challenger
+round 1 and section 11 challenger round 2. **Section 12 records challenger round 3 and
+supersedes all earlier gate results** (543 tests on Python 3.11.15 and 3.12.3, each against a
+test database named `aidigest_it` and one named `postgres`; 125/125 mutations killed; Caddy
+matrix 22 cases green).
+
+Toolchain: Python 3.11.15 (container image: python:3.12-slim), pytest 9.1.1,
+pytest-asyncio 1.4.0, FastAPI 0.142.2, SQLAlchemy 2.1.3, asyncpg 0.31.0,
+anthropic 1.11.0, httpx 0.28.1, ruff 0.15.20, pip-audit 2.10.1,
+detect-secrets 1.5.0, PostgreSQL 16.14, Docker 29.6.2 / Compose v5.3.1,
+Caddy v2.11.6.
+
+All commands run from `AIDigest/` unless noted. `$PY` is a venv with
+`requirements-dev.txt` installed.
+
+## 1. Red (tests written first) - commit `282793c`
+
+```
+$ $PY -m pytest -q
+E   ModuleNotFoundError: No module named 'aidigest'
+ERROR tests/test_ai.py
+ERROR tests/test_api.py
+ERROR tests/test_daily.py
+ERROR tests/test_feeds.py
+ERROR tests/test_fetcher.py
+ERROR tests/test_scheduler.py
+ERROR tests/test_tasks.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 7 errors during collection !!!!!!!!!!!!!!!!!!!!
+7 errors in 0.19s
+```
+
+## 2. Green - implementation commits `d3aa8bd`, `74d878a`, `a15d192`
+
+```
+$ $PY -m pytest -q
+339 passed
+```
+
+No test is skipped: `tests/conftest.py` turns any skip into a failure, and the
+DB tests run against a real PostgreSQL 16 cluster that the session fixture
+initdb's under `/tmp/aidg_pg`, starts on the first free port in 29650-29659,
+then stops and deletes. No test calls Claude or the internet; the Anthropic
+client and the fetcher are injected fakes (`tests/fakes.py`).
+
+Final run: see section 9. The 339 tests break down as follows:
+
+| Test file | Tests | Covers |
+|---|---|---|
+| test_auth.py | 113 | auth matrix: missing/empty/blank/forged user, missing/wrong/prefix/long/empty secret, x 12 routes; unconfigured secret fails closed; `hmac.compare_digest` spy |
+| test_fetcher.py | 75 | every SSRF case: scheme, credentials, IPv4/IPv6/int/hex/short IP literals, localhost/.local/.internal/metadata, port, DNS->private (v4, v6, mixed, mapped, NAT64, 6to4), IP pinning + Host/SNI, DNS rebinding, redirect re-validation and limit, Content-Length pre-check, streamed cap (chunked, lying length) |
+| test_tasks.py | 51 | findings 3, 6, 7, 8, 9; knowledge/citation guardrails; output sanitising; one AI call |
+| test_daily.py | 34 | findings 2, 3, 4, 10; duplicate, concurrent, restart, retry-after-failure and abandoned-run cases |
+| test_ai.py | 23 | Claude adapter (model from settings, no tools, refusal/truncation/API error -> AIError); finite-number and strict JSON parsing |
+| test_config.py | 18 | production validation, model default, daily time |
+| test_scheduler.py | 8 | next-run computation, loop resilience, scheduled job gated on readiness, lifespan start/stop |
+| test_api.py | 12 | finding 1 (startup schema, /ops/status), run-daily endpoint, digest escaping, knowledge query, DB errors -> 503 |
+| test_feeds.py | 5 | RSS/Atom parsing, scoring, dedupe |
+
+## 3. Lint and compile
+
+```
+$ ruff check .            # config in AIDigest/pyproject.toml (E,F,W,I,B,S)
+All checks passed!
+$ $PY -m compileall -q aidigest main.py tests scripts && echo compile-ok
+compile-ok
+```
+
+The repository had no Python linter configuration; ruff (with bandit `S`
+rules) is configured for AIDigest only.
+
+## 4. Dependency audit
+
+```
+$ pip-audit -r requirements.txt --progress-spinner off
+No known vulnerabilities found
+```
+
+## 5. Secret scan of the diff
+
+```
+$ detect-secrets scan $(changed and added files since f96765d)   # 44 files
+detect-secrets findings: 17
+$ git diff f96765d -- . | grep '^+' | grep -E 'sk-ant-[A-Za-z0-9_-]{20,}|\$2[aby]\$..\$.{53}|BEGIN .*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_.{36}|[0-9a-f]{64}'
+(none)
+```
+
+All 17 detect-secrets hits were reviewed and are false positives:
+
+| Kind | Where | Why it is not a secret |
+|---|---|---|
+| Secret Keyword | aidigest/auth.py:13 | the header *name* `x-aidigest-proxy-secret` |
+| Basic Auth Credentials | aidigest/config.py:13, :35 | placeholder URLs `user:password@host` used to *reject* placeholders |
+| Basic Auth Credentials | .env.example:33, :36; setup.sh:60 | pre-existing documentation placeholders (present at `f96765d`) |
+| Secret Keyword / Basic Auth | tests/fakes.py, test_auth.py, test_config.py, test_fetcher.py | test fixtures (`test-proxy-secret-...`, `sk-ant-test-not-a-real-key`, `wrong`, `short-secret`, `user:pw@example.com`) |
+
+No real key, password, bcrypt hash or proxy secret is committed; `.env.example`
+contains names only.
+
+## 6. Mutation check (security controls)
+
+```
+$ $PY scripts/mutation_check.py
+```
+
+Each row reverts one control in a scratch copy and runs the suite with `-x`.
+"killed" means at least one test failed, which is what we want.
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 1 | `auth-secret-always-ok` | proxy shared secret is verified | killed | 1 failed, 48 passed in 5.72s |
+| 2 | `auth-non-constant-time` | constant-time compare (hmac.compare_digest) | killed | 1 failed, 147 passed in 14.10s |
+| 3 | `auth-user-header-optional` | X-AIDigest-User must be present and non-empty | killed | 1 failed, 60 passed in 6.58s |
+| 4 | `auth-empty-configured-secret-trusted` | fail closed when no proxy secret is configured | killed | 1 failed, 146 passed in 13.31s |
+| 5 | `auth-all-paths-public` | only /health is public | killed | 1 failed, 23 passed in 3.51s |
+| 6 | `config-no-production-validation` | production refuses weak/missing secrets | killed | 1 failed, 151 passed in 13.76s |
+| 7 | `config-weak-proxy-secret-allowed` | proxy secret length/placeholder check | killed | 1 failed, 152 passed in 13.27s |
+| 8 | `ssrf-allow-http` | HTTPS only | killed | 1 failed, 205 passed in 17.73s |
+| 9 | `ssrf-allow-credentials` | reject credentials in URL | killed | 1 failed, 207 passed in 17.98s |
+| 10 | `ssrf-allow-other-ports` | default port only | killed | 1 failed, 223 passed in 23.99s |
+| 11 | `ssrf-allow-ip-literals` | reject literal IP hosts | killed | 1 failed, 210 passed in 21.92s |
+| 12 | `ssrf-allow-local-names` | reject localhost/local/metadata names | killed | 1 failed, 216 passed in 22.38s |
+| 13 | `ssrf-no-dns-check` | every resolved address must be public | killed | 1 failed, 253 passed in 24.69s |
+| 14 | `ssrf-no-embedded-v4-check` | IPv4-mapped / NAT64 / 6to4 addresses unwrapped | killed | 1 failed, 247 passed in 20.48s |
+| 15 | `ssrf-no-ip-pinning` | connect to the validated IP (DNS rebinding) | killed | 1 failed, 262 passed in 28.87s |
+| 16 | `ssrf-redirect-not-revalidated` | every redirect target re-validated | killed | 1 failed, 267 passed in 26.52s |
+| 17 | `ssrf-unbounded-redirects` | redirect hop limit | killed | 1 failed, 273 passed in 26.73s |
+| 18 | `size-no-content-length-precheck` | reject declared oversize before reading | killed | 1 failed, 276 passed in 20.48s |
+| 19 | `size-no-streaming-cap` | streamed byte cap (finding 5) | killed | 1 failed, 277 passed in 22.28s |
+| 20 | `prompt-no-evidence-escaping` | evidence cannot close the <evidence> block | killed | 1 failed, 168 passed in 15.61s |
+| 21 | `prompt-no-system-rule` | system rule: never follow instructions in evidence | killed | 1 failed, 168 passed in 20.70s |
+| 22 | `daily-accept-unknown-ids` | selected id must be an input candidate (finding 2) | killed | 1 failed, 169 passed in 18.57s |
+| 23 | `daily-accept-foreign-urls` | selected URL must be the candidate's URL (finding 2) | killed | 1 failed, 169 passed in 17.54s |
+| 24 | `finite-allow-nan-inf` | finite numbers only (finding 3) | killed | 1 failed, 8 passed in 1.35s |
+| 25 | `finite-allow-strings-bools` | numbers must be real JSON numbers (finding 3) | killed | 1 failed, 12 passed in 1.41s |
+| 26 | `json-allow-nan-literals` | reject NaN/Infinity JSON literals | killed | 1 failed, 22 passed in 1.34s |
+| 27 | `ai-ignore-refusal` | refusal stop_reason is an AI failure | killed | 1 failed, 1 passed in 1.44s |
+| 28 | `daily-count-noop-inserts` | accepted counts actual inserts (finding 4) | killed | 1 failed, 189 passed in 23.15s |
+| 29 | `daily-knowledge-low-confidence` | knowledge confidence >= 0.75 (DAILY) | killed | 1 failed, 186 passed in 20.99s |
+| 30 | `daily-knowledge-foreign-source` | DAILY knowledge source must be the candidate URL | killed | 1 failed, 186 passed in 22.69s |
+| 31 | `task-knowledge-low-confidence` | knowledge confidence >= 0.75 (TASK) | killed | 1 failed, 319 passed in 25.96s |
+| 32 | `task-knowledge-unobserved-source` | knowledge source URL actually observed (TASK) | killed | 1 failed, 319 passed in 25.21s |
+| 33 | `task-citations-unfiltered` | citations limited to observed URLs | killed | 1 failed, 317 passed in 25.41s |
+| 34 | `task-urls-not-reserved` | explicit URLs get the first evidence slots (finding 6) | killed | 1 failed, 317 passed in 20.35s |
+| 35 | `task-more-than-3-urls` | at most 3 explicit URLs (finding 7) | killed | 1 failed, 296 passed in 20.83s |
+| 36 | `task-lax-body` | strict request model (finding 7) | killed | 1 failed, 304 passed in 19.99s |
+| 37 | `task-static-url-checks-skipped` | request URLs statically validated (finding 7) | killed | 1 failed, 299 passed in 20.91s |
+| 38 | `errors-upstream-as-400` | upstream/AI failures are 502 (finding 8) | killed | 1 failed, 29 passed in 3.74s |
+| 39 | `errors-not-recorded` | failures recorded on the task row (finding 8) | killed | 1 failed, 323 passed in 22.07s |
+| 40 | `task-no-readiness-gate` | TASK gated on readiness (finding 9) | killed | 1 failed, 331 passed in 23.76s |
+| 41 | `daily-no-readiness-gate` | DAILY gated on readiness (finding 10) | killed | 1 failed, 28 passed in 3.90s |
+| 42 | `status-always-200` | /ops/status reports not-ready as 503 (finding 1) | killed | 1 failed, 26 passed in 3.77s |
+| 43 | `daily-no-duplicate-guard` | one DAILY run per day (unique run row) | killed | 1 failed, 27 passed in 3.61s |
+| 44 | `digest-no-html-escape` | digest HTML escaping | killed | 1 failed, 30 passed in 4.18s |
+| 45 | `digest-non-https-links` | digest links only https:// URLs | killed | 1 failed, 30 passed in 4.31s |
+
+45/45 mutations killed, 0 survived.
+
+First run (before two tests were strengthened): 43/45 killed. Survivors and fixes:
+
+| Mutation | Why it survived | Fix (test) |
+|---|---|---|
+| `daily-accept-unknown-ids` | the only unknown-id case also carried a foreign URL, so the URL check rejected it first | added an unknown id **without** a `url` field to `test_daily_rejects_unknown_ids_and_foreign_urls` |
+| `ai-ignore-refusal` | the refusal fixture had empty text, so the "no text" check raised instead | refusal fixture now carries parseable text (`test_anthropic_adapter_refusal_is_ai_error`) |
+
+Both were re-run individually (killed) and then the full set above was re-run.
+
+## 7. Container and proxy wiring
+
+### docker compose config (repo root)
+
+```
+$ env -i PATH=$PATH HOME=$HOME ANTHROPIC_API_KEY=x SECRET_KEY=x MASTER_SECRET=x \
+    PARENT_PASSWORD=x CHILD_PIN=x DATABASE_URL=x docker compose config -q
+error while interpolating services.aidigest.environment.[]: required variable
+AIDIGEST_PROXY_SECRET is missing a value: AIDIGEST_PROXY_SECRET is required
+$ (same) + AIDIGEST_PROXY_SECRET=s AIDIGEST_BASIC_AUTH_USER=u AIDIGEST_BASIC_AUTH_HASH='$2a$14$...' docker compose config
+-> renders; aidigest: build ./AIDigest, cap_drop [ALL], expose ["8000"], no ports,
+   read_only true, security_opt [no-new-privileges:true], tmpfs /tmp, network internal,
+   PRODUCTION "true"; caddy gets the three AIDIGEST_* variables
+```
+
+A single-quoted bcrypt hash in an env file passes through compose
+interpolation intact (verified with `--env-file`).
+
+### Caddyfile
+
+```
+$ docker run --rm -v $PWD/Caddyfile:/etc/caddy/Caddyfile:ro -e AIDIGEST_BASIC_AUTH_USER=ops \
+    -e AIDIGEST_BASIC_AUTH_HASH='$2a$14$...' -e AIDIGEST_PROXY_SECRET=... caddy:2-alpine \
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+Valid configuration
+```
+
+Adapted JSON: `/aidigest/*` -> `request_body max_size 64000` -> `authentication
+http_basic (bcrypt)` -> `reverse_proxy aidigest:8000` with request headers
+`set X-Aidigest-User {http.auth.user.id}` and `set X-Aidigest-Proxy-Secret`;
+the UI route `delete`s both headers.
+
+### Image build
+
+```
+$ docker build -t aidigest:test AIDigest/
+```
+
+Built from a scratch copy of the context with the sandbox's TLS-intercepting
+proxy CA added before `pip install` (the sandbox's network requirement; the
+committed Dockerfile is unchanged). Result: runs as `uid=1000(aidigest)`,
+healthcheck `python -c urllib.request.urlopen('http://127.0.0.1:8000/health')`.
+
+### End-to-end smoke test (real Caddy + aidigest image + postgres:16)
+
+A scratch compose project with the same hardening as `docker-compose.yml`
+(`read_only`, `cap_drop: [ALL]`, `no-new-privileges`, tmpfs, `expose` only,
+`PRODUCTION=true`) and the repo Caddyfile. The only difference was `tls
+internal { on_demand }`, because the repo's existing `:443 { tls internal }`
+issues no certificate for an unknown SNI (pre-existing behaviour,
+unchanged by this PR). Requests came from a container on the compose network:
+
+```
+1 no credentials /ops/status                    -> 401
+2 no credentials + forged trust headers         -> 401
+3 wrong password                                -> 401
+4 valid basic auth /ops/status                  -> 200 {"service":"AIDigest",...,"authenticated_as":"ops","ready":true,"schema":"aidigest",...}
+5 valid auth + forged X-AIDigest-User: admin    -> 200, authenticated_as = ops   (Caddy overwrote the header)
+6 valid auth /health                            -> 200 {"status":"ok"}
+7 valid auth GET unknown task                   -> 404 {"error":"Task not found"}
+8 valid auth POST invalid task body             -> 422 (string_too_short, extra_forbidden)
+9 valid auth POST body > 64KB                   -> 413 (Caddy request_body cap)
+10 /aidigest redirect                           -> 308
+11 valid auth /digest.json                      -> 200 []
+forged headers sent directly to aidigest:8000 from another container  -> 401
+forged user + empty secret directly to aidigest:8000                  -> 401
+aidigest /health directly                                             -> {"status":"ok"}
+docker compose port aidigest 8000                                     -> no host port
+aidigest container: ReadonlyRootfs=true CapDrop=[ALL] SecurityOpt=[no-new-privileges:true] User=aidigest
+Postgres: aidigest.articles, aidigest.knowledge, aidigest.runs, aidigest.tasks (created at startup)
+
+Caddy started with EMPTY AIDIGEST_BASIC_AUTH_USER/HASH:  no auth / valid creds / empty creds -> 401 / 401 / 401
+Caddy holding a WRONG proxy secret:                       no auth / valid creds / empty creds -> 401 / 401 / 401
+PRODUCTION=true with AIDIGEST_PROXY_SECRET=short -> refuses to start:
+  ValidationError ... AIDIGEST_PROXY_SECRET must be at least 32 random characters
+```
+
+### TLS pinning check (manual, real TLS)
+
+Local HTTPS server with a certificate for `pin.example` on 127.0.0.1:443,
+fetcher resolver answering 127.0.0.1 (the public-address check was disabled
+for this experiment only):
+
+```
+OK: host=pin.example path=/hello          # connected to the pinned IP, Host + SNI = hostname, cert verified
+wrong-host rejected: UpstreamError ...    # https://other.example -> certificate does not match -> refused
+```
+
+## 8. Notes
+
+- The `setup.sh` hashing step was checked: `printf '%s\n' "$pw" | docker run
+  --rm -i caddy:2-alpine caddy hash-password` prints a `$2a$14$` bcrypt hash
+  (the password never appears on a command line).
+- `make aidigest-status` / `make aidigest-run-daily` call
+  `https://localhost/aidigest/...` with `curl -u $AIDIGEST_BASIC_AUTH_USER`
+  (password prompted) and `--fail-with-body`, so a 503 not-ready exits non-zero.
+
+## 9. Final gate run
+
+```
+$ $PY -m pytest -q -rs
+...................................................                      [100%]
+339 passed in 24.59s
+$ ruff check .
+All checks passed!
+$ $PY -m compileall -q aidigest main.py tests scripts && echo compile-ok
+compile-ok
+$ pip-audit -r requirements.txt --progress-spinner off
+No known vulnerabilities found
+```
+
+The test cluster directory `/tmp/aidg_pg` is gone after the run (stopped and deleted).
+
+## 10. Challenger round 1 (review of `351e7b2`: REQUEST_CHANGES)
+
+This section supersedes sections 1-9 for gate results. Commits:
+
+| SHA | What |
+|---|---|
+| `1e4dc66` | failing tests for H1, M1-M8, L1-L7 (red) |
+| `1544690` | linear-time feed parsing off the event loop (H1) |
+| `a8fdb83` | fetcher: total deadline, IDNA host, bounded decoding, more IP ranges (M1, M3, M4, M5, L2) |
+| `dd9773f` | run leases, budgets, rate limits, least-privilege DB role, NUL, effort, catch-up, L7 |
+| `f34f78f` | setup.sh append-only AIDigest path; guarded overwrite (M7, L3, L6) |
+| `9a60801` | compose profile, hash-pinned deps, README upgrade + role SQL (M7, M8, L6) |
+| `34aa472` | 91-mutation check; explicit IP policy layer tested directly |
+| `d38bfc0` | H1 tests also assert near-linear scaling |
+| this commit | budget test bounds itself; DESIGN.md section 10, CODEX.md, this evidence |
+
+### 10.1 Red (`1e4dc66`)
+
+```
+$ $PY -m pytest -q -p no:cacheprovider --continue-on-collection-errors
+69 failed, 324 passed, 1 error in 110.59s
+ERROR tests/test_daily.py: ImportError: cannot import name 'DailyConfig' from 'aidigest.daily'
+11 adversarial inputs killed by the 6 s child budget (H1 confirmed):
+  lt-run, item-open-run, item-tag-unclosed, item-title-lt, title-open-run, script-open-run,
+  style-open-run, cdata-open-run, comment-open-run, nested-tags, atom-href-run
+```
+
+Note: in a first red draft, the two `/health` heartbeat tests passed against the old inline
+parser. The fake fetch never yields, so the parse ran back to back and only then did the
+heartbeat run. They were rewritten as a continuous ticker (maximum gap between `/health`
+answers) and failed red before the red commit.
+
+### 10.2 Green
+
+```
+$ $PY -m pytest -q -rs -p no:cacheprovider
+............................                                             [100%]
+460 passed in 36.59s
+```
+
+No test is skipped (skips are converted to failures). The private Postgres cluster ran on the first free port in 29650-29659 and was stopped and deleted afterwards.
+
+| Test file | Tests |
+|---|---|
+| test_fetcher.py | 125 |
+| test_auth.py | 113 |
+| test_tasks.py | 61 |
+| test_daily.py | 46 |
+| test_config.py | 27 |
+| test_ai.py | 25 |
+| test_parsing_dos.py | 25 |
+| test_api.py | 15 |
+| test_scheduler.py | 11 |
+| test_setup_sh.py | 6 |
+| test_feeds.py | 5 |
+| test_db_role.py | 1 |
+| **total** | **460** |
+
+### 10.3 H1 measurements (1 MB inputs, after the fix)
+
+```
+lt-run 0.227s  item-open-run 0.035s  item-tag-unclosed 0.116s  item-title-lt 0.218s
+title-open-run 0.007s  script-open-run 0.005s  script-unclosed 0.005s  style-open-run 0.004s
+style-unclosed 0.005s  cdata-open-run 0.005s  cdata-unclosed 0.005s  comment-open-run 0.004s
+nested-tags 0.005s  tag-no-close 0.005s  atom-href-run 0.042s  atom-link-long 0.005s
+atom-rel-run 0.009s  entity-run 0.076s  double-entity-run 0.098s  ampersand-run 0.031s
+pubdate-long 0.006s          worst: 0.23 s (before: >6 s killed for 11 inputs)
+```
+
+### 10.4 M5 gzip bomb
+
+```
+200 MB of zeros gzip'd -> 203,860 bytes on the wire, cap 1 MB:
+raised: Source too large (decoded); tracemalloc peak 2,209,248 bytes  (challenger: 148 MB peak)
+```
+
+### 10.5 Mutation check (91 mutations: 45 original + 46 for round 1)
+
+```
+$ $PY scripts/mutation_check.py
+```
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 1 | `auth-secret-always-ok` | proxy shared secret is verified | killed | 1 failed, 53 passed in 5.94s |
+| 2 | `auth-non-constant-time` | constant-time compare (hmac.compare_digest) | killed | 1 failed, 152 passed in 15.44s |
+| 3 | `auth-user-header-optional` | X-AIDigest-User must be present and non-empty | killed | 1 failed, 65 passed in 7.02s |
+| 4 | `auth-empty-configured-secret-trusted` | fail closed when no proxy secret is configured | killed | 1 failed, 151 passed in 15.20s |
+| 5 | `auth-all-paths-public` | only /health is public | killed | 1 failed, 25 passed in 3.97s |
+| 6 | `config-no-production-validation` | production refuses weak/missing secrets | killed | 1 failed, 156 passed in 14.61s |
+| 7 | `config-weak-proxy-secret-allowed` | proxy secret length/placeholder check | killed | 1 failed, 157 passed in 14.37s |
+| 8 | `ssrf-allow-http` | HTTPS only | killed | 1 failed, 232 passed in 21.31s |
+| 9 | `ssrf-allow-credentials` | reject credentials in URL | killed | 1 failed, 234 passed in 21.32s |
+| 10 | `ssrf-allow-other-ports` | default port only | killed | 1 failed, 250 passed in 21.12s |
+| 11 | `ssrf-allow-ip-literals` | reject literal IP hosts | killed | 1 failed, 237 passed in 22.64s |
+| 12 | `ssrf-allow-local-names` | reject localhost/local/metadata names | killed | 1 failed, 243 passed in 21.23s |
+| 13 | `ssrf-no-dns-check` | every resolved address must be public | killed | 1 failed, 280 passed in 24.75s |
+| 14 | `ssrf-no-embedded-v4-check` | IPv4-mapped / NAT64 / 6to4 addresses unwrapped | killed | 1 failed, 343 passed in 28.01s |
+| 15 | `ssrf-no-ip-pinning` | connect to the validated IP (DNS rebinding) | killed | 1 failed, 289 passed in 22.23s |
+| 16 | `ssrf-redirect-not-revalidated` | every redirect target re-validated | killed | 1 failed, 294 passed in 21.25s |
+| 17 | `ssrf-unbounded-redirects` | redirect hop limit | killed | 1 failed, 300 passed in 22.55s |
+| 18 | `size-no-content-length-precheck` | reject declared oversize before reading | killed | 1 failed, 303 passed in 20.93s |
+| 19 | `size-no-streaming-cap` | streamed byte cap (finding 5) | killed | 1 failed, 304 passed in 20.36s |
+| 20 | `prompt-no-evidence-escaping` | evidence cannot close the <evidence> block | killed | 1 failed, 182 passed in 14.64s |
+| 21 | `prompt-no-system-rule` | system rule: never follow instructions in evidence | killed | 1 failed, 182 passed in 15.91s |
+| 22 | `daily-accept-unknown-ids` | selected id must be an input candidate (finding 2) | killed | 1 failed, 183 passed in 15.96s |
+| 23 | `daily-accept-foreign-urls` | selected URL must be the candidate's URL (finding 2) | killed | 1 failed, 183 passed in 14.83s |
+| 24 | `finite-allow-nan-inf` | finite numbers only (finding 3) | killed | 1 failed, 8 passed in 1.55s |
+| 25 | `finite-allow-strings-bools` | numbers must be real JSON numbers (finding 3) | killed | 1 failed, 12 passed in 1.60s |
+| 26 | `json-allow-nan-literals` | reject NaN/Infinity JSON literals | killed | 1 failed, 22 passed in 1.48s |
+| 27 | `ai-ignore-refusal` | refusal stop_reason is an AI failure | killed | 1 failed, 1 passed in 1.39s |
+| 28 | `daily-count-noop-inserts` | accepted counts actual inserts (finding 4) | killed | 1 failed, 203 passed in 17.76s |
+| 29 | `daily-knowledge-low-confidence` | knowledge confidence >= 0.75 (DAILY) | killed | 1 failed, 200 passed in 18.08s |
+| 30 | `daily-knowledge-foreign-source` | DAILY knowledge source must be the candidate URL | killed | 1 failed, 200 passed in 16.22s |
+| 31 | `task-knowledge-low-confidence` | knowledge confidence >= 0.75 (TASK) | killed | 1 failed, 430 passed in 31.79s |
+| 32 | `task-knowledge-unobserved-source` | knowledge source URL actually fetched in this TASK (L7) | killed | 1 failed, 430 passed in 32.94s |
+| 33 | `task-citations-unfiltered` | citations limited to observed URLs | killed | 1 failed, 428 passed in 32.58s |
+| 34 | `task-urls-not-reserved` | explicit URLs get the first evidence slots (finding 6) | killed | 1 failed, 428 passed in 32.52s |
+| 35 | `task-more-than-3-urls` | at most 3 explicit URLs (finding 7) | killed | 1 failed, 407 passed in 31.13s |
+| 36 | `task-lax-body` | strict request model (finding 7) | killed | 1 failed, 415 passed in 31.22s |
+| 37 | `task-static-url-checks-skipped` | request URLs statically validated (finding 7) | killed | 1 failed, 410 passed in 30.58s |
+| 38 | `errors-upstream-as-400` | upstream/AI failures are 502 (finding 8) | killed | 1 failed, 31 passed in 4.09s |
+| 39 | `errors-not-recorded` | failures recorded on the task row (finding 8) | killed | 1 failed, 434 passed in 33.14s |
+| 40 | `task-no-readiness-gate` | TASK gated on readiness (finding 9) | killed | 1 failed, 442 passed in 33.60s |
+| 41 | `daily-no-readiness-gate` | DAILY gated on readiness (finding 10) | killed | 1 failed, 30 passed in 3.91s |
+| 42 | `status-always-200` | /ops/status reports not-ready as 503 (finding 1) | killed | 1 failed, 28 passed in 3.62s |
+| 43 | `daily-no-duplicate-guard` | one DAILY run per day (unique run row) | killed | 1 failed, 29 passed in 3.85s |
+| 44 | `digest-no-html-escape` | digest HTML escaping | killed | 1 failed, 32 passed in 4.16s |
+| 45 | `digest-non-https-links` | digest links only https:// URLs | killed | 1 failed, 32 passed in 4.07s |
+| 46 | `h1-quadratic-tag-scan` | linear tag stripping (no rescans after a missing '>') | killed | 1 failed, 358 passed in 24.70s |
+| 47 | `h1-quadratic-element-scan` | linear item/entry scan (stop at a missing close tag) | killed | 1 failed, 359 passed in 29.46s |
+| 48 | `h1-feed-parse-on-loop` | feed parsing runs in a worker thread | killed | 1 failed, 379 passed in 28.94s |
+| 49 | `h1-page-clean-on-loop` | TASK page cleaning runs in a worker thread | killed | 1 failed, 381 passed in 28.78s |
+| 50 | `h1-no-parse-deadline` | parsing is bounded by a deadline | killed | 1 failed, 380 passed in 28.53s |
+| 51 | `m1-no-fetch-deadline` | total deadline per fetch (slowloris) | killed | 1 failed, 321 passed in 26.04s |
+| 52 | `m1-no-daily-budget` | DAILY run budget | killed | suite timed out (900 s) |
+| 53 | `m1-no-task-budget` | TASK budget | killed | 1 failed, 455 passed in 34.96s |
+| 54 | `m2-no-owner-check-before-ai` | ownership re-checked before the AI call | killed | 1 failed, 214 passed in 18.23s |
+| 55 | `m2-store-without-owner` | store+complete requires owner and running | killed | 1 failed, 215 passed in 19.45s |
+| 56 | `m2-takeover-ignores-lease` | only an expired lease may be taken over | killed | 1 failed, 210 passed in 17.76s |
+| 57 | `m2-refresh-without-owner` | heartbeat only extends our own running lease | killed | 1 failed, 216 passed in 19.12s |
+| 58 | `m2-lease-not-longer-than-budget` | lease must exceed the run budget (DailyConfig) | killed | 1 failed, 218 passed in 19.31s |
+| 59 | `m2-settings-lease-check` | lease must exceed the run budget (Settings) | killed | 1 failed, 173 passed in 14.90s |
+| 60 | `m3-clean-text-keeps-nul` | NUL stripped from feed/page text | killed | 1 failed, 220 passed in 20.61s |
+| 61 | `m3-model-output-keeps-nul` | NUL stripped from model output | killed | 1 failed, 220 passed in 20.78s |
+| 62 | `m3-task-allows-nul` | NUL in task text is a 422 | killed | 1 failed, 450 passed in 36.36s |
+| 63 | `m3-q-allows-nul` | NUL in ?q= is a 400 | killed | 1 failed, 37 passed in 4.73s |
+| 64 | `m4-unicode-host` | IDNA host for DNS, Host and SNI | killed | 1 failed, 325 passed in 21.95s |
+| 65 | `m4-body-errors-unmapped` | mid-body transport errors are 502 | killed | 1 failed, 323 passed in 21.44s |
+| 66 | `m4-no-charset-fallback` | unknown charset falls back to UTF-8 | killed | 1 failed, 324 passed in 22.49s |
+| 67 | `m5-accepts-compression` | Accept-Encoding: identity | killed | 1 failed, 328 passed in 22.40s |
+| 68 | `m5-unbounded-decompress` | decompression bounded by the remaining byte budget | killed | 1 failed, 329 passed in 22.83s |
+| 69 | `m5-unsupported-encoding-accepted` | unknown content encodings refused | killed | 1 failed, 331 passed in 22.27s |
+| 70 | `m6-unbounded-ai-concurrency` | global AI concurrency cap | killed | 1 failed, 456 passed in 36.83s |
+| 71 | `m6-no-hourly-cap` | per-user hourly TASK cap | killed | 1 failed, 456 passed in 36.94s |
+| 72 | `m6-hourly-cap-not-atomic` | count-then-insert serialised per user | killed | 1 failed, 456 passed in 37.29s |
+| 73 | `m6-no-daily-attempt-cap` | DAILY attempts capped per UTC day | killed | 1 failed, 39 passed in 5.53s |
+| 74 | `m7-setup-rewrites-existing-keys` | setup --aidigest never duplicates/changes existing keys | killed | 1 failed, 393 passed in 30.55s |
+| 75 | `m7-setup-overwrite-unconfirmed` | overwrite requires typing OVERWRITE | killed | 1 failed, 397 passed in 33.38s |
+| 76 | `m8-always-create-schema` | CREATE SCHEMA skipped when the schema exists | killed | 1 failed, 226 passed in 23.52s |
+| 77 | `l1-trust-env-proxies` | environment proxies ignored | killed | 1 failed, 320 passed in 24.56s |
+| 78 | `l1-no-url-text-cap` | fetched page text capped | killed | 1 failed, 453 passed in 41.29s |
+| 79 | `l1-no-digest-csp` | /digest Content-Security-Policy | killed | 1 failed, 38 passed in 5.37s |
+| 80 | `l1-unbounded-candidates` | <= 12 DAILY candidates | killed | 1 failed, 222 passed in 20.93s |
+| 81 | `l1-unbounded-knowledge-per-item` | <= 3 knowledge points per item | killed | 1 failed, 223 passed in 20.51s |
+| 82 | `l1-default-redirects` | default redirect limit 2 | killed | 1 failed, 172 passed in 14.81s |
+| 83 | `l1-default-max-bytes` | default byte cap 1 MB | killed | 1 failed, 172 passed in 15.85s |
+| 84 | `l1-default-max-tokens` | default max_tokens 16k | killed | 1 failed, 23 passed in 1.55s |
+| 85 | `l2-reserved-allowed` | reserved addresses are not public | killed | 1 failed, 336 passed in 21.53s |
+| 86 | `l2-ipv4-embedding-v6-allowed` | IPv4-compatible/-translated/local NAT64 ranges rejected | killed | 1 failed, 342 passed in 21.88s |
+| 87 | `l2-policy-layer-skipped` | explicit policy layer applied on top of is_global | killed | 1 failed, 264 passed in 20.51s |
+| 88 | `l4-no-catch-up` | scheduler catch-up after start past the slot | killed | 1 failed, 390 passed in 30.75s |
+| 89 | `l5-no-explicit-effort` | explicit effort on the Claude call | killed | 1 failed in 1.45s |
+| 90 | `l5-truncation-accepted` | max_tokens stop is an AI failure | killed | 1 failed, 2 passed in 1.61s |
+| 91 | `l7-single-entity-pass` | entities decoded to a fixed point | killed | 1 failed, 225 passed in 20.10s |
+
+91/91 mutations killed, 0 survived.
+
+Mutation 52 (`m1-no-daily-budget`) was counted as killed by the script's 900 s suite timeout:
+without the budget, `test_daily_run_budget` waited forever. The test now bounds itself with an
+outer `asyncio.wait_for(..., 5)`, and that mutation was re-run alone:
+
+```
+$ $PY scripts/mutation_check.py --only m1-no-daily-budget
+baseline: PASS (460 passed in 38.27s) 40s
+killed   m1-no-daily-budget                     1 failed, 219 passed in 23.71s (25s)
+```
+
+How the 46 new mutations were made to fail. Two partial runs (stopped to fix tests, then re-run
+in full above) found survivors:
+
+| Survivor | Why it survived | Fix |
+|---|---|---|
+| `ssrf-no-embedded-v4-check` (90-mutation version) | `ipaddress.is_global` already rejects 6to4, Teredo and IPv4-mapped ranges on 3.11 and 3.12, so the explicit check was a second, untested layer | Explicit rules moved into `policy_blocks()` with direct tests (`test_policy_layer_*`, `test_reserved_but_stdlib_global_address_is_rejected`) |
+| `h1-quadratic-tag-scan` | `str.find` is memchr-fast; the reintroduced quadratic rescan of 1 MB finished just under the 6 s child budget | Each adversarial case also asserts near-linear scaling between N/4 and N |
+
+### 10.6 Dependency audit (hash-pinned)
+
+```
+$ pip-audit -r requirements.txt --progress-spinner off
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt --progress-spinner off
+No known vulnerabilities found
+```
+
+`requirements.txt` / `requirements-dev.txt` are `pip-compile --generate-hashes` output (exact
+versions, sha256 hashes); the Dockerfile installs with `--require-hashes`. The image built on
+Python 3.12 with hash checking enforced.
+
+### 10.7 M7: the base stack with a pre-PR `.env`
+
+`pre-PR.env` holds exactly the nine keys the original `setup.sh` wrote (no AIDigest values):
+
+```
+$ docker compose --env-file pre-PR.env config --services
+api
+ui
+caddy
+$ docker compose --env-file pre-PR.env config -q; echo $?
+0
+$ docker compose --env-file pre-PR.env --profile aidigest config --services
+aidigest
+api
+ui
+caddy
+caddy environment (pre-PR.env): {'AIDIGEST_BASIC_AUTH_HASH': '', 'AIDIGEST_BASIC_AUTH_USER': '', 'AIDIGEST_PROXY_SECRET': ''}  depends_on: ['ui']
+environment keys per base service, pre-PR compose file vs this branch (same pre-PR.env):
+  api and ui identical; caddy gains only the three empty AIDIGEST_* keys
+```
+
+`tests/test_setup_sh.py` runs `setup.sh --aidigest` against a pre-PR `.env` fixture:
+- the original bytes are an exact prefix of the result, so SECRET_KEY and MASTER_SECRET are byte-identical
+- a re-run leaves the file byte-identical
+- existing AIDigest keys and an existing COMPOSE_PROFILES are kept
+- the default answer changes nothing
+- overwrite without the typed `OVERWRITE` changes nothing and creates no backup
+
+### 10.8 End-to-end (rebuilt hash-pinned image, real Caddy, postgres:16, compose profile)
+
+Same hardening as before (`read_only`, `cap_drop: [ALL]`, `no-new-privileges`, `expose` only,
+`PRODUCTION=true`). The service ran under `profiles: ["aidigest"]` as the least-privilege role
+`aidigest_app`: it owns the pre-created schema `aidigest`, has no database CREATE and has no
+grant on `public.student_configs`. The bcrypt hash used cost 10 (`$2a$10$`).
+`ANTHROPIC_BASE_URL` pointed at a closed local port, so no request left the sandbox.
+
+```
+startup log: AIDigest readiness: ready=True missing=[]
+startup log: Catch-up DAILY after start past 12:30 UTC: {'status': 'completed', ...}     (L4)
+1 no credentials /ops/status                           -> 401
+2 forged trust headers, no credentials                 -> 401
+3 wrong password                                       -> 401
+4 valid auth + forged X-AIDigest-User: admin           -> 200 authenticated_as=ops ready=True
+5 /health                                              -> 200 {"status":"ok"}
+6 run-daily after the startup catch-up                 -> 409 {"status":"duplicate","run_key":"daily:2026-10-03"}
+7 knowledge ?q=ab%00cd                                 -> 400 q must not contain NUL characters   (M3)
+8 task with NUL                                        -> 422                                     (M3)
+9 task body > 64KB                                     -> 413 (Caddy)
+10.1/10.2 tasks (hourly limit 2, AI unreachable)       -> 502 Claude API error: APIConnectionError
+10.3 third task                                        -> 429 Task limit of 2 per hour reached, retry-after=3600 (M6)
+11 task with IP-literal URL                            -> 422
+psql as aidigest_app: has_database_privilege(CREATE) = f; SELECT public.student_configs -> permission denied (M8)
+pg_namespace: aidigest owned by aidigest_app
+```
+
+### 10.9 Secret scan, lint, compile
+
+```
+$ ruff check .   (AIDigest/)
+All checks passed!
+$ $PY -m compileall -q aidigest main.py tests scripts && echo compile-ok
+compile-ok
+$ bash -n setup.sh && echo syntax-ok
+syntax-ok
+$ detect-secrets scan <49 files changed since f96765d>
+findings: 18
+  .env.example Basic Auth Credentials line 33
+  .env.example Basic Auth Credentials line 36
+  AIDigest/aidigest/auth.py Secret Keyword line 13
+  AIDigest/aidigest/config.py Basic Auth Credentials line 14
+  AIDigest/aidigest/config.py Basic Auth Credentials line 38
+  AIDigest/tests/fakes.py Secret Keyword line 8
+  AIDigest/tests/fakes.py Secret Keyword line 16
+  AIDigest/tests/test_auth.py Secret Keyword line 45
+  AIDigest/tests/test_auth.py Secret Keyword line 96
+  AIDigest/tests/test_config.py Secret Keyword line 10
+  AIDigest/tests/test_config.py Secret Keyword line 33
+  AIDigest/tests/test_config.py Secret Keyword line 34
+  AIDigest/tests/test_config.py Secret Keyword line 36
+  AIDigest/tests/test_config.py Secret Keyword line 37
+  AIDigest/tests/test_config.py Basic Auth Credentials line 39
+  AIDigest/tests/test_fetcher.py Basic Auth Credentials line 41
+  AIDigest/tests/test_setup_sh.py Basic Auth Credentials line 20
+  setup.sh Basic Auth Credentials line 53
+$ regex scan of added lines, excluding pip-compile "--hash=sha256:" pins
+5409:+FAKE_HASH = "$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234"
+5415:+SECRET_KEY=1111111111111111111111111111111111111111111111111111111111111111
+5416:+MASTER_SECRET=2222222222222222222222222222222222222222222222222222222222222222
+```
+
+All detect-secrets hits are the false positives triaged in section 5, plus two more placeholders: `tests/test_setup_sh.py:20` (fixture `sage:pw@db.example.com`) and `setup.sh:53` (format hint `aidigest_app:pass@host`). The remaining regex hits are test fixtures: an alphabet-pattern fake bcrypt hash and `1111.../2222...` placeholder secrets. The 64-hex matches excluded above are the sha256 package pins in `requirements*.txt`.
+
+### 10.10 Notes and limits
+
+- **Mutation layout:** `scripts/mutation_check.py` copies `AIDigest/` plus the root `setup.sh` into each scratch directory, so the setup.sh mutations are covered too. The compose profile itself has no pytest; it is covered by the `docker compose config` proof above.
+- **Trickling server (M1):** the test uses an httpx MockTransport whose body yields one byte per 100 ms. That exercises the same `asyncio.wait_for` total deadline a socket-level slowloris would hit.
+- **TLS on unknown SNI:** the e2e Caddyfile again differed only by `tls internal { on_demand }`, because of the pre-existing missing certificate for unknown SNI noted in section 7.
+- **Equivalent mutants found and fixed:** the partial run of the 90-mutation version showed `ssrf-no-embedded-v4-check` surviving. On Python 3.11 and 3.12, `ipaddress.is_global` already rejects 6to4, Teredo and IPv4-mapped ranges, so the explicit checks are a second layer. That layer is now `policy_blocks()`, which has its own direct tests (including the reserved-but-"global" `4000::1`), and each of its rules is killed individually.
+
+
+## 11. Challenger round 2 (review of `59f2c34`: 0 High, 3 Medium, 8 Low)
+
+This section supersedes sections 1-10 for gate results.
+
+| SHA | What |
+|---|---|
+| `7ff25c9` | failing tests for round 2 (red), `scripts/caddy_matrix.sh` |
+| `0b4e06f` | O(1) work per wire chunk + periodic loop yield; text-codec-only decoding; IPv4-mapped by its IPv4; version 0.4.0 in the user agent (M1, L1, M3, L8) |
+| `2700210` | dedicated bounded parser executor; huge charref guard (L6, L1) |
+| `64fa77f` | lease times from the DB clock; all-feeds-failed is a failed run (L7, L2) |
+| `70d0abc` | Caddy always adapts; any missing/partial AIDigest config is 401 (M2) |
+| `dc5538c` | setup.sh fills empty keys in place; README role SQL for PG16 non-superuser admins + PG<=14 note (L3, L4) |
+| `66346bd` | 113-mutation check (22 new); codec checks layered so each has its own test |
+| this commit | DESIGN.md section 11, README fail-closed text, this evidence |
+
+### 11.1 Red (`7ff25c9`)
+
+```
+Python 3.11.15: 27 failed, 470 passed
+Python 3.12.3:  30 failed, 467 passed   (the 3 extra: IPv4-mapped cases)
+scripts/caddy_matrix.sh: 3 failure(s)
+  user set, hash empty  -> caddy adapt ERROR: basic_auth: username and password cannot be empty or missing
+  user empty, hash set  -> caddy adapt ERROR: (same)
+  user+hash set, no proxy secret -> ops:<right password> got 502 (Caddy let it through)
+```
+
+### 11.2 Green: both Python versions, no skips
+
+```
+$ /tmp/adv/bin/python -m pytest -q -rs -p no:cacheprovider      # Python 3.11.15
+497 passed in 52.24s
+$ /tmp/adv312/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.12.3
+497 passed in 53.01s
+```
+
+The `py312` venv was built from the hash-pinned `requirements-dev.txt` (`pip install --require-hashes`) on the system Python 3.12.3.
+
+### 11.3 M1 measurements
+
+```
+child process, one byte per wire chunk (gzip: hex text, ~2:1):
+gzip     N/4 = 57,496 wire bytes in 0.090 s    N = 228,285 wire bytes in 0.374 s   (challenger: 200k chunks = 575 s)
+identity N/4 = 50,000 wire bytes in 0.058 s    N = 200,000 wire bytes in 0.212 s
+without the periodic yield, a never-suspending 1M-chunk stream stalled the loop for 1.08 s; with it the test's max gap is < 0.25 s
+```
+
+### 11.4 M2: `scripts/caddy_matrix.sh` (real Caddy v2.11.6, environment resolved by `docker compose config`)
+
+```
+== user empty, hash empty
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         401
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== user set,   hash empty
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         401
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== user empty, hash set
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         401
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== user set,   hash set
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         502
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== user+hash set, no secret
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    ops:<right password>                         401
+  ok    aidigest-disabled:<right password>           401
+  ok    ops:<wrong password>                         401
+== outside compose, no AIDIGEST_* variables at all
+  ok    caddy adapt                                  adapted
+  ok    no credentials                               401
+  ok    aidigest-disabled:<right password>           401
+
+caddy matrix: all expectations met
+```
+
+401 = Caddy denied; 502 = authentication passed (the matrix runs Caddy without an aidigest upstream). As
+before, the probe copy of the Caddyfile adds only `tls internal { on_demand }`.
+
+### 11.5 Base stack with a pre-PR `.env` (new defaults)
+
+```
+$ docker compose --env-file pre-PR.env config --services
+api
+ui
+caddy
+$ docker compose --env-file pre-PR.env config -q; echo $?
+0
+$ (pre-PR.env) caddy environment as rendered
+{'AIDIGEST_BASIC_AUTH_HASH': '$$2a$$10$$UA...', 'AIDIGEST_BASIC_AUTH_USER': 'aidigest-dis...', 'AIDIGEST_PROXY_SECRET': ''} depends_on: ['ui']
+```
+
+### 11.6 Mutation check: 113 mutations (45 + 46 + 22 new)
+
+```
+$ MUTATION_PY312=/tmp/adv312/bin/python $PY scripts/mutation_check.py
+baseline: PASS (497 passed in 38.91s)
+113/113 mutations killed, 0 survived.
+```
+
+Round-2 rows (the full 113-row table is printed by the script):
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 92 | `r2-m1-quadratic-decoded-total` | O(1) per chunk: running decoded total (gzip path) | killed | 1 failed, 365 passed in 52.53s |
+| 93 | `r2-m1-no-periodic-yield` | read loop yields to the event loop periodically | killed | 1 failed, 368 passed in 24.64s |
+| 94 | `r2-m2-no-unconfigured-guard` | /aidigest/* is 401 unless fully configured (Caddy) | killed | caddy matrix: 2 failure(s) |
+| 95 | `r2-m2-no-user-sentinel` | compose maps an empty user to a non-empty sentinel | killed | caddy matrix: 2 failure(s) |
+| 96 | `r2-m2-no-hash-sentinel` | compose maps an empty hash to a non-empty sentinel | killed | caddy matrix: 2 failure(s) |
+| 97 | `r2-m2-guard-ignores-secret` | /aidigest/* is 401 without a proxy secret (Caddy) | killed | caddy matrix: 1 failure(s) |
+| 98 | `r2-m3-no-mapped-unwrap` | IPv4-mapped judged by its IPv4 (observable on 3.12.3) | killed | 1 failed, 363 passed in 22.39s |
+| 99 | `r2-l1-non-text-codec-allowed` | only text codecs decode bodies | killed | 1 failed, 369 passed in 26.07s |
+| 100 | `r2-l1-decode-errors-unmapped` | decode errors are 502 | killed | 1 failed, 371 passed in 24.47s |
+| 101 | `r2-l1-huge-charref` | huge numeric charrefs neutralised before html.unescape | killed | 1 failed, 406 passed in 26.94s |
+| 102 | `r2-l2-all-feeds-failed-completes` | all feeds failing is a failed (retryable) run | killed | 1 failed, 183 passed in 13.68s |
+| 103 | `r2-l3-empty-keys-not-filled` | setup.sh fills empty AIDigest keys | killed | 1 failed, 429 passed in 32.27s |
+| 104 | `r2-l4-readme-no-member-grant` | README role SQL works for a PG16 non-superuser admin | killed | 1 failed, 233 passed in 20.42s |
+| 105 | `r2-l5-max-retries` | Claude client max_retries=1 | killed | 1 failed, 23 passed in 1.50s |
+| 106 | `r2-l5-items-per-feed` | <= 25 items per feed | killed | 1 failed, 239 passed in 20.39s |
+| 107 | `r2-l5-description-cap` | <= 1800-char descriptions | killed | 1 failed, 240 passed in 22.89s |
+| 108 | `r2-l5-run-key-local-date` | run_key uses the UTC date | killed | 1 failed, 231 passed in 21.21s |
+| 109 | `r2-l5-no-claim-lock` | claims serialised by the per-day advisory lock | killed | 1 failed, 230 passed in 24.34s |
+| 110 | `r2-l5-heartbeat-never-runs` | the heartbeat extends the lease | killed | 1 failed, 229 passed in 26.16s |
+| 111 | `r2-l6-default-executor` | parsers use the dedicated bounded executor | killed | 1 failed, 241 passed in 22.48s |
+| 112 | `r2-l7-replica-clock-lease` | lease timestamps from the DB clock | killed | 1 failed, 29 passed in 3.78s |
+| 113 | `r2-l8-hardcoded-user-agent` | one version string | killed | 1 failed, 40 passed in 5.22s |
+
+Runners: the `r2-m2-*` mutations run `scripts/caddy_matrix.sh` against the mutated Caddyfile/compose file
+instead of pytest. `r2-m3-no-mapped-unwrap` runs under Python 3.12.3, because on 3.11 the stdlib flags make
+the unwrap unobservable.
+
+A first pass over the 22 round-2 mutations left two survivors, fixed before the full run:
+- `r2-m1-no-periodic-yield`: 200k chunks stalled the loop for only 0.19 s, under the 0.25 s bar. The test now streams 1M chunks (1.08 s stall without the yield).
+- `r2-l1-decode-errors-unmapped`: every tested charset was refused by the text-codec check first. The redundant idna/punycode/undefined deny-list was removed; those codecs fail inside `decode` and now exercise the try/except alone.
+
+`URL control characters` (challenger L5): an equivalent mutant. httpx's URL parser itself rejects NUL, CR/LF,
+TAB and DEL in host and path (checked), so the explicit check cannot change behaviour. It stays as defence in
+depth, and `test_validate_url_rejects_control_characters` covers the behaviour.
+
+### 11.7 Lint, compile, dependency audit
+
+```
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts && echo compile-ok
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && echo syntax-ok
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+```
+
+### 11.8 Secret scan
+
+```
+$ detect-secrets scan <50 files changed since f96765d>
+findings: 19
+  .env.example Basic Auth Credentials line 33
+  .env.example Basic Auth Credentials line 36
+  AIDigest/aidigest/auth.py Secret Keyword line 13
+  AIDigest/aidigest/config.py Basic Auth Credentials line 14
+  AIDigest/aidigest/config.py Basic Auth Credentials line 38
+  AIDigest/scripts/caddy_matrix.sh Secret Keyword line 20
+  AIDigest/tests/fakes.py Secret Keyword line 8
+  AIDigest/tests/fakes.py Secret Keyword line 16
+  AIDigest/tests/test_auth.py Secret Keyword line 45
+  AIDigest/tests/test_auth.py Secret Keyword line 96
+  AIDigest/tests/test_config.py Secret Keyword line 10
+  AIDigest/tests/test_config.py Secret Keyword line 33
+  AIDigest/tests/test_config.py Secret Keyword line 34
+  AIDigest/tests/test_config.py Secret Keyword line 36
+  AIDigest/tests/test_config.py Secret Keyword line 37
+  AIDigest/tests/test_config.py Basic Auth Credentials line 39
+  AIDigest/tests/test_fetcher.py Basic Auth Credentials line 41
+  AIDigest/tests/test_setup_sh.py Basic Auth Credentials line 20
+  setup.sh Basic Auth Credentials line 53
+$ regex scan of added lines, excluding pip-compile "--hash=sha256:" pins
++5409:+FAKE_HASH = "$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234"
++5415:+SECRET_KEY=1111111111111111111111111111111111111111111111111111111111111111
++5416:+MASTER_SECRET=2222222222222222222222222222222222222222222222222222222222222222
++SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
++      [("../docker-compose.yml", "${AIDIGEST_BASIC_AUTH_HASH:-$$2a$$10$$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}", "${AIDIGEST_BASIC_AU
++FAKE_HASH = "$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234"
++SECRET_KEY=1111111111111111111111111111111111111111111111111111111111111111
++MASTER_SECRET=2222222222222222222222222222222222222222222222222222222222222222
++      @aidigest_unconfigured expression `{env.AIDIGEST_BASIC_AUTH_USER} in ["", "aidigest-disabled"] || {env.AIDIGEST_BASIC_AUTH_HASH} in ["", "$2a$1
++        {$AIDIGEST_BASIC_AUTH_USER:aidigest-disabled} {$AIDIGEST_BASIC_AUTH_HASH:$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
++      - AIDIGEST_BASIC_AUTH_HASH=${AIDIGEST_BASIC_AUTH_HASH:-$$2a$$10$$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW}
+```
+
+New since section 10:
+- **The committed sentinel bcrypt hash** (Caddyfile, docker-compose.yml with `$$`, the mutation definition): it is the hash of 48 random bytes that were piped straight into `caddy hash-password` and never stored, so no password matches it. It is a placeholder that keeps `basic_auth` syntactically valid; the guard route answers 401 before `basic_auth` whenever it is in effect.
+- **`scripts/caddy_matrix.sh`:** a throwaway password and proxy secret, used only for an ephemeral local Caddy.
+
+Everything else is the fixture and placeholder triage of sections 5 and 10.
+
+### 11.9 End-to-end (rebuilt image 0.4.0, compose profile, least-privilege role, real Caddy)
+
+```
+startup: AIDigest readiness: ready=True missing=[]
+startup: Catch-up DAILY failed -> UpstreamError: All feeds failed: ... ConnectError ...   (no egress in the sandbox; L2)
+1 no credentials                                -> 401
+2 sentinel user aidigest-disabled + right pw    -> 401
+3 valid auth + forged X-AIDigest-User: admin    -> 200 authenticated_as=ops version=0.4.0       (L8)
+4.1 run-daily (all feeds fail)                  -> 502 All feeds failed ...                      (retryable)
+4.2 run-daily (all feeds fail)                  -> 502
+4.3 run-daily                                   -> 429 attempts_exhausted (3 failed attempts today)
+runs: failed|schedule, failed|operator, failed|operator; lease_until - created_at = 1200 s (DB clock, UTC)
+```
+
+## 12. Challenger round 3 (review of `7e710a0`: 0 High, 2 Medium, 0 Low)
+
+This section supersedes sections 1-11 for gate results.
+
+| SHA | What |
+|---|---|
+| `3c7f775` | M2: role SQL test uses `current_database()`, rebuilds URLs with `URL.create`; `AIDIGEST_TEST_DBNAME` (red against `aidigest_it` first) |
+| `56eefc1` | M1: failing tests (red) - Settings/setup.sh user and secret rules, temp-file trap, 17 new Caddy matrix cases |
+| `efa9b3d` | M1: heredoc tokens for user/hash, proxy secret read at request time, format-checking guard, `caddy-entrypoint.sh`, Settings `aidigest_basic_auth_user`, setup.sh rules + trap |
+| `7a8bba5` | M2: documented role SQL runs as the database owner (PUBLIC CONNECT revoked in the test); README updated |
+| `73bb6ff` | 12 round-3 mutations (125 total); compose sentinels removed (the entrypoint is the single sanitising mechanism); behavioural trap test; outside-compose matrix cases; `MUTATION_PY312` fails loudly |
+| this commit | DESIGN.md section 12 and auth text, this evidence |
+
+### 12.1 Red
+
+```
+M2 (the hard-coded-`postgres` role test, run against a test database named aidigest_it, Python 3.11.15):
+FAILED tests/test_db_role.py::test_documented_role_sql_works_for_non_superuser_admin
+1 failed, 17 passed in 4.17s
+
+M1 (56eefc1, Python 3.11.15):
+39 failed, 504 passed     (test_config user/secret rules, test_setup_sh user rules + temp-file trap)
+
+M1 scripts/caddy_matrix.sh against the 7e710a0 Caddyfile: 8 failure(s)
+  FAIL  caddy adapt                                  expected adapted got ERROR: ding after '$2a$10$mZKy5KJqT3IqqmojZUpjReRscVM59tdmcQ7Qv7Yr.eCvV9W5/STFa', at /etc/caddy/Caddyfile:31, at /etc/caddy/Caddyfile:37, at /etc/caddy/Caddyfile:38"} 
+  FAIL  caddy adapt                                  expected adapted got ERROR: tokens for 'basic_auth': username and password cannot be empty or missing, at /etc/caddy/Caddyfile:31, at /etc/caddy/Caddyfile:37, at /etc/caddy/Caddyfile:38"} 
+  FAIL  configured user:<right password>             expected 401 got 502
+  FAIL  configured user:<right password>             expected 401 got 502
+  FAIL  configured user:<right password>             expected 401 got 502
+  FAIL  configured user:<right password>             expected 401 got 502
+  FAIL  caddy adapt                                  expected adapted got ERROR: proxy': wrong argument count or unexpected line ending after 'passphrase', at /etc/caddy/Caddyfile:35, at /etc/caddy/Caddyfile:37, at /etc/caddy/Caddyfile:38"} 
+  FAIL  caddy adapt                                  expected adapted got ERROR: or 'basic_auth': wrong argument count or unexpected line ending after 'a', at /etc/caddy/Caddyfile:31, at /etc/caddy/Caddyfile:37, at /etc/caddy/Caddyfile:38"} 
+```
+
+The four `502` lines are usernames with `"`, `'`, braces and a backtick: the old Caddyfile let them
+through to the service. The adapt errors are a username/secret with spaces and a non-bcrypt hash.
+
+### 12.2 Green: two Python versions x two database names, no skips
+
+```
+$ AIDIGEST_TEST_DBNAME=aidigest_it /tmp/adv/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.11.15
+543 passed in 37.82s
+$ AIDIGEST_TEST_DBNAME=postgres /tmp/adv/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.11.15
+543 passed in 38.70s
+$ AIDIGEST_TEST_DBNAME=aidigest_it /tmp/adv312/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.12.3
+543 passed in 40.42s
+$ AIDIGEST_TEST_DBNAME=postgres /tmp/adv312/bin/python -m pytest -q -rs -p no:cacheprovider   # Python 3.12.3
+543 passed in 38.38s
+```
+
+`AIDIGEST_TEST_DBNAME` makes the fixture create that database in the private cluster
+(ports 29650-29659) and point every DB test at it.
+
+### 12.3 M1: `scripts/caddy_matrix.sh` (real Caddy v2.11.6; compose cases start Caddy through `caddy-entrypoint.sh`)
+
+22 cases, 143 checks, every case: `caddy adapt` succeeds, the homeschool UI answers 200, and
+`/aidigest/*` is 401 unless user, hash and secret are all present and valid (then 502 here, because
+the matrix has no AIDigest backend - i.e. Caddy let the request through).
+
+```
+== user empty, hash empty
+== user set,   hash empty
+== user empty, hash set
+== user set,   hash set
+== user+hash set, no secret
+== user with a space
+== user is a single space
+== user with a double quote
+== user with a single quote
+== user with braces
+== user with a backtick
+== secret with spaces
+== secret with " and braces
+== secret with ' and braces
+== hash is not a bcrypt hash
+== hash with a double quote
+== hash with spaces
+== outside compose: no AIDIGEST_* variables at all
+== outside compose: user with a space
+== outside compose: user with a double quote
+== outside compose: user with braces
+== outside compose: secret with spaces
+
+== user with a space
+  ok    compose caddy command                        ["/bin/sh","/usr/local/bin/caddy-entrypoint.sh"]
+  ok    caddy adapt (via entrypoint)                 adapted
+  ok    homeschool UI /                              200
+  ok    no credentials                               401
+  ok    configured user:<right password>             401
+  ok    aidigest-disabled:<right password>           401
+  ok    configured user:<wrong password>             401
+== hash is not a bcrypt hash
+  ok    compose caddy command                        ["/bin/sh","/usr/local/bin/caddy-entrypoint.sh"]
+  ok    caddy adapt (via entrypoint)                 adapted
+  ok    homeschool UI /                              200
+  ok    no credentials                               401
+  ok    configured user:<right password>             401
+  ok    aidigest-disabled:<right password>           401
+  ok    configured user:<wrong password>             401
+== outside compose: user with braces
+  ok    caddy adapt                                  adapted
+  ok    homeschool UI /                              200
+  ok    no credentials                               401
+  ok    aidigest-disabled:<right password>           401
+  ok    configured user:<right password>             401
+
+caddy matrix: all expectations met
+```
+
+The "outside compose" cases run plain `caddy run` with no entrypoint, so the Caddyfile alone
+(heredoc tokens + guard) must cope. A non-bcrypt hash outside compose still stops Caddy at
+provision time (Caddy refuses a hash that is neither `$...` nor base64); compose always starts
+Caddy through the entrypoint, and the matrix asserts the compose `command`. A newline in the
+username is not in the matrix: `docker --env-file` cannot carry one; the entrypoint rejects
+multi-line values (`single_line`) and Settings/setup.sh reject control characters.
+
+Scan for other unquoted interpolation: `grep -n '{\$' Caddyfile` lists only the two heredoc
+bodies (user, hash); the proxy secret is now `{env.*}` (runtime, a
+quoted `header_up` value). A comment that contained a literal placeholder was reworded, because
+Caddy substitutes inside comments too.
+
+### 12.4 Base stack with a pre-PR `.env`
+
+```
+$ docker compose --env-file pre-PR.env config --services
+api
+ui
+caddy
+$ docker compose --env-file pre-PR.env config -q; echo $?
+0
+$ (pre-PR.env) caddy command, environment, mounts as rendered
+command: ['/bin/sh', '/usr/local/bin/caddy-entrypoint.sh']
+environment: {'AIDIGEST_BASIC_AUTH_HASH': '', 'AIDIGEST_BASIC_AUTH_USER': '', 'AIDIGEST_PROXY_SECRET': ''}
+mounts: ['Caddyfile:/etc/caddy/Caddyfile', 'caddy-entrypoint.sh:/usr/local/bin/caddy-entrypoint.sh', 'caddy_data:/data']
+```
+
+### 12.5 Mutation check: 125 mutations (113 + 12 new)
+
+```
+$ AIDIGEST_TEST_DBNAME=aidigest_it MUTATION_PY312=/tmp/adv312/bin/python $PY scripts/mutation_check.py
+py312 interpreter: /tmp/adv312/bin/python
+test database name: aidigest_it
+baseline: PASS (543 passed in 38.55s)
+125/125 mutations killed, 0 survived.
+```
+
+Round-3 and replaced rows:
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 95 | `r2-m2-entrypoint-keeps-bad-user` | entrypoint replaces a missing/malformed user (Caddy must start) | killed | caddy matrix: 2 failure(s) |
+| 96 | `r2-m2-compose-skips-entrypoint` | compose starts Caddy through caddy-entrypoint.sh | killed | caddy matrix: 17 failure(s) |
+| 97 | `r2-m2-guard-ignores-secret` | /aidigest/* is 401 without a proxy secret (Caddy) | killed | caddy matrix: 3 failure(s) |
+| 114 | `r3-m1-user-hash-not-heredoc` | user/hash are heredoc tokens (spaces/quotes cannot split them) | killed | caddy matrix: 1 failure(s) |
+| 115 | `r3-m1-secret-substituted-into-caddyfile` | proxy secret read at request time, not substituted | killed | caddy matrix: 2 failure(s) |
+| 116 | `r3-m1-guard-no-user-format` | guard requires a well-formed user | killed | caddy matrix: 3 failure(s) |
+| 117 | `r3-m1-guard-no-secret-format` | guard requires a printable, whitespace-free secret | killed | caddy matrix: 2 failure(s) |
+| 118 | `r3-m1-entrypoint-keeps-bad-hash` | entrypoint replaces a malformed hash (Caddy must start) | killed | caddy matrix: 7 failure(s) |
+| 119 | `r3-m1-settings-secret-chars` | Settings rejects whitespace/control in the proxy secret | killed | 1 failed, 181 passed in 12.10s |
+| 120 | `r3-m1-settings-user-chars` | Settings rejects unsafe basic-auth user names | killed | 1 failed, 193 passed in 12.99s |
+| 121 | `r3-m1-settings-user-required` | production requires the basic-auth user | killed | 1 failed, 213 passed in 12.59s |
+| 122 | `r3-m1-setup-user-length` | setup.sh limits the user name to 64 characters | killed | 1 failed, 473 passed in 34.54s |
+| 123 | `r3-m1-setup-reserved-user` | setup.sh refuses the placeholder user name | killed | 1 failed, 474 passed in 31.83s |
+| 124 | `r3-note-no-temp-trap` | setup.sh removes its temp file on INT/TERM | killed | 1 failed, 475 passed in 30.26s |
+| 125 | `r3-m2-readme-hardcoded-db` | README role SQL grants CONNECT on <dbname> (needs a non-postgres test DB) | killed | 1 failed, 270 passed in 20.96s |
+
+Survivors on the first round-3 pass, and what killed them:
+- `r3-m1-user-hash-not-heredoc`, `r3-m1-guard-no-user-format`: inside compose the entrypoint
+  already replaced the bad user, so neither control was exercised. Added the "outside compose"
+  matrix cases (no entrypoint).
+- `r2-m2-no-user-sentinel`, `r2-m2-no-hash-sentinel` (compose `:-sentinel` defaults): redundant with
+  the entrypoint. Removed the compose defaults; the entrypoint is the single mechanism, covered by
+  `r2-m2-entrypoint-keeps-bad-user`, `r3-m1-entrypoint-keeps-bad-hash` and
+  `r2-m2-compose-skips-entrypoint`.
+- `r3-note-no-temp-trap`: the text assertion still matched `trap - INT TERM`. Replaced with a
+  behavioural test (SIGTERM to the real `aidigest_fill_empty` while it rewrites a 150k-line `.env`).
+
+`r3-m2-readme-hardcoded-db` is killed only when the test database is not `postgres`, which is why
+the run uses `AIDIGEST_TEST_DBNAME=aidigest_it`.
+
+`MUTATION_PY312` missing or wrong now stops the run before any work:
+
+```
+$ env -u MUTATION_PY312 $PY scripts/mutation_check.py
+MUTATION_PY312 is not set; it must point to a Python 3.12.x interpreter with requirements-dev.txt installed (needed for the py312 mutations)
+exit=1
+$ MUTATION_PY312=/tmp/adv/bin/python $PY scripts/mutation_check.py   # a 3.11 interpreter
+MUTATION_PY312='/tmp/adv/bin/python' is Python 3.11.15, expected 3.12.x
+exit=1
+$ MUTATION_PY312=/nonexistent/python $PY scripts/mutation_check.py
+MUTATION_PY312='/nonexistent/python' is not usable: [Errno 2] No such file or directory: '/nonexistent/python'
+exit=1
+```
+
+### 12.6 Gates
+
+```
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts && echo compile-ok
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && sh -n caddy-entrypoint.sh && echo syntax-ok
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+```
+
+### 12.7 Secret scan (all changes since `f96765d`)
+
+```
+$ detect-secrets scan <51 files changed since f96765d>
+findings: 20
+  .env.example Basic Auth Credentials line 33
+  .env.example Basic Auth Credentials line 36
+  AIDigest/aidigest/auth.py Secret Keyword line 13
+  AIDigest/aidigest/config.py Basic Auth Credentials line 14
+  AIDigest/aidigest/config.py Basic Auth Credentials line 42
+  AIDigest/scripts/caddy_matrix.sh Secret Keyword line 26
+  AIDigest/tests/fakes.py Secret Keyword line 8
+  AIDigest/tests/fakes.py Secret Keyword line 16
+  AIDigest/tests/test_auth.py Secret Keyword line 45
+  AIDigest/tests/test_auth.py Secret Keyword line 96
+  AIDigest/tests/test_config.py Secret Keyword line 10
+  AIDigest/tests/test_config.py Secret Keyword line 34
+  AIDigest/tests/test_config.py Secret Keyword line 35
+  AIDigest/tests/test_config.py Secret Keyword line 37
+  AIDigest/tests/test_config.py Secret Keyword line 38
+  AIDigest/tests/test_config.py Basic Auth Credentials line 40
+  AIDigest/tests/test_db_role.py Basic Auth Credentials line 147
+  AIDigest/tests/test_fetcher.py Basic Auth Credentials line 41
+  AIDigest/tests/test_setup_sh.py Basic Auth Credentials line 22
+  setup.sh Basic Auth Credentials line 56
+```
+
+New since section 11:
+- `tests/test_db_role.py:147`: the URL `postgresql+asyncpg://admin:xpostgres@...` in
+  `test_as_role_rebuilds_the_url`, a fixture password chosen to contain `postgres@`.
+- `caddy-entrypoint.sh` `SENTINEL_HASH`: the same never-matching placeholder hash as section 11.8,
+  now in one place instead of compose.
+
+The regex scan of added lines finds only the fixtures and placeholders already triaged in
+sections 5, 10 and 11 (the `++` lines are earlier scan output quoted in this file).
+
+### 12.8 Note: `GRANT CONNECT ON DATABASE` needs the owner
+
+With PUBLIC CONNECT revoked, the README's `GRANT CONNECT ON DATABASE <dbname> TO aidigest_app` run
+by a non-owner CREATEROLE admin is a silent no-op (`WARNING: no privileges were granted`), and the
+app role cannot connect. The test now makes its admin the database owner, and the README says to
+run the role SQL as the database owner.
+
+### 12.9 Not re-run
+
+The end-to-end run of section 11.9 was not repeated: this round changes only the Caddy layer
+(covered end to end by the matrix with the real Caddy image), Settings/setup.sh validation and
+tests.
+
+
+## 13. Challenger round 4 (review of `9dbdc70`: 1 Medium, 1 Low)
+
+This section supersedes sections 1-12 for gate results.
+
+| SHA | What |
+|---|---|
+| `8adc6c4` | Red: deterministic signal-point test for `aidigest_fill_empty` (16 cases), heredoc-marker user tests (Settings, setup.sh, entrypoint with a stub `caddy`, marker consistency), 8 Caddy matrix cases |
+| `e127b99` | Fix: trap before `mktemp`, `mktemp` and the in-place rewrite shielded from INT/TERM; a user containing `AIDIGEST_VALUE_END` is invalid in Settings, setup.sh and the entrypoint; DESIGN.md section 13 |
+| `c5741b9` | 9 round-4 mutations (134 total); two round-3 targets moved to the changed lines |
+| this commit | this evidence |
+
+### 13.1 M1: the race, reproduced before any change (`9dbdc70`)
+
+The round-3 test polls for the temp file and then sends SIGTERM. On the old code the temp file exists
+before the trap does. 30 runs under load: 6 `yes` CPU burners on 4 cores, started before the runs
+and killed after them (`pgrep -x yes` -> 0).
+
+```
+old test, old code, 6 burners/4 cores: pass=23 fail=7
+      7 E       AssertionError: assert -15 == 130
+      7 E        +  where -15 = wait(timeout=20)
+```
+
+### 13.2 M1: the new test is deterministic
+
+`test_setup_temp_file_removed_on_interrupt` extracts the real `aidigest_fill_empty` from setup.sh
+and shadows the commands it runs with shell functions that call the real command and send the
+signal at a defined point. No polling and no sleeps. The cases are four points x INT/TERM x two
+targets: the shell (`kill $$`, an external SIGTERM) or its whole process group (`kill 0`, a terminal
+Ctrl-C; the script runs in its own session).
+
+| point | where the signal lands |
+|---|---|
+| `before-mktemp` | inside the `mktemp` call, before the file exists (the challenger's window) |
+| `after-mktemp` | the file exists but its name has not reached the shell yet |
+| `during-copy` | while the copy loop writes the third line |
+| `during-rewrite` | `.env` has been truncated by `> "$file"` and nothing is written yet |
+
+Each case requires exit 130, the recorded temp file gone, and `.env` either unchanged or (for
+`during-rewrite`) the complete new content. A control test without a signal requires the normal
+fill.
+
+Red on `9dbdc70` (`8adc6c4`; 12 of 16 fail):
+
+```
+before-mktemp / after-mktemp, TERM:  AssertionError: (-15, '')   killed by the default action, temp file left
+before-mktemp / after-mktemp, INT:   AssertionError: (-2, '')
+before-mktemp, group:                AssertionError: []          killed before the file was created
+during-rewrite, all four:            AssertionError: assert '' == 'FILLER_0=val..._SECRET=new\n'
+```
+
+### 13.3 M1+: Ctrl-C during the in-place rewrite emptied `.env` (found by the new test)
+
+The `during-rewrite` cases showed `.env` truncated to 0 bytes. The same happens with real
+commands and no hooks. Old `aidigest_fill_empty` on an 85 MB `.env`, SIGINT to the process group
+(what a terminal Ctrl-C does) once the rewrite has started:
+
+```
+rc=130 .env bytes=0 of 84777803 leftover=[]      (5 of 5 runs)
+```
+
+`cat` dies after `> "$file"` has truncated `.env`. The trap then deletes the temp file, which is the
+only complete copy. SECRET_KEY and MASTER_SECRET are lost, so every encrypted student record becomes
+unreadable. For a normal-size `.env` the window is microseconds, but the result cannot be undone.
+
+### 13.4 M1 fix (`e127b99`)
+
+```bash
+  local file=$1 key=$2 newline=$3 l tmp=""
+  trap '[[ -z "$tmp" ]] || rm -f "$tmp"; exit 130' INT TERM   # never leave a copy of the secrets behind
+  tmp=$(trap '' INT TERM; mktemp "${file}.aidigest.XXXXXX")   # mktemp creates it mode 600
+  ...
+  (trap '' INT TERM; cat "$tmp" > "$file")   # rewrite in place: keeps the file's inode, owner and mode
+  rm -f "$tmp"
+  trap - INT TERM
+```
+
+- `tmp=""` before the trap: the trap is valid under `set -u` from its first instant.
+- The trap is installed before `mktemp`.
+- Bash runs a trap only after the foreground child finishes. A signal during the command
+  substitution is therefore handled after `tmp` is assigned. The `before-mktemp`/`after-mktemp`
+  shell cases pin this behaviour (GNU bash 5.2.21).
+- The two children that can hold the only knowledge of the file ignore INT/TERM, and an ignored
+  disposition is inherited across `exec`. `mktemp` cannot die between creating the file and
+  printing its name. `cat` cannot be cut off after the truncation. For the rewrite, the
+  redirection is inside the subshell, after `trap ''`.
+- `set -e` behaviour is unchanged: `tmp=$(...)` is a plain assignment, so a failing `mktemp` still
+  stops the script, and the rewrite subshell's status is the status of `cat`.
+
+### 13.5 M1 under load, after the fix
+
+Same load as 13.1 (6 burners on 4 cores, load average 7.08 during the runs, burners killed after):
+
+```
+A  new test (16 cases per run), new code:          pass=30 fail=0    (16 passed every run)
+B  round-3 timing test (polling), new code:        pass=30 fail=0
+C  new test, old code (9dbdc70 setup.sh):          pass=0  fail=30   (the same 12 cases fail in every run)
+```
+
+B shows that the fix itself removes the race, not only the new test. C shows that the red result
+is deterministic as well.
+
+### 13.6 L1: heredoc marker in the user name
+
+Caddy ends a heredoc as soon as the text read so far ends with the marker, so the marker can end
+it anywhere in a line. The values that break the Caddyfile are exactly the user names that contain
+`AIDIGEST_VALUE_END`. Exact match, prefix, suffix and middle all break `caddy adapt`.
+
+No marker can avoid this. Caddy v2.11.6 accepts only `[A-Za-z0-9_-]` in a heredoc marker, and every
+one of those characters is allowed in a user name:
+
+```
+END!X    heredoc marker on line #2 must contain only alphanumeric characters, dashes and underscores; got 'END!X'
+END.X    ... got 'END.X'
+END@X    ... got 'END@X'
+END~X    ... got 'END~X'
+END:X    ... got 'END:X'
+END_X-9  (adapts)
+```
+
+So any value that contains the marker is invalid:
+- `aidigest/config.py`: `HEREDOC_MARKER = "AIDIGEST_VALUE_END"`. The user validator rejects any
+  value containing it (production and dev).
+- setup.sh: `[[ "$AIDIGEST_BASIC_AUTH_USER" != *AIDIGEST_VALUE_END* ]] || error ...`
+- `caddy-entrypoint.sh`: `valid_user` adds `no_marker`, so the user is replaced by the sentinel.
+- `test_heredoc_marker_is_the_one_the_caddyfile_uses`: every `<<MARKER` in the Caddyfile is
+  `HEREDOC_MARKER`, and the entrypoint and setup.sh check the same string.
+
+Other values that go through the heredoc:
+- The hash: a valid bcrypt hash (`[$./A-Za-z0-9]`) cannot contain `_`, so it cannot contain the
+  marker. Anything else is already replaced by the entrypoint (matrix case "hash contains the
+  heredoc marker" -> 401).
+- The proxy secret: it is not substituted into the Caddyfile (`{env.*}` at request time), so the
+  marker is harmless there (matrix case -> 502, i.e. auth passes).
+
+The Caddyfile guard has no marker clause, because such a clause could never run. With compose, the
+entrypoint has already exported the sentinel, which is all the guard sees. Without the entrypoint,
+`caddy adapt` fails before any guard runs. Outside compose (plain `caddy run`), a marker user
+still stops Caddy, in the same way as a non-bcrypt hash there (section 12.3). Settings and setup.sh
+refuse it at the source.
+
+Red, `scripts/caddy_matrix.sh` against the `9dbdc70` Caddy files (`8adc6c4`): 5 failures
+
+```
+== user is the heredoc marker
+  FAIL  caddy adapt (via entrypoint)                 expected adapted got ERROR: ding after '$2a$10$W8dE...QRm', at /etc/caddy/Caddyfile:41, ...
+== user = x + heredoc marker                (same)
+== user = ops- + heredoc marker             (same)
+== user = heredoc marker + -ops
+  FAIL  caddy adapt (via entrypoint)                 expected adapted got ERROR: tokens for 'basic_auth': username and password cannot be empty or missing, ...
+== user with the marker in the middle       (same)
+caddy matrix: 5 failure(s)
+```
+
+Pytest red (`8adc6c4`, Python 3.11.15, `aidigest_it`): `32 failed, 554 passed`. The failures are
+the 12 signal cases, 10 Settings marker cases, 4 setup.sh marker cases, 5 entrypoint cases and the
+marker-consistency test.
+
+### 13.7 Green: `scripts/caddy_matrix.sh` (real Caddy v2.11.6), 30 cases, 199 checks, 0 failures
+
+New cases (abridged: `compose caddy command` and `aidigest-disabled` checks are ok in every case):
+
+```
+== user is the heredoc marker            adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user = x + heredoc marker             adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user = ops- + heredoc marker          adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user = heredoc marker + -ops          adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user with the marker in the middle    adapt ok   UI / 200   no creds 401   user:<right password> 401
+== user is the marker in lower case      adapt ok   UI / 200   no creds 401   user:<right password> 502
+== hash contains the heredoc marker      adapt ok   UI / 200   no creds 401   user:<right password> 401
+== secret contains the heredoc marker    adapt ok   UI / 200   no creds 401   user:<right password> 502
+caddy matrix: all expectations met
+```
+
+The 502 cases mean that Caddy let the request through, because the matrix has no AIDigest backend.
+They show that the rule is exactly "contains the marker". It is case-sensitive, as Caddy is, and a
+lower-case `aidigest_value_end` stays a valid user.
+
+### 13.8 Gates
+
+```
+$ AIDIGEST_TEST_DBNAME=<db> <py> -m pytest -q -rs -p no:cacheprovider
+Python 3.11.15  DB=postgres  586 passed in 39.71s
+Python 3.11.15  DB=aidigest_it  586 passed in 40.92s
+Python 3.12.3  DB=postgres  586 passed in 40.48s
+Python 3.12.3  DB=aidigest_it  586 passed in 40.83s
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts   (3.11 and 3.12)
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && sh -n caddy-entrypoint.sh && dash -n caddy-entrypoint.sh
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+```
+
+### 13.9 Mutation check: 134 mutations (125 + 9 new)
+
+```
+$ AIDIGEST_TEST_DBNAME=aidigest_it MUTATION_PY312=/tmp/adv312/bin/python $PY scripts/mutation_check.py
+py312 interpreter: /tmp/adv312/bin/python
+test database name: aidigest_it
+baseline: PASS (586 passed in 39.98s) 41s
+134/134 mutations killed, 0 survived.
+```
+
+Round-4 and retargeted rows:
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 120 | `r3-m1-settings-user-chars` | Settings rejects unsafe basic-auth user names | killed | 1 failed, 193 passed in 12.82s |
+| 124 | `r3-note-no-temp-trap` | setup.sh removes its temp file on INT/TERM | killed | 1 failed, 493 passed in 31.94s |
+| 126 | `r4-m1-trap-after-mktemp` | setup.sh installs the temp-file trap BEFORE mktemp (the race) | killed | 1 failed, 493 passed in 32.32s |
+| 127 | `r4-m1-mktemp-not-shielded` | mktemp ignores INT/TERM (a group signal cannot orphan the file) | killed | 1 failed, 494 passed in 32.76s |
+| 128 | `r4-m1-rewrite-not-shielded` | the in-place rewrite ignores INT/TERM (Ctrl-C cannot truncate .env) | killed | 1 failed, 506 passed in 32.46s |
+| 129 | `r4-m1-rewrite-in-shell` | the in-place rewrite runs in a shielded child, not in the trapping shell | killed | 1 failed, 505 passed in 31.54s |
+| 130 | `r4-l1-settings-allows-marker` | Settings rejects a user containing the heredoc marker | killed | 1 failed, 218 passed in 13.29s |
+| 131 | `r4-l1-setup-allows-marker` | setup.sh rejects a user containing the heredoc marker | killed | 1 failed, 489 passed in 31.38s |
+| 132 | `r4-l1-entrypoint-allows-marker` | entrypoint replaces a user containing the heredoc marker (Caddy must start) | killed | caddy matrix: 5 failure(s) |
+| 133 | `r4-l1-entrypoint-allows-marker-pytest` | same control, pytest stub-caddy test (no docker) | killed | 1 failed, 511 passed in 32.24s |
+| 134 | `r4-l1-caddyfile-marker-drift` | validators check the marker the Caddyfile actually uses | killed | 1 failed, 231 passed in 13.37s |
+
+The table below lists which tests kill each mutation. Each mutation was run without `-x` over
+`test_setup_sh.py` and `test_config.py`, so the list shows every failing test, not just the first.
+
+| Mutation | Failing cases |
+|---|---|
+| `r3-note-no-temp-trap` (no trap) | all 16 signal cases |
+| `r4-m1-trap-after-mktemp` (the challenger's ordering) | the 8 `before-mktemp` / `after-mktemp` cases |
+| `r4-m1-mktemp-not-shielded` | the 4 `before-mktemp` / `after-mktemp` cases with a group signal |
+| `r4-m1-rewrite-not-shielded` (`(cat ...)` in a plain subshell) | `during-rewrite` x group x INT/TERM (2) |
+| `r4-m1-rewrite-in-shell` (the old `cat "$tmp" > "$file"`) | the 4 `during-rewrite` cases |
+| `r4-l1-settings-allows-marker` | the 10 Settings marker cases |
+| `r4-l1-setup-allows-marker` | the 4 setup.sh marker cases (the marker-consistency text check still matches, because the mutation changes only `error` to `true`) |
+| `r4-l1-entrypoint-allows-marker-pytest` | the 5 stub-caddy entrypoint cases |
+| `r4-l1-caddyfile-marker-drift` | `test_heredoc_marker_is_the_one_the_caddyfile_uses` |
+
+`r3-m1-settings-user-chars` still disables the whole user check (`if False:`) on the extended
+line. `r4-l1-settings-allows-marker` removes only the marker clause.
+
+### 13.10 Not done / limits
+
+- A user containing the marker still stops Caddy outside compose (plain `caddy run` with no
+  entrypoint), like a non-bcrypt hash there. The supported deployment always goes through the
+  entrypoint, and the matrix asserts the compose `command`.
+- The trap ordering relies on bash running a trap only after a foreground child (here the command
+  substitution) finishes. The shell-target cases pin this behaviour on GNU bash 5.2.21; no other
+  bash version was available to run them.
+- SIGKILL, or a crash between the copy and the rewrite, can still leave the 600-mode temp file
+  behind. A `set -e` failure inside the copy loop (e.g. disk full) can too, because the trap
+  covers only INT/TERM, not EXIT.
+- The end-to-end run of section 11.9 was not repeated: this round changes setup.sh, the entrypoint,
+  Settings validation and tests. The matrix covers the Caddy layer with the real image.
+
+## 14. Challenger round 4 follow-up (review of `f3c711b`: APPROVED, 0 High / 0 Medium; two Lows fixed before the push)
+
+This section supersedes sections 1-13 for gate results.
+
+| SHA | What |
+|---|---|
+| `020ce61` | Red: signal harness extended to HUP/QUIT; SIGKILL; failures before the rename; mode/owner; `.gitignore` |
+| `1dcbae7` | Fix: atomic replace of `.env` (temp file next to it, `cp -p` + check, `sync`, `mv -f`); HUP/QUIT/EXIT traps; `.gitignore` `.env.*` / `!.env.example`; DESIGN.md section 14 |
+| `8c4d231` | 12 mutations; round-4 targets moved; the two in-place-rewrite mutations replaced |
+| `7008fee` | Red: each failure must print its own message (a full disk during `cp -p` was reported as a mode/owner problem) |
+| `c68ab4c` | Fix: separate copy and mode/owner checks; mutation `r5-copy-error-ignored` |
+| `02d2cd5` | `scripts/setup_bash_matrix.sh` (bash 4.4-5.3); `before-copy` signal point; the temp copy is mode 600 before secrets are copied in; mutation `r5-temp-not-private` |
+| this commit | this evidence, DESIGN.md section 14 update |
+
+### 14.1 Red: what the approved code (`f3c711b`) still did
+
+pytest (`020ce61`, Python 3.11.15): `41 failed, 37 passed` in `test_setup_sh.py`.
+- HUP: the shell is killed (exit -1).
+- QUIT: the shell ignores it (non-interactive bash ignores QUIT unless trapped), but the children
+  are killed.
+- TERM: exit 130, where 128+15 = 143 is now expected.
+- A group SIGKILL during `cat` leaves `.env` at 0 bytes.
+- Disk full exits with no message.
+- `.env.aidigest.*` is not git-ignored.
+
+Real commands, no hooks. The `f3c711b` function on an 85 MB `.env`; the signal goes to the process
+group once the in-place rewrite has started:
+
+```
+HUP to group during the replace: rc=-1 .env bytes=0 of 84777803 complete-new=False untouched=False leftover=1   (3 of 3)
+QUIT to group during the replace: rc=131 .env bytes=0 of 84777803 complete-new=False untouched=False leftover=1  (3 of 3)
+```
+
+Disk full on a real 96 KB tmpfs (`f3c711b`): above 50 KB the copy fails, `.env` is untouched, but
+the 600-mode temp copy is left behind (`set -e` exit, no EXIT trap) and the output gives no reason.
+
+```
+.env  48403 B: rc=0 .env complete-new; leftover=0
+.env  53003 B: rc=1 .env untouched; leftover=1  environment: line 12: printf: write error: No space left on device
+.env  57603 B: rc=1 .env untouched; leftover=1  environment: line 12: printf: write error: No space left on device
+```
+
+My size sweep did not hit the truncation that the challenger reports. Truncation needs the copy to
+fit (old + new <= free space) while the in-place rewrite does not (2 x new > free space). That is a
+narrow band, reached when the filled line is long, e.g. a hash. The atomic replace removes it.
+
+The bash matrix on `f3c711b`: 48 of 58 cases fail on each of bash 4.4, 5.0, 5.1, 5.2 and 5.3. Many
+of them fail only because the old code calls neither `cp` nor `mv`, so the hook never fires (exit
+0). The ones that matter, the same on every version:
+
+```
+FAIL sig-at-replace-HUP-group: .env is not the original file (0 bytes) temp file left
+FAIL sig-at-replace-QUIT-group: .env is not the original file (0 bytes) temp file left
+FAIL sig-during-copy-HUP-group: temp file left
+```
+
+### 14.2 Fix
+
+```bash
+AIDIGEST_TMP=""   # global, so the EXIT trap still sees it once the function has been left
+aidigest_tmp_cleanup() { if [[ -n "$AIDIGEST_TMP" ]]; then rm -f "$AIDIGEST_TMP"; AIDIGEST_TMP=""; fi; }
+aidigest_mode_owner() { ls -ldn "$1" | awk '{ print substr($1, 1, 10), $3, $4 }'; }
+aidigest_fill_empty() {
+  local file=$1 key=$2 newline=$3 l unchanged="${1} was not changed"
+  trap 'aidigest_tmp_cleanup' EXIT
+  trap 'aidigest_tmp_cleanup; exit 129' HUP
+  trap 'aidigest_tmp_cleanup; exit 130' INT
+  trap 'aidigest_tmp_cleanup; exit 131' QUIT
+  trap 'aidigest_tmp_cleanup; exit 143' TERM
+  AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp "${file}.aidigest.XXXXXX") \
+    || error "Could not create a temporary file next to ${file}; ${unchanged}."
+  cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); ${unchanged}."
+  [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \
+    || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."
+  while IFS= read -r l || [[ -n "$l" ]]; do
+    ...
+    printf '%s\n' "$l" || error "Could not write ${AIDIGEST_TMP} (disk full?); ${unchanged}." >&2
+  done < "$file" > "$AIDIGEST_TMP"
+  sync "$AIDIGEST_TMP" 2>/dev/null || sync
+  mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."
+  AIDIGEST_TMP=""
+  trap - HUP INT QUIT TERM EXIT
+}
+```
+
+- **Mode and owner:** `cp -p` (POSIX; GNU and BSD) copies the mode, owner and group. `ls -ldn`
+  then compares mode, uid and gid. If they differ, for example when a non-root user runs it on
+  someone else's `.env`, the script stops before the rename. setup.sh already assumes bash 4+ (`${x,,}`) and
+  Linux (`hostname -I`). `chmod --reference` would add a GNU-only dependency, so it is not used.
+- **The rename:** the temp file is in the same directory as `.env`, so `mv -f` is a single atomic
+  `rename(2)`.
+- **sync:** `sync FILE` is GNU coreutils 8.24+. Elsewhere the script falls back to a plain `sync`.
+- **The inode changes, and nothing depends on it:**
+  - compose reads `.env` by path for `${VAR}` interpolation;
+  - in `docker-compose.yml` the only file bind mounts are `./Caddyfile` and
+    `./caddy-entrypoint.sh`, and no service has `env_file: .env`;
+  - the Makefile reads `.env` with `grep`;
+  - `insurance-agent-demo/` has its own `.env` (`env_file: .env`, read by path when the container
+    is created) and is not touched by setup.sh.
+- **Space:** the copy needs free space for a second `.env`. When it is not there, the copy fails
+  before the rename.
+
+`.gitignore`:
+
+```
+.env.*
+!.env.example
+```
+
+```
+$ git check-ignore -v .env.aidigest.Ab3xYz homeschool-api/.env.aidigest.x .env.backup
+.gitignore:7:.env.*	.env.aidigest.Ab3xYz
+.gitignore:7:.env.*	homeschool-api/.env.aidigest.x
+.gitignore:7:.env.*	.env.backup
+$ git check-ignore -q .env.example || echo ".env.example not ignored"
+.env.example not ignored
+$ git ls-files | grep -E "\.env"
+.env.example
+homeschool-api/.env.example
+homeschool-tutor/.env.example
+insurance-agent-demo/.env.example
+$ git ls-files -ci --exclude-standard     # tracked files that would now be ignored
+(none)
+```
+
+### 14.3 Green: real commands, no hooks
+
+85 MB `.env`, the signal to the process group at 30 %, 70 % and 100 % of the copy:
+
+```
+HUP  to group at  30% of the copy: rc=129 .env untouched, leftover temp=0
+HUP  to group at 100% of the copy: rc=129 .env untouched, leftover temp=0
+QUIT to group at  30% of the copy: rc=131 .env untouched, leftover temp=0
+QUIT to group at 100% of the copy: rc=131 .env untouched, leftover temp=0
+INT  to group at  70% of the copy: rc=130 .env untouched, leftover temp=0
+TERM to group at  70% of the copy: rc=143 .env untouched, leftover temp=0
+KILL to group at  30% of the copy: rc=-9 .env untouched, leftover temp=1
+KILL to group at 100% of the copy: rc=-9 .env untouched, leftover temp=1
+(15 of 15 runs: .env untouched; the temp copy is left only after SIGKILL, and git ignores it)
+```
+
+96 KB tmpfs:
+
+```
+.env  43803 B on a 96 KB tmpfs: rc=0 .env complete-new; leftover temp=0; stdout:
+.env  53003 B on a 96 KB tmpfs: rc=1 .env untouched; leftover temp=0; stdout: ✗  Could not copy t96/.env to t96/.env.aidigest.6Oh7mz (disk full?); t96/.env was not changed.
+.env  66803 B on a 96 KB tmpfs: rc=1 .env untouched; leftover temp=0; stdout: ✗  Could not copy t96/.env to t96/.env.aidigest.NjVh3F (disk full?); t96/.env was not changed.
+```
+
+### 14.4 Deterministic harness (`test_setup_sh.py`)
+
+| test | cases | expectation |
+|---|---|---|
+| `test_setup_temp_file_removed_on_interrupt` | HUP/INT/QUIT/TERM x shell/group x 6 points (`before-mktemp`, `after-mktemp`, `before-copy`, `during-copy`, `at-replace`, `after-replace`) = 48 | exit 128+signal; temp file gone; `.env` untouched, or completely new for `after-replace` |
+| `test_setup_sigkill_never_truncates_env` | KILL x shell/group x `during-copy`/`at-replace` | `.env` untouched (the hook also shadows `cat`, so any in-place rewrite would be caught) |
+| `test_setup_failure_before_rename_leaves_env_untouched` | real ENOSPC from `/dev/full` during the copy loop and from `cp`; mode check fails; `mv` fails | exit 1; that step's own message plus ".env was not changed"; `.env` untouched; temp file gone (EXIT trap) |
+| `test_setup_temp_file_is_private_before_any_secret_is_copied` | `.env` mode 644 | the temp file is mode 600 when `cp -p` starts; `.env` ends at 644 |
+| `test_setup_fill_keeps_mode_and_owner` | mode 0640, owner 12345:23456 (as root) | kept |
+| `test_gitignore_covers_leftover_temp_copies` | `git check-ignore` in a scratch repo with the root `.gitignore` | `.env`, `.env.aidigest.*`, `.env.backup`, `sub/.env.aidigest.*` ignored; `.env.example`, `homeschool-api/.env.example` not ignored |
+
+`at-replace` expects `.env` untouched for every catchable signal. The hook signals the shell itself
+before calling `mv`, and bash runs the trap as soon as the `kill` builtin returns, before the next
+command.
+
+Under load (6 `yes` burners on 4 cores, load average 7.99; burners killed afterwards, `pgrep -x yes` -> 0),
+all harness tests together (59 per run), 30 runs:
+
+```
+harness x30 under load: pass=30 fail=0
+     30 59 passed
+```
+
+An earlier 30-run at `8c4d231` (50 tests per run) also passed 30/30.
+
+### 14.5 bash 4.4-5.3: `scripts/setup_bash_matrix.sh`
+
+The script generates the 58 harness cases from `tests/test_setup_sh.py` and runs them with the bash
+of the official `bash:<version>` images. Each case runs in its own process group (job control).
+
+```
+$ PYTHON=/tmp/adv/bin/python AIDigest/scripts/setup_bash_matrix.sh
+58 cases generated from tests/test_setup_sh.py
+== bash:4.4
+  bash 4.4.23(1)-release: 58 passed, 0 failed
+== bash:5.0
+  bash 5.0.18(1)-release: 58 passed, 0 failed
+== bash:5.1
+  bash 5.1.16(1)-release: 58 passed, 0 failed
+== bash:5.2
+  bash 5.2.37(1)-release: 58 passed, 0 failed
+== bash:5.3
+  bash 5.3.20(1)-release: 58 passed, 0 failed
+setup bash matrix: all versions passed
+```
+
+bash 4.4 was run 8 more times with the final runner: 8/8 all passed.
+
+An earlier draft of the runner showed "temp file left" on 4.4, for group HUP/QUIT/TERM at
+`before-mktemp`. This was an artifact of the runner, not a bash 4.4 problem:
+- The case ran inside a wrapper subshell in the same process group. The group signal killed the
+  wrapper, so `wait` returned while the case shell was still running its trap.
+- With a 0.5 s pause before the checks, the same runner passes 4 of 4 runs.
+- The final runner `exec`s the case, so `wait` returns when the case shell itself exits.
+
+So the trap ordering this design relies on holds on every tested version: bash runs a trap only
+after the command substitution has finished.
+
+### 14.6 Gates
+
+```
+$ AIDIGEST_TEST_DBNAME=<db> <py> -m pytest -q -rs -p no:cacheprovider
+Python 3.11.15  DB=postgres  629 passed in 41.71s
+Python 3.11.15  DB=aidigest_it  629 passed in 40.49s
+Python 3.12.3  DB=postgres  629 passed in 41.46s
+Python 3.12.3  DB=aidigest_it  629 passed in 39.61s
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts   (3.11 and 3.12)
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && bash -n AIDigest/scripts/setup_bash_matrix.sh && sh -n caddy-entrypoint.sh && dash -n caddy-entrypoint.sh
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+$ AIDigest/scripts/caddy_matrix.sh
+30 cases, 199 checks, 0 failures
+caddy matrix: all expectations met
+```
+
+### 14.7 Mutation check: 146 mutations
+
+```
+$ AIDIGEST_TEST_DBNAME=aidigest_it MUTATION_PY312=/tmp/adv312/bin/python $PY scripts/mutation_check.py
+py312 interpreter: /tmp/adv312/bin/python
+test database name: aidigest_it
+baseline: PASS (629 passed in 41.30s) 43s
+146/146 mutations killed, 0 survived.
+```
+
+134 (section 13), minus 2 dropped (`r4-m1-rewrite-not-shielded` and `r4-m1-rewrite-in-shell`: there
+is no in-place rewrite any more, and `r5-in-place-rewrite*` put one back instead), plus 14 new.
+
+Rows for new and retargeted mutations:
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 124 | `r3-note-no-temp-trap` | setup.sh removes its temp file on INT/TERM | killed | 1 failed, 495 passed in 34.86s |
+| 126 | `r4-m1-trap-after-mktemp` | setup.sh installs the temp-file traps BEFORE mktemp (the race) | killed | 1 failed, 493 passed in 35.77s |
+| 127 | `r4-m1-mktemp-not-shielded` | mktemp ignores the signals (a group signal cannot orphan the file) | killed | 1 failed, 494 passed in 35.54s |
+| 133 | `r5-in-place-rewrite` | .env replaced by an atomic rename, not rewritten in place | killed | 1 failed, 501 passed in 34.00s |
+| 134 | `r5-in-place-rewrite-shielded` | no in-place rewrite, even with the round-4 signal shield | killed | 1 failed, 501 passed in 33.66s |
+| 135 | `r5-mode-owner-not-kept` | the new .env gets the old one's mode and owner (cp -p and its check) | killed | 1 failed, 517 passed in 33.83s |
+| 136 | `r5-mode-owner-not-verified` | mode/owner of the temp copy verified before the rename | killed | 1 failed, 547 passed in 34.62s |
+| 137 | `r5-copy-error-ignored` | a failed copy (disk full) stops before the rename | killed | 1 failed, 545 passed in 34.70s |
+| 138 | `r5-no-hup-trap` | SIGHUP (SSH disconnect) removes the temp copy, exit 129 | killed | 1 failed, 493 passed in 33.81s |
+| 139 | `r5-no-quit-trap` | SIGQUIT removes the temp copy, exit 131 | killed | 1 failed, 497 passed in 33.34s |
+| 140 | `r5-no-exit-cleanup` | the temp copy is removed on any exit (e.g. a failed write) | killed | 1 failed, 545 passed in 34.30s |
+| 141 | `r5-mktemp-shield-int-term-only` | mktemp ignores HUP and QUIT too | killed | 1 failed, 494 passed in 34.45s |
+| 142 | `r5-write-error-ignored` | a failed write (disk full) stops before the rename | killed | 1 failed, 546 passed in 35.78s |
+| 143 | `r5-rename-error-ignored` | a failed rename is reported, not success | killed | 1 failed, 548 passed in 35.66s |
+| 144 | `r5-temp-not-private` | the temp copy is created mode 600, before any secret is copied into it | killed | 1 failed, 549 passed in 35.32s |
+| 145 | `r5-gitignore-no-env-star` | .gitignore covers leftover .env.aidigest.* copies | killed | 1 failed, 552 passed in 35.79s |
+| 146 | `r5-gitignore-example-ignored` | .env.example stays tracked | killed | 1 failed, 552 passed in 35.79s |
+
+The table below lists which tests kill each mutation. Each mutation was run without `-x` over
+`test_setup_sh.py`, so the list shows every failing test, not just the first.
+
+| Mutation | Failing cases |
+|---|---|
+| `r5-in-place-rewrite`, `r5-in-place-rewrite-shielded` | 16 `at-replace`/`after-replace` signal cases, SIGKILL `at-replace` (shell and group: `.env` 0 bytes for the group), `rename-fails` |
+| `r5-mode-owner-not-kept` (drops `cp -p` and its check) | `test_setup_fill_keeps_mode_and_owner`, `copy-fails`, `mode-not-kept` |
+| `r5-mode-owner-not-verified` | `mode-not-kept` |
+| `r5-copy-error-ignored` | `copy-fails` |
+| `r5-no-hup-trap` / `r5-no-quit-trap` | the HUP / QUIT signal cases |
+| `r5-no-exit-cleanup` | all 4 failure cases (temp copy left) |
+| `r5-mktemp-shield-int-term-only` | `before/after-mktemp` x HUP/QUIT x group |
+| `r5-write-error-ignored` / `r5-rename-error-ignored` | `disk-full` / `rename-fails` |
+| `r5-temp-not-private` | `test_setup_temp_file_is_private_before_any_secret_is_copied` |
+| `r5-gitignore-no-env-star` / `r5-gitignore-example-ignored` | `test_gitignore_covers_leftover_temp_copies` |
+
+The first full run stopped at its baseline. It had been started under `nohup`, which sets SIGHUP to
+ignored for every child process. bash cannot trap a signal that was already ignored when it
+started, so a HUP case failed. Under `nohup`, a HUP never reaches setup.sh, so there is nothing to
+protect. The run that counts was started with `setsid` alone.
+
+### 14.8 Remaining Lows / limits
+
+- **`caddy run` without `caddy-entrypoint.sh` is unsupported** (DESIGN.md section 14). Compose
+  always starts Caddy through the entrypoint, and the matrix asserts the compose `command`. Without
+  the entrypoint, a non-bcrypt hash or a user containing `AIDIGEST_VALUE_END` stops Caddy.
+- **bash versions:** the trap ordering was verified on bash 4.4-5.3, by the challenger and by
+  `scripts/setup_bash_matrix.sh` (58/58 cases on each of 4.4, 5.0, 5.1, 5.2, 5.3).
+- **SIGKILL** (or a power loss) can leave the 600-mode `.env.aidigest.XXXXXX` copy. `.env` itself
+  is never damaged, and git ignores the copy.
+- **If something bind-mounts `.env` as a single file,** that container keeps the old inode and
+  content until it is recreated. Nothing in this repository does that.
+- The end-to-end run of section 11.9 was not repeated: this round changes only setup.sh,
+  `.gitignore`, tests and scripts.
+
+## 15. Challenger review of `80c1871` (REQUEST CHANGES: 0 High, 1 Medium, 2 Low)
+
+The challenger confirmed `.env` integrity under every signal and under disk-full (40 cases, 0
+violations). This section supersedes sections 1-14 for gate results.
+
+| SHA | What |
+|---|---|
+| `46f0149` | Red: meta-test with pytest ignoring each signal; symlinked `.env`; `flush-fails`; per-file vs plain `sync`; every launch through `_launch` |
+| `d3d71ec` | Fix: `preexec_fn` resets HUP/INT/QUIT/TERM in the child; `setup_bash_matrix.sh` disposition probe; symlink refused; `aidigest_flush` (probed per-file fsync, checked); DESIGN.md section 15 |
+| `83af39d` | 5 mutations (151 total) |
+| this commit | this evidence |
+
+### 15.1 M: signals ignored on entry
+
+How each launch mode starts a process (kernel `SigIgn`, read from `/proc/self/status`):
+
+```
+foreground: none
+background: ['INT', 'QUIT']
+nohup: ['HUP']
+nohup+bg: ['HUP', 'INT', 'QUIT']
+```
+
+An ignored disposition survives `exec`, and bash can neither trap nor reset a signal that was
+ignored on entry. So a case for that signal fails. Red on `80c1871` (signal and SIGKILL tests):
+
+```
+(a) foreground:       52 passed
+(b) background job:   24 failed, 28 passed     (12 INT, 12 QUIT)
+(c) nohup:            12 failed, 40 passed     (12 HUP)
+```
+
+The fix has two parts:
+- **pytest:** every launch of the function under test goes through `_launch`, whose `preexec_fn`
+  resets HUP/INT/QUIT/TERM to `SIG_DFL` in the child before exec. The new
+  `test_harness_works_when_pytest_starts_with_signals_ignored` sets each signal to `SIG_IGN` in
+  pytest itself and then runs a group-signal case (red without the reset: 4 failures).
+- **`setup_bash_matrix.sh`:** the cases run in containers started by the docker daemon, so the
+  caller's `nohup` or `&` does not reach them. bash cannot undo an inherited ignore, and the images
+  have no tool that can (no Python; busybox `env` has no `--default-signal`). So the runner launches
+  a probe exactly like a case, reads its `SigIgn`, and refuses to run if HUP/INT/QUIT/TERM is
+  ignored, instead of reporting misleading results.
+
+Green, `test_setup_sh.py` (95 tests):
+
+```
+(a) foreground:            95 passed in 1.86s
+(b) background job:        95 passed in 1.90s
+(c) nohup:                 95 passed in 1.94s
+(d) nohup + background:    95 passed in 1.84s
+```
+
+`setup_bash_matrix.sh` (59 cases per version):
+
+```
+(a) foreground:          4.4 / 5.0 / 5.1 / 5.2 / 5.3: 59 passed, 0 failed each - all versions passed
+(b) background job:      4.4 / 5.0 / 5.1 / 5.2 / 5.3: 59 passed, 0 failed each - all versions passed
+(c) nohup + background:  4.4 / 5.0 / 5.1 / 5.2 / 5.3: 59 passed, 0 failed each - all versions passed
+(d) the guard, with the runner itself started as  bash -c 'trap "" INT QUIT; exec bash /h/run.sh':
+== bash:4.4
+  cases would start with HUP/INT/QUIT/TERM ignored (SigIgn mask 0x6); not run
+== bash:5.3
+  cases would start with HUP/INT/QUIT/TERM ignored (SigIgn mask 0x6); not run
+setup bash matrix: 2 version(s) failed      rc=1
+```
+
+### 15.2 L: symlinked `.env`
+
+`aidigest_fill_empty` now refuses a symlink up front. Writing through the link could reach a file
+outside the repository, and the rename would replace the link with a regular file:
+
+```
+✗  <dir>/.env is a symlink; edit its target by hand or replace the link with a regular file; <dir>/.env was not changed.
+```
+
+`test_setup_refuses_a_symlinked_env`: exit 1, the message, link and target unchanged, no temp file.
+Red on `80c1871`: the run stopped with "Could not give the temporary copy the mode and owner".
+
+A comment in setup.sh notes that a hard-linked `.env` loses the link: after the rename, the other
+names keep the old content. Only a symlinked `.env` is refused. A missing key is still appended
+through a link (`>>` writes in place), as before.
+
+### 15.3 L: fsync errors
+
+```bash
+aidigest_flush() { if sync "$2" 2>/dev/null; then sync "$1"; else sync; fi; }
+...
+  aidigest_flush "$AIDIGEST_TMP" "$file" || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."
+```
+
+The probe runs once per fill: `sync` on the existing `.env`.
+- Where per-file sync works, a failure to flush the temp copy stops the replace: exit 1, "Could not
+  flush ... .env was not changed", temp file removed (the `flush-fails` case, red on `80c1871`:
+  exit 0).
+- Plain `sync` is used only where `sync FILE` is unsupported (`test_setup_flushes_the_temp_copy`,
+  `plain-only`). Its own result is checked too.
+
+### 15.4 Gates
+
+pytest, each combination in the foreground and as a background job (INT/QUIT ignored):
+
+```
+foreground  Python 3.11.15  DB=postgres  637 passed in 41.61s
+background  Python 3.11.15  DB=postgres  637 passed in 42.71s
+foreground  Python 3.11.15  DB=aidigest_it  637 passed in 43.50s
+background  Python 3.11.15  DB=aidigest_it  637 passed in 45.15s
+foreground  Python 3.12.3  DB=postgres  637 passed in 44.77s
+background  Python 3.12.3  DB=postgres  637 passed in 45.23s
+foreground  Python 3.12.3  DB=aidigest_it  637 passed in 46.51s
+background  Python 3.12.3  DB=aidigest_it  637 passed in 45.80s
+$ ruff check .
+All checks passed!
+$ python -m compileall -q aidigest main.py tests scripts   (3.11 and 3.12)
+compile-ok
+$ bash -n setup.sh && bash -n AIDigest/scripts/caddy_matrix.sh && bash -n AIDigest/scripts/setup_bash_matrix.sh && sh -n caddy-entrypoint.sh && dash -n caddy-entrypoint.sh
+syntax-ok
+$ pip-audit -r requirements.txt
+No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt
+No known vulnerabilities found
+$ AIDigest/scripts/caddy_matrix.sh
+30 cases, 199 checks, 0 failures - caddy matrix: all expectations met
+$ AIDigest/scripts/setup_bash_matrix.sh
+section 15.1: 59/59 on bash 4.4, 5.0, 5.1, 5.2, 5.3 (foreground, background, nohup + background)
+```
+
+### 15.5 Mutation check, launched with `nohup ... &` (151 mutations)
+
+The run was launched as `( nohup $PY scripts/mutation_check.py ... & )`. Its `SigIgn` was
+`0x7`: HUP, INT and QUIT all ignored, the worst case.
+
+A first attempt at top level (`nohup ... &` directly in the tool shell) had only HUP ignored,
+because that shell runs with job control on. It was stopped before its first mutation finished,
+and the subshell form above was used instead.
+
+```
+py312 interpreter: /tmp/adv312/bin/python
+test database name: aidigest_it
+baseline: PASS (637 passed in 43.69s) 45s
+151/151 mutations killed, 0 survived.
+```
+
+New rows:
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 147 | `r6-tests-inherit-ignored-signals` | signal tests reset inherited SIG_IGN in the child (nohup / background job) | killed | 1 failed, 493 passed in 35.83s |
+| 148 | `r6-symlink-followed` | a symlinked .env is refused with a clear message | killed | 1 failed, 554 passed in 38.00s |
+| 149 | `r6-fsync-error-swallowed` | a failed fsync of the temp copy stops the replace (old `sync tmp || sync`) | killed | 1 failed, 547 passed in 35.16s |
+| 150 | `r6-fsync-plain-only` | the temp copy itself is flushed where `sync FILE` works | killed | 1 failed, 547 passed in 35.09s |
+| 151 | `r6-fsync-result-ignored` | the flush result is checked | killed | 1 failed, 547 passed in 36.87s |
+
+Run without `-x` in the foreground over `test_setup_sh.py`, each mutation is killed by:
+
+| Mutation | Failing cases |
+|---|---|
+| `r6-tests-inherit-ignored-signals` | the 4 `test_harness_works_when_pytest_starts_with_signals_ignored` cases. Under `nohup ... &`, every HUP/INT/QUIT signal case fails as well |
+| `r6-symlink-followed` | `test_setup_refuses_a_symlinked_env` |
+| `r6-fsync-error-swallowed` | `flush-fails` |
+| `r6-fsync-plain-only` | `flush-fails`, `test_setup_flushes_the_temp_copy[per-file]` |
+| `r6-fsync-result-ignored` | `flush-fails` |
+
+### 15.6 Limits
+
+- `setup_bash_matrix.sh` cannot reset an inherited ignore inside its containers (no suitable tool in
+  the images); it detects one and refuses to run. In practice it is not reachable, because the
+  daemon starts the containers.
+- The `sync FILE` probe uses `.env` itself. If fsync of `.env` fails, the probe takes this for an old
+  `sync` without file arguments, and the script falls back to plain `sync`, which reports no errors
+  on Linux. An fsync error on the temp copy could then go unnoticed. That needs an I/O error under
+  `.env` at that moment, and the rename itself is still atomic.
+- The end-to-end run of section 11.9 was not repeated: this round changes only setup.sh, tests and
+  scripts.

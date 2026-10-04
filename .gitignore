@@ -2,6 +2,10 @@
 .env
 .env.backup
 .env.local
+# Any other .env.* (e.g. a .env.aidigest.XXXXXX temp copy that only SIGKILL can leave behind,
+# mode 600 and full of secrets); the templates stay tracked.
+.env.*
+!.env.example
 
 # Claude Code agent worktrees (ephemeral, not source)
 .claude/

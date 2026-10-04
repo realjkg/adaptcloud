@@ -15,6 +15,8 @@ this repo contains secure hardening and will contain chatGPT webhooks as well as
   **Application Platform landing zone** if the tenant doesn't have one. See
   [`azure/README.md`](azure/README.md) and
   [`azure/docs/caf-ai-agent-governance-mapping.md`](azure/docs/caf-ai-agent-governance-mapping.md).
+- `AIDigest/` — Adapt Cloud AI intelligence service (FastAPI, Postgres, Claude), served
+  behind Caddy at `/aidigest`. See [`AIDigest/README.md`](AIDigest/README.md).
 - `main.go`, `chatgpt.go` — sample webhook services.
 
 None of this code is expected to go from dev straight to prod — review, parameterize,
