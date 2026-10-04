@@ -36,6 +36,10 @@ log = logging.getLogger(__name__)
 # Raised by a database step that could not reach Postgres (asyncpg's connect timeout, a refused or
 # reset socket). Not the budget (review of ae012a0, L6): reported as "database unavailable" (503).
 DB_UNREACHABLE = (TimeoutError, OSError)
+# Review of ae012a0, L7: a 'running' row the service can no longer finish.
+STALE_GRACE_SECONDS = 60.0
+ABANDONED_AT_CREATION = "504: abandoned: the task budget ran out while the task was being created"
+ABANDONED_STALE = "504: abandoned: still 'running' after the task budget (the service lost track of it)"
 
 Mode = Literal["auto", "research", "compare", "summarize", "knowledge_lookup", "build_brief", "opportunity_analysis"]
 FEED_MODES = {"research", "compare", "opportunity_analysis", "build_brief"}
@@ -250,13 +254,21 @@ async def _finish_task(engine, task_id: str, status: str, *, result=None, error=
 
 
 async def _create_task_row(engine: AsyncEngine, task_id: str, requested_by: str, req: TaskRequest, mode: str,
-                           now: datetime, hourly_limit: int, budget: Budget | None = None) -> None:
+                           now: datetime, hourly_limit: int, budget: Budget | None = None,
+                           stale_before: datetime | None = None) -> None:
     """Insert the task row unless the user's hourly cap is reached (M6). The per-user advisory
     lock makes count-then-insert atomic across concurrent requests and workers; waiting for it is
-    bounded by the task budget (lock_timeout)."""
+    bounded by the task budget (lock_timeout). The user's own 'running' rows created before
+    `stale_before` cannot belong to a live task (the budget is absolute): they are marked failed
+    first (review of ae012a0, L7). They still count toward the hourly limit - they were requests."""
     try:
         async with db_tx(engine, budget) as conn:
             await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": "task:" + requested_by})
+            if stale_before is not None:
+                await conn.execute(text(
+                    "UPDATE aidigest.tasks SET status='failed', error=:error, completed_at=:now "
+                    "WHERE requested_by=:by AND status='running' AND created_at < :stale"),
+                    {"error": ABANDONED_STALE, "now": now, "by": requested_by, "stale": stale_before})
             recent = (await conn.execute(text(
                 "SELECT count(*) FROM aidigest.tasks WHERE requested_by=:by AND created_at > :since"),
                 {"by": requested_by, "since": now - timedelta(hours=1)})).scalar()
@@ -270,6 +282,23 @@ async def _create_task_row(engine: AsyncEngine, task_id: str, requested_by: str,
         if is_db_timeout(exc):
             raise   # the budget ran out while waiting: reported as a deadline by run_within
         raise StorageError("Could not create task") from exc
+
+
+async def _abandon_task_row(engine: AsyncEngine, task_id: str, requested_by: str, budget: Budget) -> None:
+    """The budget ran out while the task row was being created: if its INSERT nevertheless committed
+    (the deadline hit during COMMIT), mark that row failed now, within the reserved slice. Keyed on
+    our own fresh id, so nothing else is touched. Best effort: if this cannot run either, the user's
+    next request fails the stale row (_create_task_row)."""
+    async def mark() -> None:
+        async with db_tx(engine, budget, reserve=True) as conn:
+            await conn.execute(text(
+                "UPDATE aidigest.tasks SET status='failed', error=:error, completed_at=now() "
+                "WHERE id=:id AND requested_by=:by AND status='running'"),
+                {"error": ABANDONED_AT_CREATION, "id": task_id, "by": requested_by})
+    try:
+        await run_within(budget, mark(), "cleaning up the task row", reserve=True)
+    except (SQLAlchemyError, DeadlineError, *DB_UNREACHABLE):
+        log.warning("Could not clean up task %s after the deadline; its next request will", task_id)
 
 
 async def _execute_task(engine, ai, fetcher, req: TaskRequest, mode: str, now: datetime, cfg: TaskConfig,
@@ -303,10 +332,12 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
     task_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     requested_by = _normalise_user(requested_by)
+    stale_before = now - timedelta(seconds=cfg.budget_seconds + STALE_GRACE_SECONDS)
     try:
         await run_within(budget, _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit,
-                                                  budget), "task creation")
-    except DeadlineError as exc:   # no row exists: nothing to record, the caller gets 504
+                                                  budget, stale_before), "task creation")
+    except DeadlineError as exc:   # the caller gets 504; a row that committed anyway is failed (L7)
+        await _abandon_task_row(engine, task_id, requested_by, budget)
         raise DeadlineError(f"{over} (waiting to create the task)") from exc
     except DB_UNREACHABLE as exc:
         raise StorageError("Database unavailable") from exc
