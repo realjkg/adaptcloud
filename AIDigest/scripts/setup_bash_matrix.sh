@@ -6,7 +6,8 @@
 # process group (job control), so "kill 0" reaches only the case, and a probe launched like a case
 # must show HUP/INT/QUIT/TERM at their default disposition. Checked per case: exit status,
 # .env (untouched / completely replaced), no temp file left (except after SIGKILL), one temp name
-# recorded, the failure message, and mode/owner for the mode case.
+# recorded, the failure message, and for the mode case: mode 600 with the original owner (a 640 .env
+# is tightened, review of ae012a0 L2).
 #
 # Usage: AIDigest/scripts/setup_bash_matrix.sh [setup.sh]   (env: BASH_VERSIONS, PYTHON)
 # Needs docker and a PYTHON with requirements-dev.txt installed. Exit 0 = every case passed.
@@ -85,7 +86,7 @@ while IFS='|' read -r name rc final envs msg prep; do
     [[ $(cat "$w/created.log" 2>/dev/null | wc -l) -eq 1 ]] || why+=" temp names recorded != 1"
   fi
   [[ -z "$msg" ]] || grep -q "$msg" "$w/out" || why+=" message '$msg' missing"
-  if [[ $prep == 640owner && "$(stat -c '%a %u %g' "$w/.env")" != "640 12345 23456" ]]; then why+=" mode/owner"; fi
+  if [[ $prep == 640owner && "$(stat -c '%a %u %g' "$w/.env")" != "600 12345 23456" ]]; then why+=" mode/owner"; fi
   if [[ -z "$why" ]]; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "  FAIL $name:$why"; fi
   rm -rf "$w"
 done < cases.txt
