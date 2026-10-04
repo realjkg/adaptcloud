@@ -532,7 +532,8 @@ def test_reserved_but_stdlib_global_address_is_rejected():
 ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
 _CHUNK_CHILD = """
-import asyncio, gzip, os, sys, time, httpx
+import asyncio, gzip, os, resource, sys, time, httpx
+resource.setrlimit(resource.RLIMIT_CPU, (30, 35))   # all samples together: 30 CPU s, then SIGXCPU
 from aidigest.fetcher import GuardedFetcher
 
 async def resolve(host):
@@ -585,6 +586,7 @@ def test_200k_one_byte_chunks_are_linear(encoding):
                               capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired:
         pytest.fail(f"{encoding or 'identity'}: 200k one-byte chunks exceeded 120 s (child killed)")
+    assert proc.returncode != -__import__("signal").SIGXCPU, f"{encoding or 'identity'}: used up 30 s of CPU (super-linear)"
     assert proc.returncode == 0, proc.stderr[-2000:]
     quarter, full, n_quarter, n_full = proc.stdout.split()
     assert int(n_full) > 150_000, n_full

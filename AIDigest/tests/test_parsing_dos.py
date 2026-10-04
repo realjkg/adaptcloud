@@ -5,6 +5,7 @@ hard wall-clock budget (subprocess.run kills it on timeout), so a quadratic regr
 fails the test instead of hanging the suite."""
 
 import asyncio
+import signal
 import subprocess
 import sys
 import textwrap
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 N = 1_000_000          # the fetcher's default byte cap
 BUDGET_SECONDS = 6.0   # CPU seconds for one parse; linear parsing of 1 MB takes well under a second
 WALL_CLOCK_KILL = 120  # hang guard only (the CPU budget above is the real limit)
+CHILD_CPU_LIMIT = 4 * int(BUDGET_SECONDS)   # CPU seconds for all six samples of one child
 
 ADVERSARIAL = {
     "lt-run": "'<' * N",
@@ -57,7 +59,10 @@ def test_adversarial_input_parses_within_budget(name):
     # samples per size; a sample that already exceeds the budget stops the child at once, so a
     # quadratic parser fails fast. The wall-clock kill (WALL_CLOCK_KILL) only guards against hangs.
     code = textwrap.dedent(f"""
-        import sys, time
+        import resource, sys, time
+        # all six samples together get CHILD_CPU_LIMIT CPU seconds; a quadratic parser is killed
+        # by the kernel (SIGXCPU) when it runs out, however loaded the machine is
+        resource.setrlimit(resource.RLIMIT_CPU, ({CHILD_CPU_LIMIT}, {CHILD_CPU_LIMIT} + 5))
         from aidigest.feeds import clean_text, parse_feed
         def run(N):
             data = {ADVERSARIAL[name]}
@@ -79,6 +84,7 @@ def test_adversarial_input_parses_within_budget(name):
                               timeout=WALL_CLOCK_KILL)
     except subprocess.TimeoutExpired:
         pytest.fail(f"{name}: parsing did not finish within {WALL_CLOCK_KILL}s wall-clock (child killed)")
+    assert proc.returncode != -signal.SIGXCPU, f"{name}: the parses used up {CHILD_CPU_LIMIT}s of CPU (non-linear parser)"
     assert proc.returncode == 0, proc.stderr[-2000:]
     assert not proc.stdout.startswith("OVER"), f"{name}: one parse of up to 1 MB took {proc.stdout.split()[1]}s CPU " \
                                                 f"(budget {BUDGET_SECONDS}s) - non-linear parser"
