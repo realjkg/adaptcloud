@@ -12,10 +12,15 @@ set -eu
 
 SENTINEL_USER=aidigest-disabled
 SENTINEL_HASH='$2a$10$UAJZae21lSiIPJHsYElle.vS3Fc.ggO2jGQOn0iy5GlfjR8fa9hvW'
+# The Caddyfile wraps user and hash in <<AIDIGEST_VALUE_END heredocs; a value containing the marker
+# ends the heredoc early and `caddy adapt` fails (round 4 L1). A valid bcrypt hash cannot contain it
+# (no "_" in the bcrypt alphabet); a user can, so valid_user rejects it.
+HEREDOC_MARKER=AIDIGEST_VALUE_END
 
 single_line() { case "$1" in *"
 "*) return 1 ;; esac; }
-valid_user() { single_line "$1" && printf '%s' "$1" | grep -Eqx '[A-Za-z0-9._@-]{1,64}'; }
+no_marker() { case "$1" in *"$HEREDOC_MARKER"*) return 1 ;; esac; }
+valid_user() { single_line "$1" && no_marker "$1" && printf '%s' "$1" | grep -Eqx '[A-Za-z0-9._@-]{1,64}'; }
 valid_hash() { single_line "$1" && printf '%s' "$1" | grep -Eqx '[$]2[aby][$][0-9]{2}[$][./A-Za-z0-9]{53}'; }
 
 if ! valid_user "${AIDIGEST_BASIC_AUTH_USER:-}"; then

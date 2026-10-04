@@ -81,8 +81,14 @@ never call Claude or the internet.
      present, well-formed (user 1-64 of `A-Za-z0-9._@-`, a 60-char bcrypt hash, a 32+ char
      printable secret without whitespace) and not sentinels.
 
+   - the heredoc marker `AIDIGEST_VALUE_END` must not occur in the user: Caddy ends a heredoc
+     as soon as the text read so far ends with the marker, and it accepts only
+     `[A-Za-z0-9_-]` in markers, all of which are allowed in user names, so no marker choice
+     avoids the clash. The entrypoint replaces such a user with the sentinel. A valid bcrypt
+     hash cannot contain it (no `_` in the bcrypt alphabet); the secret is not substituted.
+
    Settings and `setup.sh` enforce the same user/secret rules. `scripts/caddy_matrix.sh`
-   checks 22 cases against the real Caddy, inside and outside compose: every case adapts,
+   checks 30 cases against the real Caddy, inside and outside compose: every case adapts,
    the UI stays at 200, and `/aidigest/*` is reachable only with a complete, valid
    configuration and the right password.
 3. After authentication Caddy sets `X-AIDigest-User` to `{http.auth.user.id}`.
@@ -240,3 +246,17 @@ Rollback:
 The README role SQL is now documented to run as the database owner: `GRANT CONNECT ON DATABASE`
 is silently a no-op for a non-owner ("no privileges were granted"), which the hardened test
 exposed.
+
+## 13. Challenger round 4 (review of 9dbdc70): findings -> fixes
+
+| ID | Finding | Fix | Tests |
+|---|---|---|---|
+| M1 | `setup.sh` `aidigest_fill_empty` created the temp file before installing its INT/TERM trap: a signal in that window killed the shell (exit -15) and left the 600-mode copy of the secrets behind; the trap test was timing-dependent (7/30 failures under load) | Trap installed before `mktemp` (`tmp=""` first, so `set -u` holds); `mktemp` runs with INT/TERM ignored so a process-group signal cannot kill it between creating the file and printing its name | `test_setup_sh.py::test_setup_temp_file_removed_on_interrupt`, now deterministic: hooks shadow `mktemp`/`printf`/`cat` inside the real function and signal at four defined points, to the shell or its process group, INT and TERM (16 cases); 30/30 under load |
+| M1+ | Found by the new test: a terminal Ctrl-C (SIGINT to the whole process group) during the in-place rewrite killed `cat` after `> .env` had truncated it, and the trap then deleted the only full copy: `.env` (SECRET_KEY, MASTER_SECRET) left at 0 bytes | The rewrite runs as `(trap '' INT TERM; cat "$tmp" > "$file")`: the child ignores INT/TERM, the shell runs its trap after the child has finished, so `.env` is untouched or completely rewritten | `during-rewrite` cases of the same test (`.env` must equal the fully rewritten content) |
+| L1 | A user name containing the heredoc marker `AIDIGEST_VALUE_END` passed every validator and broke `caddy adapt` (Caddy restart loop, homeschool UI down) | Settings, `setup.sh` and `caddy-entrypoint.sh` treat a user containing the marker as invalid (the entrypoint substitutes the sentinel); `config.HEREDOC_MARKER` is the single named constant, checked against the Caddyfile | `scripts/caddy_matrix.sh` (+8 cases: marker exact / prefix / suffix / middle -> adapts, UI 200, `/aidigest/*` 401; lower-case near miss -> 502; marker in hash -> 401; marker in secret -> 502); `test_config.py::test_basic_auth_user_rejects_the_caddyfile_heredoc_marker`, `::test_heredoc_marker_is_the_one_the_caddyfile_uses`; `test_setup_sh.py::test_setup_rejects_unsafe_basic_auth_user`, `::test_entrypoint_replaces_user_containing_the_heredoc_marker` |
+
+The Caddyfile guard is not extended for the marker: with compose, the entrypoint has already
+replaced the user, so the guard only ever sees the sentinel; without the entrypoint `caddy adapt`
+fails before any guard can run. A guard clause would be unreachable (its mutation could only
+survive). Outside compose (plain `caddy run`, no entrypoint) a marker user still stops Caddy, like
+a non-bcrypt hash there (section 12); Settings and setup.sh refuse it at the source.

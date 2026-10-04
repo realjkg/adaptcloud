@@ -20,6 +20,11 @@ MIN_PROXY_SECRET_LEN = 32
 SAFE_USER = re.compile(r"[A-Za-z0-9._@-]{1,64}")
 SAFE_SECRET = re.compile(r"[!-~]*")          # printable ASCII: no whitespace, control or non-ASCII
 SENTINEL_USER = "aidigest-disabled"        # Caddy's placeholder for "not configured"
+# Round 4 L1: the Caddyfile wraps the user and hash in <<AIDIGEST_VALUE_END heredocs. Caddy ends a
+# heredoc as soon as the text read so far ends with the marker, so a user that CONTAINS it breaks
+# `caddy adapt`. Caddy only accepts markers of [A-Za-z0-9_-], all allowed in SAFE_USER, so no marker
+# avoids this: the user must not contain it. (The bcrypt hash cannot contain "_".)
+HEREDOC_MARKER = "AIDIGEST_VALUE_END"
 
 
 def _looks_placeholder(value: str) -> bool:
@@ -80,9 +85,10 @@ class Settings(BaseSettings):
     @field_validator("aidigest_basic_auth_user")
     @classmethod
     def _user_characters(cls, value: str) -> str:
-        if value and (not SAFE_USER.fullmatch(value) or value == SENTINEL_USER):
-            raise ValueError("AIDIGEST_BASIC_AUTH_USER must be 1-64 characters of A-Z a-z 0-9 . _ @ - "
-                             f"and not the placeholder {SENTINEL_USER!r}")
+        if value and (not SAFE_USER.fullmatch(value) or value == SENTINEL_USER or HEREDOC_MARKER in value):
+            raise ValueError("AIDIGEST_BASIC_AUTH_USER must be 1-64 characters of A-Z a-z 0-9 . _ @ - , "
+                             f"not the placeholder {SENTINEL_USER!r} and not contain {HEREDOC_MARKER!r} "
+                             "(the Caddyfile heredoc marker)")
         return value
 
     @field_validator("aidigest_daily_time")

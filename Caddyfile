@@ -25,6 +25,9 @@
   #    and none is a sentinel. Settings and setup.sh enforce the same rules, and
   #    caddy-entrypoint.sh replaces malformed user/hash values with the sentinels before Caddy
   #    starts (Caddy itself refuses to load a hash that is not "$..." or base64).
+  #  - a user CONTAINING the heredoc marker AIDIGEST_VALUE_END would end the heredoc early (Caddy
+  #    allows only [A-Za-z0-9_-] in markers, so no marker is outside the user alphabet): Settings and
+  #    setup.sh refuse it and caddy-entrypoint.sh replaces it with the sentinel (round 4).
   redir /aidigest /aidigest/ 308
   handle_path /aidigest/* {
     route {

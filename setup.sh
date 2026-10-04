@@ -41,6 +41,10 @@ aidigest_collect() {
   [[ "$AIDIGEST_BASIC_AUTH_USER" =~ ^[A-Za-z0-9._@-]{1,64}$ ]] \
     || error "User name must be 1-64 characters of letters, digits and . _ @ - (no spaces or quotes)"
   [[ "$AIDIGEST_BASIC_AUTH_USER" != aidigest-disabled ]] || error "'aidigest-disabled' is reserved; choose another user name"
+  # Round 4 L1: the Caddyfile wraps the user in <<AIDIGEST_VALUE_END heredocs; a user containing the
+  # marker would end the heredoc early and stop Caddy (Settings and caddy-entrypoint.sh refuse it too).
+  [[ "$AIDIGEST_BASIC_AUTH_USER" != *AIDIGEST_VALUE_END* ]] \
+    || error "User name must not contain 'AIDIGEST_VALUE_END' (the Caddyfile's heredoc marker)"
   while true; do
     IFS= read -rsp "     AIDigest password (16+ chars): " AIDIGEST_PASSWORD || error "No password given."; echo
     [[ ${#AIDIGEST_PASSWORD} -ge 16 ]] && break
@@ -65,10 +69,15 @@ aidigest_collect() {
 
 # Replace an EMPTY "KEY=" / "KEY=''" / 'KEY=""' line with the new line; every other line is
 # copied unchanged. Used for a .env copied from .env.example, whose AIDigest keys are empty.
+# INT/TERM at any point (round 4 M1): the trap exists BEFORE the temp file, so the copy of the
+# secrets is always removed (exit 130). The two children that matter ignore INT/TERM (a terminal
+# Ctrl-C signals the whole process group): mktemp cannot die between creating the file and printing
+# its name, and the in-place rewrite cannot be cut off with .env truncated. This shell runs the trap
+# once the child has finished, so .env is either untouched or completely rewritten.
 aidigest_fill_empty() {
-  local file=$1 key=$2 newline=$3 tmp l
-  tmp=$(mktemp "${file}.aidigest.XXXXXX")   # mktemp creates it mode 600
-  trap 'rm -f "$tmp"; exit 130' INT TERM     # never leave a copy of the secrets behind
+  local file=$1 key=$2 newline=$3 l tmp=""
+  trap '[[ -z "$tmp" ]] || rm -f "$tmp"; exit 130' INT TERM   # never leave a copy of the secrets behind
+  tmp=$(trap '' INT TERM; mktemp "${file}.aidigest.XXXXXX")   # mktemp creates it mode 600
   while IFS= read -r l || [[ -n "$l" ]]; do
     if [[ "$l" == "${key}=" || "$l" == "${key}=''" || "$l" == "${key}=\"\"" ]]; then
       printf '%s\n' "$newline"
@@ -76,7 +85,7 @@ aidigest_fill_empty() {
       printf '%s\n' "$l"
     fi
   done < "$file" > "$tmp"
-  cat "$tmp" > "$file"   # rewrite in place: keeps the file's inode, owner and mode
+  (trap '' INT TERM; cat "$tmp" > "$file")   # rewrite in place: keeps the file's inode, owner and mode
   rm -f "$tmp"
   trap - INT TERM
 }
