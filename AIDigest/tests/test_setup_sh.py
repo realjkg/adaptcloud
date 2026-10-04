@@ -158,16 +158,16 @@ def test_setup_rejects_unsafe_basic_auth_user(tmp_path, user):
     assert not list(tmp_path.glob(".env.aidigest.*")), "no temp file may be left behind"
 
 
-# ── Round 4 M1: INT/TERM at any point never leaves the temp copy behind or .env half-written ──
+# ── Rounds 4-5: no signal or I/O failure leaves the temp copy behind or .env truncated ──
 # Deterministic: the signal is sent by a hook at a defined point inside the real aidigest_fill_empty
 # (no polling, no sleeps), so the result does not depend on scheduling. The hooks shadow the commands
-# the function runs (mktemp, printf, cat) with shell functions that call the real command and send
-# the signal either to the shell running the function ($$, also correct inside a command
-# substitution) or to its whole process group (0: what a terminal Ctrl-C does).
+# the function runs (mktemp, printf, mv, cat) with shell functions that call the real command and
+# send the signal either to the shell running the function ($$, also correct inside a command
+# substitution) or to its whole process group (0: a terminal Ctrl-C, or SIGHUP on an SSH disconnect).
 _RECORD = 'builtin printf "%s\\n" "$t" >> "$CREATED"; '
 _MKTEMP_RECORD = 'mktemp() { local t; t=$(command mktemp "$@") || return; ' + _RECORD + 'builtin printf "%s\\n" "$t"; }\n'
 _SIGNAL_POINTS = {
-    # the challenger's race: the signal lands before the file exists (old code: no trap yet)
+    # the round-4 race: the signal lands before the file exists (no trap yet in 9dbdc70)
     "before-mktemp": 'mktemp() { _signal; local t; t=$(command mktemp "$@") || return; '
                      + _RECORD + 'builtin printf "%s\\n" "$t"; }\n',
     # the file exists but its name has not reached the shell yet
@@ -175,22 +175,33 @@ _SIGNAL_POINTS = {
                     + '_signal; builtin printf "%s\\n" "$t"; }\n',
     "during-copy": _MKTEMP_RECORD
                    + 'printf() { builtin printf "$@"; [[ "${2:-}" != FILLER_2=* ]] || _signal; }\n',
-    # .env has been truncated for the in-place rewrite and nothing is written yet
-    "during-rewrite": _MKTEMP_RECORD + 'cat() { _signal; command cat "$@"; }\n',
+    # the new content is complete and .env is about to be replaced (cat: an in-place rewrite)
+    "at-replace": _MKTEMP_RECORD + 'mv() { _signal; command mv "$@"; }\ncat() { _signal; command cat "$@"; }\n',
+    # .env has been replaced
+    "after-replace": _MKTEMP_RECORD + 'mv() { command mv "$@" || return; _signal; }\n',
 }
 _SIGNAL_HELPER = 'if [[ "${TARGET:-}" == group ]]; then _signal() { kill -s "$SIG" 0; }; else _signal() { kill -s "$SIG" $$; }; fi\n'
+_SIGNUM = {"HUP": 1, "INT": 2, "QUIT": 3, "TERM": 15}
 _FILLER = "".join(f"FILLER_{i}=value-{i}\n" for i in range(5))
+_ORIGINAL = _FILLER + "AIDIGEST_PROXY_SECRET=\n"
+_FILLED = _FILLER + "AIDIGEST_PROXY_SECRET=new\n"
 
 
 def _fill_empty_script(hook: str) -> str:
+    """The real error() helper and the real aidigest_fill_empty block (from its AIDIGEST_TMP global, when
+    there is one, to the end of the function), the hook first, then one call."""
     text_ = (REPO / "setup.sh").read_text()
-    start = text_.index("aidigest_fill_empty() {")
-    func = text_[start:text_.index("\n}\n", start) + 3]
-    return ("set -euo pipefail\n" + _SIGNAL_HELPER + hook + func
+    error_line = next(ln for ln in text_.splitlines() if ln.startswith("error()"))
+    func = text_.index("aidigest_fill_empty() {")
+    start = text_.find('AIDIGEST_TMP=""')
+    start = start if 0 <= start < func else func
+    block = text_[start:text_.index("\n}\n", func) + 3]
+    return ("set -euo pipefail\nRED=; RESET=\n" + error_line + "\n" + _SIGNAL_HELPER + hook + block
             + 'aidigest_fill_empty "$1" AIDIGEST_PROXY_SECRET "AIDIGEST_PROXY_SECRET=new"\n')
 
 
-def _run_fill(tmp_path: Path, hook: str, **env) -> subprocess.CompletedProcess:
+def _run_fill(tmp_path: Path, hook: str, content: str = _ORIGINAL, **env) -> subprocess.CompletedProcess:
+    (tmp_path / ".env").write_text(content)
     # start_new_session: the script gets its own process group, so "kill 0" cannot reach pytest
     return subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(tmp_path / ".env")],
                           cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
@@ -198,36 +209,101 @@ def _run_fill(tmp_path: Path, hook: str, **env) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, timeout=60, start_new_session=True)
 
 
+def _created(tmp_path: Path) -> list[str]:
+    created = tmp_path / "created.log"
+    return created.read_text().split() if created.exists() else []
+
+
 @pytest.mark.parametrize("target", ["shell", "group"])
-@pytest.mark.parametrize("sig", ["TERM", "INT"])
+@pytest.mark.parametrize("sig", sorted(_SIGNUM))
 @pytest.mark.parametrize("point", sorted(_SIGNAL_POINTS))
 def test_setup_temp_file_removed_on_interrupt(tmp_path, point, sig, target):
-    """The 600-mode temp copy made while filling empty keys is removed whenever INT/TERM arrives
-    (exit 130). .env is either untouched or (signal during the in-place rewrite) completely rewritten:
-    never truncated or partial."""
-    env_file = tmp_path / ".env"
-    content = _FILLER + "AIDIGEST_PROXY_SECRET=\n"
-    env_file.write_text(content)
+    """HUP/INT/QUIT/TERM at any point: exit 128+signal, the 600-mode temp copy is gone, and .env is
+    either untouched (signal before the replace) or completely replaced: never truncated or partial."""
     proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], SIG=sig, TARGET=target)
-    created = tmp_path / "created.log"
-    names = created.read_text().split() if created.exists() else []
+    names = _created(tmp_path)
     assert len(names) == 1 and names[0].startswith(str(tmp_path / ".env.aidigest.")), names
-    assert proc.returncode == 130, (proc.returncode, proc.stderr)
+    assert proc.returncode == 128 + _SIGNUM[sig], (proc.returncode, proc.stdout, proc.stderr)
     assert not Path(names[0]).exists(), "temp file with secrets left behind"
     assert not list(tmp_path.glob(".env.aidigest.*"))
-    expected = _FILLER + "AIDIGEST_PROXY_SECRET=new\n" if point == "during-rewrite" else content
-    assert env_file.read_text() == expected
+    assert (tmp_path / ".env").read_text() == (_FILLED if point == "after-replace" else _ORIGINAL)
+
+
+@pytest.mark.parametrize("target", ["shell", "group"])
+@pytest.mark.parametrize("point", ["during-copy", "at-replace"])
+def test_setup_sigkill_never_truncates_env(tmp_path, point, target):
+    """SIGKILL cannot be trapped: the temp file may remain (it is git-ignored), but .env is the old
+    file or the complete new one, never partial or empty (in particular not an in-place rewrite)."""
+    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], SIG="KILL", TARGET=target)
+    assert proc.returncode == -9, (proc.returncode, proc.stderr)
+    assert (tmp_path / ".env").read_text() == _ORIGINAL
+
+
+_FAILURES = {
+    # a real ENOSPC from the kernel for one line of the copy (what a full disk does)
+    "disk-full": _MKTEMP_RECORD + 'printf() { if [[ "${2:-}" == FILLER_2=* ]]; then builtin printf "$@" > /dev/full; '
+                 'else builtin printf "$@"; fi; }\n',
+    "copy-fails": _MKTEMP_RECORD + "cp() { return 1; }\n",
+    "mode-not-kept": _MKTEMP_RECORD + 'cp() { command cp "$@" && chmod 0666 "${@: -1}"; }\n',
+    "rename-fails": _MKTEMP_RECORD + "mv() { return 1; }\n",
+}
+
+
+@pytest.mark.parametrize("failure", sorted(_FAILURES))
+def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure):
+    """Any failure before the rename: exit 1 with a clear message, .env byte-identical, and the temp
+    copy removed by the EXIT cleanup."""
+    env_file = tmp_path / ".env"
+    proc = _run_fill(tmp_path, _FAILURES[failure])
+    names = _created(tmp_path)
+    assert len(names) == 1, names
+    assert proc.returncode == 1, (proc.returncode, proc.stdout, proc.stderr)
+    assert "was not changed" in proc.stdout + proc.stderr
+    assert env_file.read_text() == _ORIGINAL
+    assert not Path(names[0]).exists() and not list(tmp_path.glob(".env.aidigest.*"))
+
+
+def test_setup_fill_keeps_mode_and_owner(tmp_path):
+    """.env is replaced by a rename, so the new file must get the old one's mode and owner."""
+    env_file = tmp_path / ".env"
+    env_file.write_text(_ORIGINAL)
+    env_file.chmod(0o640)
+    owner = (12345, 23456) if os.geteuid() == 0 else (os.getuid(), os.getgid())
+    if os.geteuid() == 0:
+        os.chown(env_file, *owner)
+    proc = subprocess.run(["bash", "-c", _fill_empty_script(_MKTEMP_RECORD), "fill", str(env_file)],
+                          cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log")},
+                          capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    st = env_file.stat()
+    assert env_file.read_text() == _FILLED
+    assert stat.S_IMODE(st.st_mode) == 0o640
+    assert (st.st_uid, st.st_gid) == owner
+    assert not list(tmp_path.glob(".env.aidigest.*"))
 
 
 def test_setup_fill_empty_without_signal_still_fills(tmp_path):
     """Control for the hooks above: with the recording hook and no signal the function completes."""
-    env_file = tmp_path / ".env"
-    env_file.write_text("A=1\nAIDIGEST_PROXY_SECRET=\nB=2\n")
-    proc = _run_fill(tmp_path, _MKTEMP_RECORD)
+    proc = _run_fill(tmp_path, _MKTEMP_RECORD, content="A=1\nAIDIGEST_PROXY_SECRET=\nB=2\n")
     assert proc.returncode == 0, proc.stderr
-    assert env_file.read_text() == "A=1\nAIDIGEST_PROXY_SECRET=new\nB=2\n"
-    assert len((tmp_path / "created.log").read_text().split()) == 1
+    assert (tmp_path / ".env").read_text() == "A=1\nAIDIGEST_PROXY_SECRET=new\nB=2\n"
+    assert len(_created(tmp_path)) == 1
     assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+def test_gitignore_covers_leftover_temp_copies(tmp_path):
+    """A temp copy left by SIGKILL (mode 600, full of secrets) must not be committable by
+    `git add -A`; .env.example files stay tracked."""
+    shutil.copy(REPO / ".gitignore", tmp_path / ".gitignore")
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+
+    def ignored(path: str) -> bool:
+        return subprocess.run(["git", "check-ignore", "-q", "--no-index", path], cwd=tmp_path).returncode == 0
+
+    for path in (".env", ".env.aidigest.Ab3xYz", ".env.backup", "sub/.env.aidigest.Q1w2E3"):
+        assert ignored(path), path
+    for path in (".env.example", "homeschool-api/.env.example", "setup.sh"):
+        assert not ignored(path), path
 
 
 def test_setup_accepts_a_near_miss_of_the_heredoc_marker(tmp_path):
