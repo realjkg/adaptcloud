@@ -678,15 +678,18 @@ async def test_daily_budget_covers_a_database_that_never_answers(engine, needle)
 
 
 async def test_daily_failure_recording_cannot_overrun_the_budget(engine):
-    """Both the final store and the failure record hang: the run still ends within the budget."""
-    hanging = HangingEngine(engine, "aidigest.runs SET status=")
+    """After the claim, every statement on our own run row hangs: the ownership check, the final
+    store AND the failure record. The run still ends within the budget. (The needle must not match
+    the claim's own UPDATE, or the run would end before any row exists and never try to record.)"""
+    hanging = HangingEngine(engine, "AND owner=:owner AND status='running'")
     ai = FakeAI()
     ai.queue_json([selection("https://news.example/0")])
     outcome, elapsed = await _timed(run_daily(hanging, ai, feed_fetcher(items(3)), trigger="schedule",
                                               now=NOW, config=_budget_cfg()))
-    assert hanging.hung
+    assert any("SET status='failed', error=:error" in sql for sql in hanging.hung), hanging.hung
     assert isinstance(outcome, DeadlineError), outcome
     assert elapsed < BUDGET + SLACK, elapsed
+    assert await scalar(engine, "SELECT status FROM aidigest.runs") == "running"   # claimed, failure not recordable
 
 
 def test_daily_and_task_use_only_budgeted_transactions():
