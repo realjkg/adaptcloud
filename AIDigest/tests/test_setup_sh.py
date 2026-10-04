@@ -202,13 +202,21 @@ def _fill_empty_script(hook: str) -> str:
             + 'aidigest_fill_empty "$1" AIDIGEST_PROXY_SECRET "AIDIGEST_PROXY_SECRET=new"\n')
 
 
-def _run_fill(tmp_path: Path, hook: str, content: str = _ORIGINAL, **env) -> subprocess.CompletedProcess:
-    (tmp_path / ".env").write_text(content)
+def _launch(tmp_path: Path, hook: str, env_file: Path | None = None, **env) -> subprocess.CompletedProcess:
+    """Every run of the function under test goes through here."""
     # start_new_session: the script gets its own process group, so "kill 0" cannot reach pytest
-    return subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(tmp_path / ".env")],
+    return subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(env_file or tmp_path / ".env")],
                           cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
                                              **env},
                           capture_output=True, text=True, timeout=60, start_new_session=True)
+
+
+def _run_fill(tmp_path: Path, hook: str, content: str = _ORIGINAL, mode: int | None = None,
+              **env) -> subprocess.CompletedProcess:
+    (tmp_path / ".env").write_text(content)
+    if mode is not None:
+        (tmp_path / ".env").chmod(mode)
+    return _launch(tmp_path, hook, **env)
 
 
 def _created(tmp_path: Path) -> list[str]:
@@ -249,6 +257,9 @@ _FAILURES = {  # hook, the message that must explain it
     "copy-fails": (_MKTEMP_RECORD + 'cp() { command cp "$1" /dev/full; }\n', "Could not copy"),
     "mode-not-kept": (_MKTEMP_RECORD + 'cp() { command cp "$@" && chmod 0666 "${@: -1}"; }\n', "mode and owner"),
     "rename-fails": (_MKTEMP_RECORD + "mv() { return 1; }\n", "Could not replace"),
+    # fsync of the temp copy fails (I/O error) while `sync FILE` itself is supported
+    "flush-fails": (_MKTEMP_RECORD + 'sync() { [[ "${1:-}" != *.aidigest.* ]] || return 1; command sync "$@"; }\n',
+                    "Could not flush"),
 }
 
 
@@ -258,11 +269,8 @@ def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure):
     copy removed by the EXIT cleanup."""
     env_file = tmp_path / ".env"
     hook, message = _FAILURES[failure]
-    env_file.write_text(_ORIGINAL)
-    env_file.chmod(0o600)   # as setup.sh writes it, so only the step under test can stop the replace
-    proc = subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(env_file)],
-                          cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log")},
-                          capture_output=True, text=True, timeout=60)
+    # mode 600 as setup.sh writes it, so only the step under test can stop the replace
+    proc = _run_fill(tmp_path, hook, mode=0o600)
     names = _created(tmp_path)
     assert len(names) == 1, names
     assert proc.returncode == 1, (proc.returncode, proc.stdout, proc.stderr)
@@ -276,11 +284,7 @@ def test_setup_temp_file_is_private_before_any_secret_is_copied(tmp_path):
     take .env's mode)."""
     hook = _MKTEMP_RECORD + 'cp() { stat -c %a "${@: -1}" >> "$MODES"; command cp "$@"; }\n'
     env_file = tmp_path / ".env"
-    env_file.write_text(_ORIGINAL)
-    env_file.chmod(0o644)
-    proc = subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(env_file)], cwd=tmp_path,
-                          env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
-                               "MODES": str(tmp_path / "modes.log")}, capture_output=True, text=True, timeout=60)
+    proc = _run_fill(tmp_path, hook, mode=0o644, MODES=str(tmp_path / "modes.log"))
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert (tmp_path / "modes.log").read_text().split() == ["600"]
     assert stat.S_IMODE(env_file.stat().st_mode) == 0o644 and env_file.read_text() == _FILLED
@@ -294,14 +298,62 @@ def test_setup_fill_keeps_mode_and_owner(tmp_path):
     owner = (12345, 23456) if os.geteuid() == 0 else (os.getuid(), os.getgid())
     if os.geteuid() == 0:
         os.chown(env_file, *owner)
-    proc = subprocess.run(["bash", "-c", _fill_empty_script(_MKTEMP_RECORD), "fill", str(env_file)],
-                          cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log")},
-                          capture_output=True, text=True, timeout=60)
+    proc = _launch(tmp_path, _MKTEMP_RECORD)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     st = env_file.stat()
     assert env_file.read_text() == _FILLED
     assert stat.S_IMODE(st.st_mode) == 0o640
     assert (st.st_uid, st.st_gid) == owner
+    assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+@pytest.mark.parametrize("support", ["per-file", "plain-only"])
+def test_setup_flushes_the_temp_copy(tmp_path, support):
+    """Where `sync FILE` works the temp copy itself is flushed (an error there stops the replace, see
+    flush-fails); only where it is unsupported does a plain `sync` stand in for it."""
+    log = 'builtin printf "%s\\n" "${1:-<plain>}" >> "$SYNCS"; '
+    hook = _MKTEMP_RECORD + ("sync() { " + log + 'command sync "$@"; }\n' if support == "per-file" else
+                             "sync() { if (($#)); then return 1; fi; " + log + "command sync; }\n")
+    proc = _run_fill(tmp_path, hook, SYNCS=str(tmp_path / "syncs.log"))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (tmp_path / ".env").read_text() == _FILLED
+    synced = (tmp_path / "syncs.log").read_text().split()
+    if support == "per-file":
+        assert _created(tmp_path)[0] in synced and "<plain>" not in synced, synced
+    else:
+        assert synced == ["<plain>"], synced
+
+
+def test_setup_refuses_a_symlinked_env(tmp_path):
+    """A rename would replace the link with a regular file (and writing through it could reach a file
+    outside the repository): a symlinked .env is refused with a clear message, link and target unchanged."""
+    target = tmp_path / "elsewhere.env"
+    target.write_text(_ORIGINAL)
+    target.chmod(0o600)
+    link = tmp_path / ".env"
+    link.symlink_to(target)
+    proc = _launch(tmp_path, _MKTEMP_RECORD)
+    assert proc.returncode == 1, (proc.returncode, proc.stdout, proc.stderr)
+    assert ".env is a symlink" in proc.stdout + proc.stderr, proc.stdout + proc.stderr
+    assert link.is_symlink() and os.readlink(link) == str(target)
+    assert target.read_text() == _ORIGINAL
+    assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+@pytest.mark.parametrize("sig", sorted(_SIGNUM))
+def test_harness_works_when_pytest_starts_with_signals_ignored(tmp_path, sig):
+    """nohup starts pytest with HUP ignored, a background job (`cmd &`) with INT and QUIT ignored. An
+    ignored disposition survives exec, and bash can neither trap nor reset a signal ignored on entry,
+    so every launch must reset HUP/INT/QUIT/TERM in the child before exec."""
+    import signal
+    signum = getattr(signal, f"SIG{sig}")
+    previous = signal.signal(signum, signal.SIG_IGN)
+    try:
+        proc = _run_fill(tmp_path, _SIGNAL_POINTS["during-copy"], SIG=sig, TARGET="group")
+    finally:
+        signal.signal(signum, previous)
+    assert proc.returncode == 128 + _SIGNUM[sig], (proc.returncode, proc.stdout, proc.stderr)
+    assert (tmp_path / ".env").read_text() == _ORIGINAL
     assert not list(tmp_path.glob(".env.aidigest.*"))
 
 
