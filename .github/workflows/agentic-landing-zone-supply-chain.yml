@@ -48,6 +48,17 @@ jobs:
           npm test
           npm run plugins:check
 
+      - name: Operator design scenario smoke tests
+        run: |
+          ./alz design aws terraform brownfield
+          ./alz design azure pulumi greenfield
+          ./alz design aws opentofu brownfield
+          ./alz design azure bicep brownfield
+          ./alz design aws cloudformation brownfield
+          ./alz design aws cdk brownfield
+          ./alz design aws crossplane brownfield
+          ./alz design aws ansible brownfield
+
       - name: Dependency security audit
         run: npm audit --audit-level=high
 
