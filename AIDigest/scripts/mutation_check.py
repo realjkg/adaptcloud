@@ -589,6 +589,11 @@ MUTATIONS: list[Mutation] = [
     M("r9-task-budget-unbounded", "the TASK budget is at most one day (a Postgres-usable timeout)",
       [("aidigest/config.py", "aidigest_task_budget_seconds: float = Field(600.0, gt=0, le=MAX_BUDGET_SECONDS)",
         "aidigest_task_budget_seconds: float = Field(600.0, gt=0)")]),
+    # review of 2493e19 (L1)
+    M("r10-task-failure-record-db-unreachable", "an unreachable DB while recording a TASK failure is 503, not a raw error",
+      [("aidigest/tasks.py", "        except (SQLAlchemyError, DeadlineError, *DB_UNREACHABLE):\n            log.exception(\"Could not record failure",
+        "        except (SQLAlchemyError, DeadlineError):\n            log.exception(\"Could not record failure")],
+      first="tests/test_tasks.py"),
 ]
 
 

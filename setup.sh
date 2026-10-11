@@ -3,6 +3,7 @@
 # Usage: bash setup.sh              (or: make setup)           full first-run setup
 #        bash setup.sh --aidigest   (or: make setup-aidigest)  add AIDigest to an existing .env
 #                                   (append-only: existing keys are never modified)
+#        bash setup.sh --backup-env (or: make backup-env)      copy .env to .env.backup (mode 600)
 set -euo pipefail
 
 BOLD='\033[1m'

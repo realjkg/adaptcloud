@@ -363,7 +363,7 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
             await run_within(budget, _finish_task(
                 engine, task_id, "failed", error=f"{mapped.status_code}: {detail}".replace("\x00", "")[:1500],
                 budget=budget, reserve=True), "recording the failure", reserve=True)
-        except (SQLAlchemyError, DeadlineError):
+        except (SQLAlchemyError, DeadlineError, *DB_UNREACHABLE):
             log.exception("Could not record failure for task %s", task_id)
         if mapped is exc:
             raise

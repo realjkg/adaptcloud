@@ -2013,3 +2013,129 @@ background  Python 3.12.3  DB=postgres  748 passed in 58.79s
 foreground  Python 3.12.3  DB=aidigest_it  748 passed in 59.76s
 background  Python 3.12.3  DB=aidigest_it  748 passed in 55.30s
 ```
+
+## 17. Challenger review of `ae012a0` (REQUEST CHANGES: 0 High, 2 Medium, 8 Low)
+
+Fixes are in `6b2c420`..`a098883` (the findings and fixes are in DESIGN.md section 17). This section
+records only what was measured. The logs come from the working directory `/tmp/aidg-r8` of those runs.
+
+| SHA | What |
+|---|---|
+| `6b2c420` | red tests for the review |
+| `79e53ba` | M1 (TCP freeze), L1, L6: budgets hold when the DB freezes; DB-side timeouts |
+| `2562adb` | L7: a deadline during COMMIT leaves no stranded `running` row |
+| `ee0735d` | L2, L8: `.env` and its backup are always mode 600 |
+| `48bdf55` | L3, L4: documentation |
+| `bc19df9` | `lock_timeout` is `statement_timeout` minus a margin (one mechanism) |
+| `f8ca8c2` | CPU-time limits instead of wall-clock kills for the DoS timing tests |
+| `ad3129e` | `mutation_check.py` confirms each kill; 23 new mutants (191 in total) |
+| `da02345` | `setup_bash_matrix.sh` expects mode 600 with the owner kept (L2) |
+| `fd47f89` | DESIGN.md section 17 |
+| `a098883` | wider DB-side margins (0.25 s statement, 0.1 s lock, 0.5 s attribution); a SUSPECT kill shows its errors |
+
+### 17.1 Mutants for this review (191 in total)
+
+`scripts/mutation_check.py` records the test that killed each mutant. It then runs that test alone
+on the mutated tree and on the baseline: the test must fail on the first and pass on the second.
+Otherwise the mutant is SUSPECT, and the run fails.
+
+```
+23 new mutants, first run:   17 killed, 1 survived, 5 suspect      (baseline 770 passed)
+23 new mutants, second run:  23 killed, 0 survived, 0 suspect      (baseline 770 passed)
+```
+
+The full run of all 191 mutants was interrupted by a container restart after 178 results. All 178
+were `killed`. A second pass of the 23 new mutants (10 of them had already been run in the full run)
+was `23 killed`. Every one of the 191 mutants therefore has a `killed` result:
+
+| pass | mutants | killed | survived | suspect |
+|---|---|---|---|---|
+| full run (interrupted) | 178 | 178 | 0 | 0 |
+| second pass, the 23 new mutants | 23 | 23 | 0 | 0 |
+| union (191 distinct) | 191 | 191 | 0 | 0 |
+
+### 17.2 Flaky timing tests
+
+The freeze tests and the timing tests that were flaky under load were run repeatedly:
+
+```
+final_flake.log          12 runs of 18 tests:  12 x 18 passed
+final3_flake_load.log    12 runs of 33 tests under CPU load: 12 x 33 passed
+```
+
+An earlier load series (`final2_flake_load*.log`) showed failures and led to the `a098883` margins.
+The last series above is the one that passed on the final code.
+
+## 18. Challenger reviews of `d23075f` and `2493e19`
+
+### 18.1 Review of `d23075f` (REQUEST CHANGES: 0 High, 2 Medium, 6 Low): fixed in `961972d`
+
+The findings and fixes are in DESIGN.md section 17.1. `961972d` added `tests/test_reserve.py`, the
+idle-in-transaction timeout, the one-day cap on both budgets, and nine mutants (`r9-*`), which
+brings the total to 200.
+
+Gates at `961972d` (`final4_gates.log`):
+
+```
+$ ruff check .                                     All checks passed!
+$ python -m compileall                             compile-ok on 3.11 and 3.12
+$ bash -n / sh -n                                  syntax-ok
+$ pip-audit -r requirements.txt                    No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt                No known vulnerabilities found
+DB=postgres    Python 3.11.15  801 passed in 98.51s
+DB=aidigest_it Python 3.11.15  801 passed in 100.27s
+DB=postgres    Python 3.12.3   801 passed in 101.40s
+DB=aidigest_it Python 3.12.3   801 passed in 101.94s
+```
+
+The previous head (`d23075f`) had 770 tests. `caddy_matrix.sh` (`exit=0`, all expectations met) and
+`setup_bash_matrix.sh` (118 cases on bash 4.4, 5.0, 5.1, 5.2 and 5.3, all passed) were run at
+`d23075f`. `961972d` changes none of the files they exercise (`setup.sh`, `Caddyfile`,
+`caddy-entrypoint.sh`).
+
+Mutants. The first run of the nine `r9-*` mutants gave `8 killed, 0 survived, 1 suspect`. The
+suspect was `r9-mark-failed-no-reserve`: its recorded killer, an older freeze test, passed when
+re-run alone. Naming the test written to kill it (`first="tests/test_reserve.py"`) gave `killed` by
+`test_reserve.py::test_mark_failed_lands_when_the_work_slice_is_spent_and_the_db_is_slow`. After
+that, a full run on the 801-test baseline and re-runs of the mutants it did not reach gave:
+
+```
+full run (baseline 801 passed):           186 mutants, all killed
+separate passes (mut_p4, baseline 801):    14 mutants not reached by the full run, all killed
+                                           (the 5 r8-sweep/temp/backup mutants and the 9 r9-* mutants)
+total: 200 distinct mutants, 200 killed, 0 survived, 0 suspect
+```
+
+### 18.2 Review of `2493e19` (CHANGES: 0 High, 1 Medium, 4 Low)
+
+`2493e19` merges `origin/main` into the branch. The review found the code sound.
+
+| ID | Finding | Resolution |
+|---|---|---|
+| M1 | EVIDENCE.md ended at 16.8, but DESIGN.md pointed at a section 18 and the PR body at section 17 | sections 17 and 18 above |
+| L1 | `run_task` did not catch an unreachable database (`DB_UNREACHABLE`) while recording a TASK failure; `ConnectionRefusedError` escaped the `except` block as a raw 500 | `*DB_UNREACHABLE` added to that `except`, as in `daily.py` and the other TASK steps. Red test first (`60e4542`): `test_task_db_unreachable_while_recording_the_failure_is_503[execute|finish]`, which fails on `2493e19` with the raw `ConnectionRefusedError`. Mutant `r10-task-failure-record-db-unreachable`: killed by the `[execute]` case |
+| L2 | PR body inaccuracies: no `.github` file changed; `lock_timeout` is the statement margin minus 100 ms (`LOCK_EARLIER_SECONDS` = 0.1), not 50 ms; it is upstream response bodies that the fetcher strict-decodes, not request bodies | PR body text (not part of the repository) |
+| L3 | PR body said the DB timeout "always" lands first | "usually; see DESIGN.md 17.2" in the PR body |
+| L4 | the `setup.sh` usage comment did not mention `--backup-env` | added to the comment |
+
+The gates for this round are in 18.3.
+
+### 18.3 Gates for the fix (L1, L4, evidence)
+
+```
+Python 3.11.15  DB=postgres     803 passed in 120.60s
+Python 3.11.15  DB=aidigest_it  803 passed in 118.79s
+Python 3.12.3   DB=postgres     803 passed in 121.43s
+Python 3.12.3   DB=aidigest_it  803 passed in 121.09s
+$ ruff check .                                   All checks passed!
+$ python -m compileall (3.11 and 3.12)           compile-ok
+$ bash -n setup.sh / caddy_matrix.sh / setup_bash_matrix.sh; sh -n caddy-entrypoint.sh    syntax-ok
+$ mutation_check.py --only r10-                  1/1 killed (re-run of the killing test confirmed), 0 survived, 0 suspect
+```
+
+The 803 tests are the 801 of `961972d` plus the two cases of
+`test_task_db_unreachable_while_recording_the_failure_is_503`. The mutant total is now 201 (200
+killed in 18.1, plus `r10-task-failure-record-db-unreachable`). The full mutation run was not
+repeated: this round changed one `except` tuple in `tasks.py`, one usage comment in `setup.sh`,
+and documentation. `caddy_matrix.sh` and `setup_bash_matrix.sh` were not re-run for the same
+reason (no change to `Caddyfile`, `caddy-entrypoint.sh` or to any code path in `setup.sh`).
