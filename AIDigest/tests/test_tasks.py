@@ -253,6 +253,28 @@ async def test_task_error_mapping_db_failure_is_503_and_recorded(client, engine,
     assert row["status"] == "failed" and row["error"]
 
 
+@pytest.mark.parametrize("failing_step", ["execute", "finish"])
+async def test_task_db_unreachable_while_recording_the_failure_is_503(client, fake_ai, fake_fetcher, monkeypatch,
+                                                                       failing_step):
+    """Review of 2493e19 L1: when the database is unreachable (ConnectionRefusedError, an OSError) from
+    _execute_task and/or _finish_task, the request ends as StorageError/503, never a raw 500. The
+    failure record itself cannot be written either, which must not escape the except block."""
+    from aidigest import tasks
+
+    fake_fetcher.pages[URLS[0]] = "page"
+    fake_ai.queue_json(answer())
+
+    async def refused(*_args, **_kwargs):
+        raise ConnectionRefusedError(111, "Connection refused")
+
+    monkeypatch.setattr(tasks, "_finish_task", refused)       # both the result and the failure record
+    if failing_step == "execute":
+        monkeypatch.setattr(tasks, "_execute_task", refused)
+    r = await client.post("/agent/tasks", json={"task": "Summarize this", "urls": URLS[:1]})
+    assert r.status_code == 503, r.text
+    assert "Connection refused" not in r.text
+
+
 async def test_task_unexpected_error_is_500_and_recorded(client, engine, fake_ai, fake_fetcher):
     fake_fetcher.pages[URLS[0]] = "page"
     fake_ai.queue(RuntimeError("boom"))
