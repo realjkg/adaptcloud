@@ -609,7 +609,10 @@ MUTATIONS: list[Mutation] = [
     M("r11-nochange-skips-hardening", "setup.sh --aidigest on a complete .env still tightens a loose mode to 600",
       [("../setup.sh", NOCHANGE, "    return 0\n")], first="tests/test_setup_sh.py"),
     M("r11-nochange-follows-symlink", "setup.sh --aidigest on a complete .env that is a symlink is refused",
-      [("../setup.sh", NOCHANGE, '    if [[ "$(aidigest_mode "$file")" == "-rw-------" ]]; then return 0; fi\n')],
+      [("../setup.sh", NOCHANGE, '    if [[ "$(aidigest_mode "$file")" == "-rw-------" ]]; then return 0; fi\n'),
+       # on its own the guard is redundant with the mode string ("l..." for a link); with a probe that
+       # follows links (ls -L) it is the only thing that refuses a link to a private file
+       ("../setup.sh", "aidigest_mode() { ls -ldn ", "aidigest_mode() { ls -ldnL ")],
       first="tests/test_setup_sh.py"),
     M("r11-nochange-always-rewrites", "a private, complete .env is left untouched",
       [("../setup.sh", NOCHANGE, "")], first="tests/test_setup_sh.py"),

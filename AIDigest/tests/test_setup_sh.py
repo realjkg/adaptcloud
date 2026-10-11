@@ -462,19 +462,22 @@ def test_no_change_path_leaves_a_private_env_untouched(tmp_path):
     assert stat.S_IMODE(env_file.stat().st_mode) == 0o600
 
 
-def test_no_change_path_refuses_a_symlinked_env(tmp_path):
-    """A complete .env that is a symlink: refused on the no-change path too, link and target unchanged."""
+@pytest.mark.parametrize("target_mode", [0o644, 0o600])
+def test_no_change_path_refuses_a_symlinked_env(tmp_path, target_mode):
+    """A complete .env that is a symlink: refused on the no-change path too, link and target unchanged.
+    A private (600) target must be refused as well: the refusal is the explicit symlink test, not a side
+    effect of the link's own mode string."""
     shutil.copy(REPO / "setup.sh", tmp_path / "setup.sh")
     outside = tmp_path / "outside"
     outside.mkdir()
     target = outside / "real.env"
     target.write_text(CONFIGURED_ENV)
-    target.chmod(0o644)
+    target.chmod(target_mode)
     (tmp_path / ".env").symlink_to(target)
     proc = _run(tmp_path, ["--aidigest"], ANSWERS)
     assert proc.returncode != 0, proc.stdout + proc.stderr
     assert ".env is a symlink" in proc.stdout + proc.stderr
-    assert target.read_text() == CONFIGURED_ENV and stat.S_IMODE(target.stat().st_mode) == 0o644
+    assert target.read_text() == CONFIGURED_ENV and stat.S_IMODE(target.stat().st_mode) == target_mode
     assert (tmp_path / ".env").is_symlink() and not list(outside.glob(".env.aidigest.*"))
 
 
