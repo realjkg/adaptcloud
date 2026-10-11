@@ -771,9 +771,17 @@ def copy_tree(dest: Path) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--only")
+    parser.add_argument("--names-file", help="run exactly the mutations named in this file (one exact name per "
+                        "line), e.g. to finish a run that was interrupted; unknown names are an error")
     parser.add_argument("--out")
     args = parser.parse_args()
     selected = [m for m in MUTATIONS if not args.only or args.only in m.name]
+    if args.names_file:
+        wanted = [ln.strip() for ln in Path(args.names_file).read_text().splitlines() if ln.strip()]
+        unknown = sorted(set(wanted) - {m.name for m in MUTATIONS})
+        if unknown:
+            raise SystemExit(f"--names-file: unknown mutation name(s): {', '.join(unknown)}")
+        selected = [m for m in selected if m.name in set(wanted)]
     if any(m.python == "py312" for m in selected):
         print(f"py312 interpreter: {py312_interpreter()}", flush=True)   # fails loudly before any work
     print(f"test database name: {os.environ.get('AIDIGEST_TEST_DBNAME', 'postgres')}", flush=True)
