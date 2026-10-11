@@ -9,7 +9,10 @@ so a refactor cannot silently turn a mutation into a no-op.
 
 Each kill is confirmed (review of ae012a0): the first failing test is recorded, then re-run alone on
 the mutated tree (must fail) and on the unmutated baseline (must pass); otherwise the mutation is
-SUSPECT (a flaky or unrelated test killed it), which fails the run like a survivor.
+SUSPECT (a flaky or unrelated test killed it), which fails the run like a survivor. Caddy mutants
+(runner="caddy") are confirmed the same way (review of 432f908): the matrix cases that failed are
+recorded as "case :: check" keys, the matrix is re-run on the mutated tree (must fail at one of the same
+checks) and, once per run, on the unmutated baseline (must pass).
 
 Usage:  python scripts/mutation_check.py [--only NAME_SUBSTRING] [--out results.md]
 """
@@ -60,6 +63,14 @@ R7_TASK_FAILURE_RECORD = (
     '                engine, task_id, "failed", error=f"{mapped.status_code}: {detail}".replace("\\x00", "")[:1500],\n'
     '                budget=budget, reserve=True), "recording the failure", reserve=True)\n')
 R5_RENAME = '  mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."\n'
+# review of 432f908
+NOCHANGE = ('    if [[ ! -L "$file" && "$(aidigest_mode "$file")" == "-rw-------" ]]; then return 0; fi\n')
+FINISH_GUARDED = "\"WHERE id=:id AND status='running'\"),\n            {\"status\": status"
+FINISH_PLAIN = "\"WHERE id=:id\"),\n            {\"status\": status"
+CONFIRM_CALL = ('        return confirm_matrix_kill(work, base, set(getattr(run_suite, "last_matrix_failures", set())),\n'
+                '                                   _cached_matrix_runner(m))\n')
+BASELINE_CHECK = '    if run_matrix(base):\n        return "the matrix also fails'
+BASELINE_SKIP = '    if False:\n        return "the matrix also fails'
 MUTATIONS: list[Mutation] = [
     # ── Auth ──────────────────────────────────────────────────────────────────
     M("auth-secret-always-ok", "proxy shared secret is verified",
@@ -495,7 +506,7 @@ MUTATIONS: list[Mutation] = [
         '        task.cancel()\n        await asyncio.gather(task, return_exceptions=True)\n'
         '        raise DeadlineError(f"Time budget of {budget.seconds:g}s exhausted during {what}")')]),
     M("r8-heartbeat-stop-unbounded", "the end of a DAILY run waits for its heartbeat only briefly (M1)",
-      [("aidigest/daily.py", "        done, _ = await asyncio.wait({heartbeat}, timeout=HEARTBEAT_STOP_SECONDS)",
+      [("aidigest/daily.py", "        done, _ = await asyncio.wait({heartbeat}, timeout=min(HEARTBEAT_STOP_SECONDS, budget.remaining()))",
         "        await asyncio.gather(heartbeat, return_exceptions=True)\n        done = True")]),
     M("r8-close-unbounded", "closing an abandoned connection is bounded, then aborted (pool slots come back)",
       [("aidigest/db.py", "            await asyncio.wait_for(super().close(timeout=timeout),\n"
@@ -594,6 +605,23 @@ MUTATIONS: list[Mutation] = [
       [("aidigest/tasks.py", "        except (SQLAlchemyError, DeadlineError, *DB_UNREACHABLE):\n            log.exception(\"Could not record failure",
         "        except (SQLAlchemyError, DeadlineError):\n            log.exception(\"Could not record failure")],
       first="tests/test_tasks.py"),
+    # ═══════════════ review of 432f908 ═══════════════
+    M("r11-nochange-skips-hardening", "setup.sh --aidigest on a complete .env still tightens a loose mode to 600",
+      [("../setup.sh", NOCHANGE, "    return 0\n")], first="tests/test_setup_sh.py"),
+    M("r11-nochange-follows-symlink", "setup.sh --aidigest on a complete .env that is a symlink is refused",
+      [("../setup.sh", NOCHANGE, '    if [[ "$(aidigest_mode "$file")" == "-rw-------" ]]; then return 0; fi\n')],
+      first="tests/test_setup_sh.py"),
+    M("r11-nochange-always-rewrites", "a private, complete .env is left untouched",
+      [("../setup.sh", NOCHANGE, "")], first="tests/test_setup_sh.py"),
+    M("r11-finish-task-unguarded", "a terminal write only moves a 'running' task row (completion and failure)",
+      [("aidigest/tasks.py", FINISH_GUARDED, FINISH_PLAIN)], first="tests/test_tasks.py"),
+    M("r11-heartbeat-wait-uncapped", "the DAILY heartbeat wait never runs past the deadline",
+      [("aidigest/daily.py", "timeout=min(HEARTBEAT_STOP_SECONDS, budget.remaining()))",
+        "timeout=HEARTBEAT_STOP_SECONDS)")], first="tests/test_freeze.py"),
+    M("r11-caddy-kill-unconfirmed", "Caddy mutants are confirmed on the mutated tree and the baseline",
+      [("scripts/mutation_check.py", CONFIRM_CALL, "        return None\n")], first="tests/test_mutation_check.py"),
+    M("r11-matrix-kill-baseline-ignored", "the baseline matrix must pass for a Caddy kill to count",
+      [("scripts/mutation_check.py", BASELINE_CHECK, BASELINE_SKIP)], first="tests/test_mutation_check.py"),
 ]
 
 
@@ -625,7 +653,8 @@ def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, fl
     killer = None
     if proc.returncode != 0:
         if m is not None and m.runner == "caddy":
-            killer = "scripts/caddy_matrix.sh"
+            run_suite.last_matrix_failures = matrix_failures(proc.stdout)
+            killer = sorted(run_suite.last_matrix_failures)[0] if run_suite.last_matrix_failures else None
         else:
             summary = proc.stdout.split("short test summary info", 1)[-1]   # not captured log lines
             for line in summary.splitlines():
@@ -639,9 +668,11 @@ def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, fl
 def confirm_kill(work: Path, base: Path, m: "Mutation", killer: str | None) -> str | None:
     """Review of ae012a0: a kill counts only if the killing test, run on its own, fails on the
     mutated tree AND passes on the unmutated baseline. Otherwise (a flaky or unrelated test, or a
-    collection error) the kill is suspect; the reason is returned."""
+    collection error) the kill is suspect; the reason is returned. Caddy mutants: the matrix is the
+    test (confirm_matrix_kill)."""
     if m.runner == "caddy":
-        return None
+        return confirm_matrix_kill(work, base, set(getattr(run_suite, "last_matrix_failures", set())),
+                                   _cached_matrix_runner(m))
     if not killer or "::" not in killer:
         return f"no failing test identified ({killer!r})"
     python = _python_for(m)
@@ -656,6 +687,54 @@ def confirm_kill(work: Path, base: Path, m: "Mutation", killer: str | None) -> s
     if not passes(base):
         return f"{killer} also fails on the unmutated baseline (unrelated)"
     return None
+
+
+def matrix_failures(output: str) -> set[str]:
+    """The failing checks of a caddy_matrix.sh run as "case :: check" keys (the error text after the
+    check name is dropped: it contains random hashes and paths)."""
+    failures, case = set(), ""
+    for line in output.splitlines():
+        if line.startswith("== "):
+            case = line[3:].strip()
+        elif line.startswith("  FAIL  "):
+            failures.add(f"{case} :: {line[8:].split('  ', 1)[0].strip()}")
+    return failures
+
+
+def confirm_matrix_kill(work, base, first: set[str], run_matrix) -> str | None:
+    """A Caddy kill counts only if the matrix fails on the mutated tree again at one of the checks that
+    failed the first time, AND passes on the unmutated baseline. `run_matrix(tree)` returns the set of
+    failing checks (empty = the matrix passed)."""
+    if not first:
+        return "no failing matrix check identified (the matrix failed without a FAIL line: environment?)"
+    again = run_matrix(work)
+    if not again:
+        return "the matrix passes when re-run on the mutated tree (flaky?)"
+    if not (first & again):
+        return f"the re-run fails at other checks, not the same check ({sorted(again)[0]!r}); unrelated?"
+    if run_matrix(base):
+        return "the matrix also fails on the unmutated baseline (unrelated)"
+    return None
+
+
+def _cached_matrix_runner(m: "Mutation"):
+    """run_matrix(tree) for confirm_matrix_kill; the baseline tree is run once per process."""
+    def run(tree: Path) -> set[str]:
+        if tree.parent.name == "baseline" and "baseline" in _MATRIX_CACHE:
+            return _MATRIX_CACHE["baseline"]
+        cmd = ["bash", str(ROOT / "scripts" / "caddy_matrix.sh"), str(tree.parent / "Caddyfile"),
+               str(tree.parent / "docker-compose.yml"), str(tree.parent / "caddy-entrypoint.sh")]
+        proc = subprocess.run(cmd, cwd=tree, capture_output=True, text=True, timeout=900)
+        failures = matrix_failures(proc.stdout)
+        if proc.returncode != 0 and not failures:
+            failures = {"matrix :: exited without a FAIL line"}   # a failure of the run itself still counts
+        if tree.parent.name == "baseline":
+            _MATRIX_CACHE["baseline"] = failures
+        return failures
+    return run
+
+
+_MATRIX_CACHE: dict[str, set[str]] = {}
 
 
 def py312_interpreter() -> str:
@@ -679,7 +758,7 @@ def copy_tree(dest: Path) -> Path:
     """<dest>/AIDigest plus <dest>/setup.sh (tests find setup.sh one level above AIDigest/)."""
     app = dest / "AIDigest"
     shutil.copytree(ROOT, app, ignore=shutil.ignore_patterns(
-        "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv", "scripts"))
+        "__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "venv"))
     for name in ("setup.sh", "Caddyfile", "docker-compose.yml", ".env.example", "caddy-entrypoint.sh", ".gitignore",
                  "Makefile"):
         shutil.copy2(ROOT.parent / name, dest / name)
