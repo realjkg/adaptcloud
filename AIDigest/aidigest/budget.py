@@ -20,9 +20,9 @@ the time left at ITS start, so an abandoned backend can outlive the deadline by 
 (it is ended by the idle-in-transaction timeout above, or by its own statement timeout). A
 network that is frozen at TCP level can keep an abandoned connection - and an advisory lock it holds -
 until idle_in_transaction_session_timeout fires on the server or TCP gives up on the client; new
-requests meanwhile hit lock_timeout and get a 504. Also, DAILY's final `finally` waits up to
-HEARTBEAT_STOP_SECONDS for its heartbeat, after the failure record has used the reserve: a DAILY call
-returns within budget + HEARTBEAT_STOP_SECONDS + the time the failure record needs.
+requests meanwhile hit lock_timeout and get a 504. Also, DAILY's final `finally` waits for its
+heartbeat at most HEARTBEAT_STOP_SECONDS and never past the deadline (review of 432f908), so a DAILY
+call returns within the budget plus only the scheduling slack, like a TASK call.
 A DB-side timeout (SQLSTATE 55P03 lock_not_available, 57014 query_canceled) counts as the budget
 running out only when it arrives at the budget's own deadline (within ATTRIBUTION_SECONDS of it);
 earlier ones - an operator's pg_cancel_backend - and any TimeoutError raised inside a step (e.g. a

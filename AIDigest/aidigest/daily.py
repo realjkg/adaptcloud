@@ -373,8 +373,9 @@ async def run_daily(engine: AsyncEngine, ai, fetcher, *, trigger: str, now: date
         raise
     finally:
         # Review of ae012a0, M1: a heartbeat stuck in a lease refresh on a frozen DB must not hold the
-        # run past its budget: stop it and wait at most HEARTBEAT_STOP_SECONDS; otherwise abandon it.
+        # run past its budget: stop it and wait at most HEARTBEAT_STOP_SECONDS, and never past the
+        # deadline (review of 432f908); otherwise abandon it.
         heartbeat.cancel()
-        done, _ = await asyncio.wait({heartbeat}, timeout=HEARTBEAT_STOP_SECONDS)
+        done, _ = await asyncio.wait({heartbeat}, timeout=min(HEARTBEAT_STOP_SECONDS, budget.remaining()))
         if not done:
             heartbeat.add_done_callback(lambda t: t.cancelled() or t.exception())

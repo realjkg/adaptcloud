@@ -22,9 +22,9 @@ from tests.fakes import FakeAI, FakeFetcher, rss
 
 BUDGET = 2.0
 MARGIN = 1.0          # a TASK call returns within BUDGET + MARGIN
-# A DAILY call also waits up to HEARTBEAT_STOP_SECONDS for its heartbeat in the finally block, after
-# the failure record has used the reserve: BUDGET + HEARTBEAT_STOP_SECONDS + the record time (review
-# of d23075f, L-1). Bound: that wait plus the same 1.0 s of record time/scheduling slack.
+# A DAILY call also waits up to HEARTBEAT_STOP_SECONDS for its heartbeat in the finally block. Since the
+# review of 432f908 that wait is also capped by the time left to the deadline (see the last test), so
+# this wider bound is only a safe upper limit for the freeze tests; the strict MARGIN is asserted there.
 DAILY_MARGIN = HEARTBEAT_STOP_SECONDS + 1.0
 GUARD = 25.0          # how long a test waits before it calls the call hung
 
