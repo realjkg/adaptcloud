@@ -2139,3 +2139,50 @@ killed in 18.1, plus `r10-task-failure-record-db-unreachable`). The full mutatio
 repeated: this round changed one `except` tuple in `tasks.py`, one usage comment in `setup.sh`,
 and documentation. `caddy_matrix.sh` and `setup_bash_matrix.sh` were not re-run for the same
 reason (no change to `Caddyfile`, `caddy-entrypoint.sh` or to any code path in `setup.sh`).
+
+## 19. Copilot review of `432f908` (12 findings): fixes and exactly what was run on the current head
+
+| Finding | Fix | Commit | Killed by |
+|---|---|---|---|
+| HIGH `setup.sh` no-change path skipped the mode hardening | the path tightens a loose `.env` to 600 and refuses a symlink; a private, complete `.env` is left untouched | `12ffd8c` (red), `ee7f9e5` | `test_no_change_path_tightens_a_loose_env_to_600`, `..._refuses_a_symlinked_env`, `..._leaves_a_private_env_untouched` |
+| terminal TASK writes could move an abandoned row | both terminal writes carry `AND status = 'running'` | `e41c0a7` (red), `c5edd0a` | `test_terminal_write_does_not_overwrite_an_abandoned_row` |
+| DAILY heartbeat cleanup could overrun the budget | the wait is capped by the remaining deadline | `d55959d` (red), `d835dcc` | `test_daily_heartbeat_cleanup_is_capped_by_the_remaining_deadline` |
+| README/DESIGN said "per person" | account-scoped wording (one Basic Auth identity = one `requested_by`) | `45076c8` | docs |
+| Caddy mutants bypassed the kill confirmation | Caddy mutants are confirmed on the mutated tree and the baseline matrix | `bfeb5ab` | `test_every_caddy_mutant_is_confirmed_not_exempt`, `test_matrix_kill_is_confirmed_when_the_mutant_fails_again_and_the_baseline_passes` |
+| missing current-head evidence | this section | this commit | - |
+| U.S. English (behavior, normalized, canceled x5, monopolize) and `_normalise_user` | spelling fixed; helper is `_normalize_user` | `45076c8` | `ruff`, `git grep` for the British forms |
+
+Survivor found while writing the mutants: the symlink refusal of the no-change path was not
+observable; `23fc01c` made it observable (`r11-nochange-follows-symlink`, now killed).
+`0b255c8` adds `mutation_check.py --names-file` so an interrupted run can be finished.
+
+### 19.1 What was run on this head
+
+```
+pytest -q -rs (823 tests)
+Python 3.11.15  DB=postgres     823 passed in 116.20s
+Python 3.11.15  DB=aidigest_it  823 passed in 118.36s
+Python 3.12.3   DB=postgres     823 passed in 118.57s
+Python 3.12.3   DB=aidigest_it  823 passed in 115.35s
+ruff check .                                  All checks passed!
+compileall (aidigest main.py tests scripts)   compile-ok
+bash -n setup.sh caddy_matrix.sh setup_bash_matrix.sh; sh -n caddy-entrypoint.sh   syntax-ok
+mutation_check.py --names-file <the 8 r10-*/r11-* mutants>
+  baseline: PASS (823 passed in 141.96s)
+  8/8 killed (each kill confirmed on the mutated and the baseline tree), 0 survived, 0 suspect
+```
+
+The 8 mutants: `r10-task-failure-record-db-unreachable`, `r11-nochange-skips-hardening`,
+`r11-nochange-follows-symlink`, `r11-nochange-always-rewrites`, `r11-finish-task-unguarded`,
+`r11-heartbeat-wait-uncapped`, `r11-caddy-kill-unconfirmed`, `r11-matrix-kill-baseline-ignored`.
+
+### 19.2 What was not run
+
+- **The full mutation run was not repeated on this head.** 208 mutants are defined (201 at
+  `432f908` plus the 7 `r11-*`). The earlier 200 were killed on `961972d` (section 17); the 8 above
+  on this head. A repeat of the remaining 131 was started and stopped after 16 (all killed, none
+  survived or SUSPECT), at the coordinator's request, so those 131 have no result on this head.
+- `caddy_matrix.sh` and `setup_bash_matrix.sh` were not re-run: this round changed neither
+  `Caddyfile`, `caddy-entrypoint.sh`, nor the signal/atomic-replace code of `setup.sh`.
+  The existing Caddy mutants were not re-run either; the confirmation step for them is covered by
+  the two `test_mutation_check.py` tests above.
