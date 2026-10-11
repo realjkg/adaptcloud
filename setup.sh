@@ -172,7 +172,14 @@ aidigest_append() {
     fi
     add+=("$line")
   done
-  if [[ $((${#fill[@]} + ${#add[@]})) -eq 0 ]]; then return 0; fi   # nothing to change: .env untouched
+  if [[ $((${#fill[@]} + ${#add[@]})) -eq 0 ]]; then
+    # Nothing to add or fill. A private regular .env is left untouched; anything else goes through the
+    # writer with its own content, which refuses a symlink and tightens a looser mode to 600 atomically
+    # (review of 432f908: the secrets must not stay readable because the keys already exist).
+    if [[ ! -L "$file" && "$(aidigest_mode "$file")" == "-rw-------" ]]; then return 0; fi
+    env_replace "$file" cat "$file"
+    return 0
+  fi
   env_replace "$file" aidigest_env_lines "$file" "${#fill[@]}" ${fill[@]+"${fill[@]}"} ${add[@]+"${add[@]}"}
 }
 
