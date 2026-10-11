@@ -426,6 +426,58 @@ def test_upgrade_refuses_a_symlinked_env_on_the_append_path(tmp_path):
     assert not list(tmp_path.glob(".env.aidigest.*")) and not list(outside.glob(".env.aidigest.*"))
 
 
+# ── Review of 432f908 (HIGH): the no-change path still enforces mode 600 and refuses symlinks ──
+CONFIGURED_ENV = PRE_PR_ENV + (
+    "AIDIGEST_PROXY_SECRET=" + "ab" * 32 + "\nAIDIGEST_BASIC_AUTH_USER=opsuser\n"
+    f"AIDIGEST_BASIC_AUTH_HASH='{FAKE_HASH}'\n"
+    "AIDIGEST_DATABASE_URL=postgresql+asyncpg://aidigest_app:pw@db.example.com/sagedb?ssl=require\n"
+    "COMPOSE_PROFILES=aidigest\n")
+
+
+@pytest.mark.parametrize("mode", [0o644, 0o666, 0o640, 0o604])
+def test_no_change_path_tightens_a_loose_env_to_600(tmp_path, mode):
+    """Every AIDigest key is already set, so nothing is added or filled. The secret-bearing .env must
+    still end mode 600 (same content, same owner), with a notice."""
+    env_file = _prepare(tmp_path, CONFIGURED_ENV)
+    env_file.chmod(mode)
+    owner = (12345, 23456) if os.geteuid() == 0 else (os.getuid(), os.getgid())
+    if os.geteuid() == 0:
+        os.chown(env_file, *owner)
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    st = env_file.stat()
+    assert env_file.read_text() == CONFIGURED_ENV
+    assert stat.S_IMODE(st.st_mode) == 0o600 and (st.st_uid, st.st_gid) == owner
+    assert "mode 600" in proc.stdout + proc.stderr
+    assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+def test_no_change_path_leaves_a_private_env_untouched(tmp_path):
+    """Already mode 600 and complete: .env is not rewritten (same inode, same bytes)."""
+    env_file = _prepare(tmp_path, CONFIGURED_ENV)
+    inode = env_file.stat().st_ino
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert env_file.stat().st_ino == inode and env_file.read_text() == CONFIGURED_ENV
+    assert stat.S_IMODE(env_file.stat().st_mode) == 0o600
+
+
+def test_no_change_path_refuses_a_symlinked_env(tmp_path):
+    """A complete .env that is a symlink: refused on the no-change path too, link and target unchanged."""
+    shutil.copy(REPO / "setup.sh", tmp_path / "setup.sh")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "real.env"
+    target.write_text(CONFIGURED_ENV)
+    target.chmod(0o644)
+    (tmp_path / ".env").symlink_to(target)
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode != 0, proc.stdout + proc.stderr
+    assert ".env is a symlink" in proc.stdout + proc.stderr
+    assert target.read_text() == CONFIGURED_ENV and stat.S_IMODE(target.stat().st_mode) == 0o644
+    assert (tmp_path / ".env").is_symlink() and not list(outside.glob(".env.aidigest.*"))
+
+
 def test_no_direct_writes_to_env_anywhere():
     """Sweep: .env and its backups (.env.*) change only through env_replace (temp file + rename).
     setup.sh and the Makefile must not redirect into them, tee/sed -i/cp onto them, or rename anything
