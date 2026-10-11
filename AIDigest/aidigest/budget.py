@@ -14,6 +14,15 @@ Two layers enforce it:
   * DB side: `db_tx` opens every transaction with `SET LOCAL statement_timeout` a little below the
     time left, and `lock_timeout` a little below that (so a lock wait is reported as such), so
     Postgres itself ends a lock wait or a slow statement and the backend does not stay queued.
+Limits (review of d23075f, L-1, L-2): the timeouts are per statement and set once, at the start of
+the transaction, from the time left then; a later transaction of the same run gets fresh values from
+the time left at ITS start, so an abandoned backend can outlive the deadline by up to about one budget
+(it is ended by the idle-in-transaction timeout above, or by its own statement timeout). A
+network that is frozen at TCP level can keep an abandoned connection - and an advisory lock it holds -
+until idle_in_transaction_session_timeout fires on the server or TCP gives up on the client; new
+requests meanwhile hit lock_timeout and get a 504. Also, DAILY's final `finally` waits up to
+HEARTBEAT_STOP_SECONDS for its heartbeat, after the failure record has used the reserve: a DAILY call
+returns within budget + HEARTBEAT_STOP_SECONDS + the time the failure record needs.
 A DB-side timeout (SQLSTATE 55P03 lock_not_available, 57014 query_canceled) counts as the budget
 running out only when it arrives at the budget's own deadline (within ATTRIBUTION_SECONDS of it);
 earlier ones - an operator's pg_cancel_backend - and any TimeoutError raised inside a step (e.g. a
@@ -39,6 +48,7 @@ RESERVE_SECONDS = 5.0      # kept back for recording a failure (at most half the
 DB_MARGIN_SECONDS = 0.25
 LOCK_EARLIER_SECONDS = 0.1   # ... and a lock wait this much earlier still (55P03, not 57014)
 ATTRIBUTION_SECONDS = 0.5  # a DB timeout this close to the deadline (or later) is the budget's own
+IDLE_IN_TX_GRACE_SECONDS = 1.0   # a transaction idle this long past the time left is abandoned: Postgres ends it
 TIMEOUT_SQLSTATES = frozenset({"55P03", "57014"})
 
 
@@ -105,17 +115,29 @@ async def run_within(budget: Budget, step: Awaitable[Any], what: str, *, reserve
     raise exc
 
 
+def db_timeouts_ms(left: float) -> tuple[int, int, int]:
+    """(lock_timeout, statement_timeout, idle_in_transaction_session_timeout) in ms for `left` seconds.
+    The floors keep both timeouts above 0 (0 means unlimited in Postgres) and non-negative however little
+    time is left."""
+    statement_ms = max(2, int((left - DB_MARGIN_SECONDS) * 1000))
+    lock_ms = max(1, statement_ms - int(LOCK_EARLIER_SECONDS * 1000))
+    # An abandoned step leaves its transaction open on a connection nobody will use again; if
+    # the network is frozen it cannot even be closed. Postgres ends it itself (releasing its
+    # advisory locks) once it has been idle past the time left plus a grace period.
+    idle_ms = int((left + IDLE_IN_TX_GRACE_SECONDS) * 1000)
+    return lock_ms, statement_ms, idle_ms
+
+
 @contextlib.asynccontextmanager
 async def db_tx(engine, budget: Budget | None, *, reserve: bool = False) -> AsyncIterator[Any]:
     """A transaction whose lock waits and statements end before the budget does.
     Without a budget (endpoints, the lease heartbeat) it is a plain transaction."""
     async with engine.begin() as conn:
         if budget is not None:
-            left = budget.left(reserve)
-            statement_ms = max(2, int((left - DB_MARGIN_SECONDS) * 1000))
-            lock_ms = max(1, statement_ms - int(LOCK_EARLIER_SECONDS * 1000))
+            lock_ms, statement_ms, idle_ms = db_timeouts_ms(budget.left(reserve))
             # is_local=true: SET LOCAL, gone at COMMIT/ROLLBACK (the pooled session is reused)
             await conn.execute(text("SELECT set_config('lock_timeout', :lock, true), "
-                                    "set_config('statement_timeout', :stmt, true)"),
-                               {"lock": f"{lock_ms}ms", "stmt": f"{statement_ms}ms"})
+                                    "set_config('statement_timeout', :stmt, true), "
+                                    "set_config('idle_in_transaction_session_timeout', :idle, true)"),
+                               {"lock": f"{lock_ms}ms", "stmt": f"{statement_ms}ms", "idle": f"{idle_ms}ms"})
         yield conn

@@ -17,10 +17,15 @@ from urllib.parse import urlsplit
 
 import pytest
 
+from aidigest.daily import HEARTBEAT_STOP_SECONDS
 from tests.fakes import FakeAI, FakeFetcher, rss
 
 BUDGET = 2.0
-MARGIN = 1.0          # the call returns within BUDGET + MARGIN
+MARGIN = 1.0          # a TASK call returns within BUDGET + MARGIN
+# A DAILY call also waits up to HEARTBEAT_STOP_SECONDS for its heartbeat in the finally block, after
+# the failure record has used the reserve: BUDGET + HEARTBEAT_STOP_SECONDS + the record time (review
+# of d23075f, L-1). Bound: that wait plus the same 1.0 s of record time/scheduling slack.
+DAILY_MARGIN = HEARTBEAT_STOP_SECONDS + 1.0
 GUARD = 25.0          # how long a test waits before it calls the call hung
 
 
@@ -140,11 +145,11 @@ def _selection():
     return ai
 
 
-def _assert_on_time(outcome, elapsed):
+def _assert_on_time(outcome, elapsed, margin: float = MARGIN):
     from aidigest.errors import DeadlineError
     assert outcome != "HUNG", f"still running after {elapsed:.1f}s (budget {BUDGET}s)"
     assert isinstance(outcome, DeadlineError), repr(outcome)
-    assert elapsed < BUDGET + MARGIN, f"{elapsed:.2f}s for a {BUDGET}s budget"
+    assert elapsed < BUDGET + margin, f"{elapsed:.2f}s for a {BUDGET}s budget"
 
 
 async def test_task_returns_within_budget_when_db_freezes_before_the_run(proxy, frozen_engine):
@@ -163,7 +168,7 @@ async def test_task_returns_within_budget_when_db_freezes_during_the_ai_call(pro
 
 async def test_daily_returns_within_budget_when_db_freezes_before_the_run(proxy, frozen_engine):
     proxy.freeze()
-    _assert_on_time(*await returns_within(_daily(frozen_engine, _selection())))
+    _assert_on_time(*await returns_within(_daily(frozen_engine, _selection())), DAILY_MARGIN)
 
 
 async def test_daily_returns_within_budget_when_db_freezes_during_the_ai_call(proxy, frozen_engine):
@@ -172,7 +177,7 @@ async def test_daily_returns_within_budget_when_db_freezes_during_the_ai_call(pr
     async def freeze():
         proxy.freeze()
     ai.on_call = freeze
-    _assert_on_time(*await returns_within(_daily(frozen_engine, ai)))
+    _assert_on_time(*await returns_within(_daily(frozen_engine, ai)), DAILY_MARGIN)
 
 
 async def test_daily_returns_within_budget_when_db_freezes_during_a_lease_refresh(proxy, frozen_engine):
@@ -185,7 +190,7 @@ async def test_daily_returns_within_budget_when_db_freezes_during_a_lease_refres
         proxy.freeze()
         await asyncio.sleep(0.5)       # a refresh starts while frozen
     ai.on_call = slow_then_freeze
-    _assert_on_time(*await returns_within(_daily(frozen_engine, ai, heartbeat=0.3)))
+    _assert_on_time(*await returns_within(_daily(frozen_engine, ai, heartbeat=0.3)), DAILY_MARGIN)
 
 
 async def test_abandoned_connections_are_released_within_the_bound(proxy, frozen_engine):

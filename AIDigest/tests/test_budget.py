@@ -13,14 +13,16 @@ def _ms(setting: str) -> float:
 
 
 async def test_db_tx_sets_local_timeouts_that_fit_the_remaining_budget(engine):
-    from aidigest.budget import Budget, db_tx
-    budget = Budget(2.0)
+    from aidigest.budget import DB_MARGIN_SECONDS, LOCK_EARLIER_SECONDS, Budget, db_tx
+    budget = Budget(2.0)                                    # reserve 1.0 s, so ~1.0 s of working time
+    before = budget.work_left() * 1000
     async with db_tx(engine, budget) as conn:
-        lock = (await conn.execute(text("SELECT current_setting('lock_timeout')"))).scalar()
-        stmt = (await conn.execute(text("SELECT current_setting('statement_timeout')"))).scalar()
-    for value in (lock, stmt):
-        assert 0 < _ms(value) <= 2000 * (1 - 0) - 1, value
-        assert _ms(value) <= budget.work_left() * 1000 + 50, value
+        lock = _ms((await conn.execute(text("SELECT current_setting('lock_timeout')"))).scalar())
+        stmt = _ms((await conn.execute(text("SELECT current_setting('statement_timeout')"))).scalar())
+    after = budget.work_left() * 1000
+    margin = DB_MARGIN_SECONDS * 1000
+    assert after - margin - 1 <= stmt <= before - margin, (stmt, before, after)     # statement: work time - margin
+    assert lock < stmt and abs((stmt - lock) - LOCK_EARLIER_SECONDS * 1000) <= 1, (lock, stmt)
     async with engine.connect() as conn:   # SET LOCAL: nothing leaks into the next transaction
         assert (await conn.execute(text("SELECT current_setting('lock_timeout')"))).scalar() == "0"
 
@@ -154,3 +156,33 @@ async def test_our_own_statement_timeout_is_the_budget(engine):
     with pytest.raises(DeadlineError) as excinfo:
         await run_within(budget, step(), "a long statement")
     assert is_db_timeout(excinfo.value.__cause__) and excinfo.value.__cause__.orig.sqlstate == "57014"
+
+
+# ── Review of d23075f, L-2: an abandoned transaction does not hold its locks for ever ──
+async def test_db_tx_sets_an_idle_in_transaction_timeout_past_the_time_left(engine):
+    from aidigest.budget import IDLE_IN_TX_GRACE_SECONDS, Budget, db_tx
+    budget = Budget(2.0)
+    before = budget.left(False) * 1000
+    async with db_tx(engine, budget) as conn:
+        idle = _ms((await conn.execute(text("SELECT current_setting('idle_in_transaction_session_timeout')"))).scalar())
+    after = budget.left(False) * 1000
+    grace = IDLE_IN_TX_GRACE_SECONDS * 1000
+    assert after + grace - 1 <= idle <= before + grace, (idle, before, after)
+
+
+async def test_postgres_ends_a_transaction_that_stays_idle_past_the_timeout_and_frees_its_lock(engine):
+    """The abandoned-step case: nobody commits or closes. Postgres terminates the backend, so the
+    advisory lock it holds is released and the next request does not wait on it."""
+    from sqlalchemy.exc import DBAPIError
+
+    from aidigest.budget import Budget, db_tx
+    budget = Budget(0.4)                                     # time left ~0.2 s + 1 s grace
+    with pytest.raises(DBAPIError):
+        async with db_tx(engine, budget) as conn:
+            await conn.execute(text("SELECT pg_advisory_xact_lock(4242)"))
+            await asyncio.sleep(1.8)                         # idle in transaction
+            await conn.execute(text("SELECT 1"))
+    async with engine.connect() as probe:
+        got = (await probe.execute(text("SELECT pg_try_advisory_lock(4242)"))).scalar()
+        await probe.execute(text("SELECT pg_advisory_unlock_all()"))
+    assert got is True

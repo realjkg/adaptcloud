@@ -344,7 +344,8 @@ use it:
 
 There is no `>`, `>>`, `tee`, `sed -i` or `cp` onto `.env` left in `setup.sh` or the Makefile. A
 static test enforces it, and the only `mv` onto `.env` is the rename of the temp copy. The Makefile
-only reads `.env`, plus `cp .env .env.backup`, which writes the backup.
+only reads `.env`; the backup is made by `bash setup.sh --backup-env` (the `make backup-env`
+target), which goes through the same writer.
 
 ### 16.3 Absolute run budgets (4177765160, 4177765211)
 
@@ -353,9 +354,12 @@ only reads `.env`, plus `cp .env .env.backup`, which writes the backup.
 - **Steps:** readiness, the claim or task-row insert (including the advisory-lock wait), the run,
   and the final status recording each get only the time that is left (`run_within`, client side).
 - **Transactions:** every DAILY/TASK transaction is opened by `db_tx`. It sets
-  `SET LOCAL lock_timeout` and `statement_timeout` 0.1 s below the time left, so Postgres itself
-  ends a lock wait or a slow statement and the backend does not stay queued. SQLSTATE 55P03 and
-  57014 are reported as the budget running out (`DeadlineError`, 504).
+  `SET LOCAL statement_timeout` 0.25 s (`DB_MARGIN_SECONDS`) below the time left, `lock_timeout` a
+  further 0.1 s (`LOCK_EARLIER_SECONDS`) earlier, and `idle_in_transaction_session_timeout` 1 s past
+  the time left, so Postgres itself ends a lock wait, a slow statement or an abandoned transaction
+  and the backend does not stay queued. SQLSTATE 55P03 and 57014 are reported as the budget running
+  out (`DeadlineError`, 504) only when they arrive within 0.5 s (`ATTRIBUTION_SECONDS`) of the
+  deadline; an earlier one keeps its own error. Details and limits: section 17.
 - **Reserve:** `min(5 s, budget/2)` is kept back for recording a failure. A run that used up its
   working time still marks itself `failed` (TASK row / DAILY run row) before the deadline. If even
   that cannot be written (the DB is silent), it is logged and the call still returns on time
@@ -403,3 +407,33 @@ Flaky timing tests:
 `scripts/mutation_check.py` records the test that killed each mutant and confirms the kill: the test
 must fail when re-run alone on the mutated tree and pass on the baseline. Otherwise the mutant is
 SUSPECT, and the run fails.
+
+### 17.1 Review of d23075f (REQUEST CHANGES: 0 High, 2 Medium, 6 Low)
+
+| ID | Finding | Fix | Tests / mutants |
+|---|---|---|---|
+| M-1 | Reserve flags and timeout floors had no killing test: dropping `max(2, ...)` / `max(1, ...)` in `db_tx`, or `reserve=True` -> `False` in `_mark_failed`, `_record_not_ready`, the TASK failure record, `_abandon_task_row` survived | `tests/test_reserve.py`: floors with 0.2 s / 0.05 s / 0 s left for both flags; `reserve=True` keeps the timeout near `remaining - DB_MARGIN_SECONDS`, `reserve=False` with the work slice spent gets only the floors; the four failure-record writers (and the TASK failure path end to end) are run with the work slice spent and a trigger adding 50 ms to the write, and the row must end `failed` / recorded. `test_db_tx_sets_local_timeouts...` now asserts the margin and `lock < stmt` | `r9-statement-floor-dropped`, `r9-lock-floor-dropped`, `r9-mark-failed-no-reserve`, `r9-record-not-ready-no-reserve`, `r9-finish-task-failure-no-reserve`, `r9-abandon-task-row-no-reserve` |
+| M-2 | DESIGN.md 16.3 and 16.2 were stale | 16.3 states the 0.25 s / 0.1 s / 0.5 s values and points here; 16.2 names `setup.sh --backup-env` | - |
+| L-1 | A DAILY call is not strictly absolute: its `finally` waits up to `HEARTBEAT_STOP_SECONDS` (0.5 s) after the failure record has used the reserve | Documented: a DAILY call returns within budget + `HEARTBEAT_STOP_SECONDS` + the record time. `test_freeze.py` uses `DAILY_MARGIN = HEARTBEAT_STOP_SECONDS + 1.0` (1.5 s) for DAILY and keeps 1.0 s for TASK | freeze tests, 10 runs |
+| L-2 | The timeouts are per statement and set once, with no `idle_in_transaction_session_timeout` | `db_tx` also sets `idle_in_transaction_session_timeout` to the time left + 1 s (`IDLE_IN_TX_GRACE_SECONDS`): Postgres ends an abandoned, idle transaction and releases its advisory lock. The rest is documented below | `test_db_tx_sets_an_idle_in_transaction_timeout_past_the_time_left`, `test_postgres_ends_a_transaction_that_stays_idle_past_the_timeout_and_frees_its_lock`; `r9-no-idle-in-transaction-timeout` |
+| L-3 | A budget of `inf` or > ~2,147,483 s made every DB step fail | `le=86400` (`MAX_BUDGET_SECONDS`) on both budgets | `test_budgets_outside_a_sane_range_are_rejected`, `test_a_budget_of_one_day_is_accepted`; `r9-daily-budget-unbounded`, `r9-task-budget-unbounded` |
+| L-4 | EVIDENCE.md stopped at 16.8 | Section 18 | - |
+
+### 17.2 Known limits
+
+- **Per-statement timeouts.** `statement_timeout` and `lock_timeout` apply to each statement and are
+  set once, at the start of a transaction, from the time left then. A later transaction of the same
+  run (`_store_and_complete`, `_save_knowledge`, `_create_task_row`) gets fresh values from the time
+  left at its own start, so an abandoned backend can outlive the deadline by up to about one budget.
+  The idle-in-transaction timeout bounds an abandoned, idle one to the time left + 1 s.
+- **No TCP keepalive guard.** A network frozen at TCP level can leave an abandoned connection - and
+  the per-day or `task:<user>` advisory lock it holds - until the server's idle timeout fires (it
+  cannot, if the server is the frozen side) or TCP gives up. New requests then hit `lock_timeout`
+  and get 504.
+- **DAILY is budget + 0.5 s + record time** (L-1), not strictly the budget.
+- **L-5.** `DB_UNREACHABLE = (TimeoutError, OSError)` is broad. `ai.py`, `fetcher.py` and `feeds.py`
+  wrap their own errors today, so a stray `OSError` from them would be reported as 503.
+- **L-6.** The final-status writes of a TASK do not carry a `status='running'` guard. A late write
+  can overwrite a status that the abandoned-row cleanup set (narrow, cosmetic race).
+- **Nit.** `tasks.error` stores `str(exc)`, including the SQL text for a `DBAPIError`; the owner can
+  read it through GET. Pre-existing.

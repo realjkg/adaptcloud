@@ -16,6 +16,9 @@ _PLACEHOLDER_DB_URLS = {
 }
 _DAILY_TIME = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 MIN_PROXY_SECRET_LEN = 32
+# A budget becomes a Postgres timeout in ms (int32) and a deadline; inf or > ~24.8 days would be rejected
+# by every DB step (review of d23075f, L-3). One day is far above any sensible run.
+MAX_BUDGET_SECONDS = 86_400.0
 # Round 3 M1: values that end up in Caddy's configuration are restricted at the source.
 SAFE_USER = re.compile(r"[A-Za-z0-9._@-]{1,64}")
 SAFE_SECRET = re.compile(r"[!-~]*")          # printable ASCII: no whitespace, control or non-ASCII
@@ -56,13 +59,13 @@ class Settings(BaseSettings):
     # ── DAILY schedule (UTC, HH:MM) and run bounds ────────────────────────────
     aidigest_daily_time: str = "12:30"
     aidigest_scheduler_enabled: bool = True
-    aidigest_daily_budget_seconds: float = Field(900.0, gt=0)     # whole run, incl. fetch + AI
+    aidigest_daily_budget_seconds: float = Field(900.0, gt=0, le=MAX_BUDGET_SECONDS)     # whole run, incl. fetch + AI
     aidigest_daily_lease_seconds: float = Field(1200.0, gt=0)     # stale-takeover window (> budget)
     aidigest_daily_heartbeat_seconds: float = Field(60.0, gt=0)
     aidigest_daily_max_attempts: int = Field(3, ge=1)             # per UTC day (operator retries)
 
     # ── TASK bounds ───────────────────────────────────────────────────────────
-    aidigest_task_budget_seconds: float = Field(600.0, gt=0)
+    aidigest_task_budget_seconds: float = Field(600.0, gt=0, le=MAX_BUDGET_SECONDS)
     aidigest_task_hourly_limit: int = Field(20, ge=1)              # per authenticated user
 
     # ── Guarded fetcher / parser bounds ───────────────────────────────────────

@@ -37,6 +37,8 @@ class Mutation:
     runner: str = "pytest"   # "pytest" | "caddy" (scripts/caddy_matrix.sh against the mutated files)
     python: str = "default"  # "default" | "py312" (env MUTATION_PY312: an interpreter where the
                              #  control is observable, e.g. Python 3.12.3 for stdlib-flag differences)
+    first: str = ""          # test file(s) written to kill THIS mutant, tried before the full suite, so an
+                             #  older test that only sometimes notices it is not recorded as the killer
 
 
 M = Mutation
@@ -473,7 +475,7 @@ MUTATIONS: list[Mutation] = [
     M("r7-task-insert-timeout-as-storage-error", "a lock_timeout on the task insert is a deadline, not a 503",
       [("aidigest/tasks.py", "        if is_db_timeout(exc):\n            raise   # the budget ran out", "        if False:\n            raise   # the budget ran out")]),
     M("r7-no-db-side-timeouts", "db_tx sets lock_timeout/statement_timeout inside the budget",
-      [("aidigest/budget.py", "        if budget is not None:\n            left = budget.left(reserve)", "        if False:\n            left = budget.left(reserve)")]),
+      [("aidigest/budget.py", "        if budget is not None:\n            lock_ms, statement_ms, idle_ms = db_timeouts_ms(budget.left(reserve))", "        if False:\n            lock_ms, statement_ms, idle_ms = db_timeouts_ms(budget.left(reserve))")]),
     M("r7-db-timeout-not-a-deadline", "Postgres lock/statement timeouts are reported as the deadline",
       [("aidigest/budget.py", '        if getattr(seen, "sqlstate", None) in TIMEOUT_SQLSTATES:\n            return True',
         '        if False:\n            return True')]),
@@ -551,6 +553,42 @@ MUTATIONS: list[Mutation] = [
       [("../setup.sh", "      env_replace .env.backup cat .env\n      success", "      cp .env .env.backup\n      success")]),
     M("r8-makefile-backup-by-cp", "make backup-env goes through the writer (L8)",
       [("../Makefile", "\t@bash setup.sh --backup-env", "\tcp .env .env.backup")]),
+    # ═══════════════ challenger review of d23075f (round 9) ═══════════════
+    # M-1: reserve flags and floors (the challenger's surviving mutants)
+    M("r9-statement-floor-dropped", "statement_timeout never reaches 0 (unlimited) or below, however little is left",
+      [("aidigest/budget.py", "statement_ms = max(2, int((left - DB_MARGIN_SECONDS) * 1000))",
+        "statement_ms = int((left - DB_MARGIN_SECONDS) * 1000)")], first="tests/test_reserve.py"),
+    M("r9-lock-floor-dropped", "lock_timeout never reaches 0 (unlimited) or below",
+      [("aidigest/budget.py", "lock_ms = max(1, statement_ms - int(LOCK_EARLIER_SECONDS * 1000))",
+        "lock_ms = statement_ms - int(LOCK_EARLIER_SECONDS * 1000)")], first="tests/test_reserve.py"),
+    M("r9-mark-failed-no-reserve", "DAILY _mark_failed writes from inside the reserved slice",
+      [("aidigest/daily.py", "error: str, budget: Budget | None) -> None:\n    async with db_tx(engine, budget, reserve=True) as conn:",
+        "error: str, budget: Budget | None) -> None:\n    async with db_tx(engine, budget, reserve=False) as conn:")], first="tests/test_reserve.py"),
+    M("r9-record-not-ready-no-reserve", "DAILY _record_not_ready writes from inside the reserved slice",
+      [("aidigest/daily.py", "    try:\n        async with db_tx(engine, budget, reserve=True) as conn:\n            await conn.execute(text(\n"
+        "                \"INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, error, created_at, completed_at) \"",
+        "    try:\n        async with db_tx(engine, budget, reserve=False) as conn:\n            await conn.execute(text(\n"
+        "                \"INSERT INTO aidigest.runs (id, kind, run_key, trigger, status, error, created_at, completed_at) \"")], first="tests/test_reserve.py"),
+    M("r9-finish-task-failure-no-reserve", "TASK failure record writes from inside the reserved slice",
+      [("aidigest/tasks.py", "budget=budget, reserve=True), \"recording the failure\", reserve=True)",
+        "budget=budget, reserve=False), \"recording the failure\", reserve=True)")], first="tests/test_reserve.py"),
+    M("r9-abandon-task-row-no-reserve", "_abandon_task_row writes from inside the reserved slice",
+      [("aidigest/tasks.py", "        async with db_tx(engine, budget, reserve=True) as conn:\n            await conn.execute(text(\n"
+        "                \"UPDATE aidigest.tasks SET status='failed', error=:error, completed_at=now() \"",
+        "        async with db_tx(engine, budget, reserve=False) as conn:\n            await conn.execute(text(\n"
+        "                \"UPDATE aidigest.tasks SET status='failed', error=:error, completed_at=now() \"")], first="tests/test_reserve.py"),
+    # L-2: an abandoned transaction is ended by Postgres
+    M("r9-no-idle-in-transaction-timeout", "Postgres ends an abandoned, idle transaction (frees its advisory lock)",
+      [("aidigest/budget.py", "\"set_config('statement_timeout', :stmt, true), \"\n"
+        "                                    \"set_config('idle_in_transaction_session_timeout', :idle, true)\"",
+        "\"set_config('statement_timeout', :stmt, true)\"")]),
+    # L-3: budgets are bounded
+    M("r9-daily-budget-unbounded", "the DAILY budget is at most one day (a Postgres-usable timeout)",
+      [("aidigest/config.py", "aidigest_daily_budget_seconds: float = Field(900.0, gt=0, le=MAX_BUDGET_SECONDS)",
+        "aidigest_daily_budget_seconds: float = Field(900.0, gt=0)")]),
+    M("r9-task-budget-unbounded", "the TASK budget is at most one day (a Postgres-usable timeout)",
+      [("aidigest/config.py", "aidigest_task_budget_seconds: float = Field(600.0, gt=0, le=MAX_BUDGET_SECONDS)",
+        "aidigest_task_budget_seconds: float = Field(600.0, gt=0)")]),
 ]
 
 
@@ -570,7 +608,11 @@ def run_suite(workdir: Path, m: "Mutation | None" = None) -> tuple[bool, str, fl
     else:
         cmd = [_python_for(m), "-m", "pytest", "-x", "-q", "-rfE", "-p", "no:cacheprovider"]
     try:
-        proc = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True, timeout=900)
+        proc = None
+        if m is not None and m.first and m.runner != "caddy":
+            proc = subprocess.run(cmd + m.first.split(), cwd=workdir, capture_output=True, text=True, timeout=900)
+        if proc is None or proc.returncode == 0:   # not killed by its own test file: the whole suite decides
+            proc = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True, timeout=900)
     except subprocess.TimeoutExpired:
         return False, "suite timed out (900 s)", time.monotonic() - start, None
     tail = (proc.stdout.strip().splitlines() or [""])[-1]
