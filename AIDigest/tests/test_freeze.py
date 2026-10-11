@@ -254,3 +254,32 @@ async def test_connect_timeout_is_database_unavailable_not_a_deadline(proxy, fro
     outcome, elapsed = await returns_within(call)
     assert isinstance(outcome, StorageError) and not isinstance(outcome, DeadlineError), repr(outcome)
     assert elapsed < CONNECT_TIMEOUT_SECONDS + MARGIN, elapsed
+
+
+# ═══════════ Review of 432f908: the heartbeat wait never runs past the budget ═══════════
+async def test_daily_heartbeat_cleanup_is_capped_by_the_remaining_deadline(engine, monkeypatch):
+    """A heartbeat that ignores cancellation (stuck in a lease refresh) is waited for at most the time
+    left to the deadline, and at most HEARTBEAT_STOP_SECONDS. Here the stop wait is 5 s, but the run has
+    already spent its budget, so a DAILY call returns within BUDGET + MARGIN, not BUDGET + 5 s."""
+    from aidigest import daily
+    monkeypatch.setattr(daily, "HEARTBEAT_STOP_SECONDS", 5.0)
+    release = asyncio.Event()
+
+    async def stubborn_heartbeat(*args, **kwargs):
+        while not release.is_set():
+            try:
+                await asyncio.sleep(0.05)
+            except asyncio.CancelledError:
+                pass                      # swallows the cancel: the cleanup must not wait for it
+
+    monkeypatch.setattr(daily, "_heartbeat", stubborn_heartbeat)
+    ai = _selection()
+
+    async def spend_the_budget():
+        await asyncio.sleep(BUDGET + 3)   # the run's work outlives the whole budget
+    ai.on_call = spend_the_budget
+    try:
+        outcome, elapsed = await returns_within(_daily(engine, ai))
+    finally:
+        release.set()
+    _assert_on_time(outcome, elapsed, MARGIN)
