@@ -92,7 +92,7 @@ def test_adversarial_input_parses_within_budget(name):
     assert full <= max(1.0, 8 * quarter), f"{name}: {quarter:.3f}s at N/4 -> {full:.3f}s at N (super-linear)"
 
 
-def test_clean_text_behaviour_preserved():
+def test_clean_text_behavior_preserved():
     from aidigest.feeds import clean_text
 
     assert clean_text("<p>Hello <b>world</b></p>") == "Hello world"

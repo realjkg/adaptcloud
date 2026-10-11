@@ -7,7 +7,7 @@ run that used up its working time can still mark itself failed before the budget
 
 Two layers enforce it:
   * client side: `run_within` runs each step as a task and waits for it with a timeout. At the
-    deadline the step is cancelled and ABANDONED: its cleanup is not awaited. When the database
+    deadline the step is canceled and ABANDONED: its cleanup is not awaited. When the database
     freezes at TCP level, SQLAlchemy's shielded close and asyncpg's cancel request can take a long
     time, and awaiting them would make the budget meaningless (review of ae012a0, M1). The abandoned
     connection is closed and handed back to the pool within aidigest.db.ABANDONED_RELEASE_SECONDS;

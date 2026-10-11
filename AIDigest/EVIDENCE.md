@@ -217,7 +217,7 @@ A scratch compose project with the same hardening as `docker-compose.yml`
 (`read_only`, `cap_drop: [ALL]`, `no-new-privileges`, tmpfs, `expose` only,
 `PRODUCTION=true`) and the repo Caddyfile. The only difference was `tls
 internal { on_demand }`, because the repo's existing `:443 { tls internal }`
-issues no certificate for an unknown SNI (pre-existing behaviour,
+issues no certificate for an unknown SNI (pre-existing behavior,
 unchanged by this PR). Requests came from a container on the compose network:
 
 ```
@@ -737,8 +737,8 @@ A first pass over the 22 round-2 mutations left two survivors, fixed before the 
 - `r2-l1-decode-errors-unmapped`: every tested charset was refused by the text-codec check first. The redundant idna/punycode/undefined deny-list was removed; those codecs fail inside `decode` and now exercise the try/except alone.
 
 `URL control characters` (challenger L5): an equivalent mutant. httpx's URL parser itself rejects NUL, CR/LF,
-TAB and DEL in host and path (checked), so the explicit check cannot change behaviour. It stays as defence in
-depth, and `test_validate_url_rejects_control_characters` covers the behaviour.
+TAB and DEL in host and path (checked), so the explicit check cannot change behavior. It stays as defence in
+depth, and `test_validate_url_rejects_control_characters` covers the behavior.
 
 ### 11.7 Lint, compile, dependency audit
 
@@ -823,7 +823,7 @@ This section supersedes sections 1-11 for gate results.
 | `56eefc1` | M1: failing tests (red) - Settings/setup.sh user and secret rules, temp-file trap, 17 new Caddy matrix cases |
 | `efa9b3d` | M1: heredoc tokens for user/hash, proxy secret read at request time, format-checking guard, `caddy-entrypoint.sh`, Settings `aidigest_basic_auth_user`, setup.sh rules + trap |
 | `7a8bba5` | M2: documented role SQL runs as the database owner (PUBLIC CONNECT revoked in the test); README updated |
-| `73bb6ff` | 12 round-3 mutations (125 total); compose sentinels removed (the entrypoint is the single sanitising mechanism); behavioural trap test; outside-compose matrix cases; `MUTATION_PY312` fails loudly |
+| `73bb6ff` | 12 round-3 mutations (125 total); compose sentinels removed (the entrypoint is the single sanitising mechanism); behavioral trap test; outside-compose matrix cases; `MUTATION_PY312` fails loudly |
 | this commit | DESIGN.md section 12 and auth text, this evidence |
 
 ### 12.1 Red
@@ -988,7 +988,7 @@ Survivors on the first round-3 pass, and what killed them:
   `r2-m2-entrypoint-keeps-bad-user`, `r3-m1-entrypoint-keeps-bad-hash` and
   `r2-m2-compose-skips-entrypoint`.
 - `r3-note-no-temp-trap`: the text assertion still matched `trap - INT TERM`. Replaced with a
-  behavioural test (SIGTERM to the real `aidigest_fill_empty` while it rewrites a 150k-line `.env`).
+  behavioral test (SIGTERM to the real `aidigest_fill_empty` while it rewrites a 150k-line `.env`).
 
 `r3-m2-readme-hardcoded-db` is killed only when the test database is not `postgres`, which is why
 the run uses `AIDIGEST_TEST_DBNAME=aidigest_it`.
@@ -1153,12 +1153,12 @@ unreadable. For a normal-size `.env` the window is microseconds, but the result 
 - The trap is installed before `mktemp`.
 - Bash runs a trap only after the foreground child finishes. A signal during the command
   substitution is therefore handled after `tmp` is assigned. The `before-mktemp`/`after-mktemp`
-  shell cases pin this behaviour (GNU bash 5.2.21).
+  shell cases pin this behavior (GNU bash 5.2.21).
 - The two children that can hold the only knowledge of the file ignore INT/TERM, and an ignored
   disposition is inherited across `exec`. `mktemp` cannot die between creating the file and
   printing its name. `cat` cannot be cut off after the truncation. For the rewrite, the
   redirection is inside the subshell, after `trap ''`.
-- `set -e` behaviour is unchanged: `tmp=$(...)` is a plain assignment, so a failing `mktemp` still
+- `set -e` behavior is unchanged: `tmp=$(...)` is a plain assignment, so a failing `mktemp` still
   stops the script, and the rewrite subshell's status is the status of `cat`.
 
 ### 13.5 M1 under load, after the fix
@@ -1320,7 +1320,7 @@ line. `r4-l1-settings-allows-marker` removes only the marker clause.
   entrypoint), like a non-bcrypt hash there. The supported deployment always goes through the
   entrypoint, and the matrix asserts the compose `command`.
 - The trap ordering relies on bash running a trap only after a foreground child (here the command
-  substitution) finishes. The shell-target cases pin this behaviour on GNU bash 5.2.21; no other
+  substitution) finishes. The shell-target cases pin this behavior on GNU bash 5.2.21; no other
   bash version was available to run them.
 - SIGKILL, or a crash between the copy and the rewrite, can still leave the 600-mode temp file
   behind. A `set -e` failure inside the copy loop (e.g. disk full) can too, because the trap
@@ -1834,7 +1834,7 @@ DAILY final store, a hang in TASK knowledge evidence, and the three existing bud
 ### 16.2 High 4177765103: task IDOR
 
 `GET /agent/tasks/{id}` passes the caller to `get_task`, which filters on
-`id AND requested_by` (the stored, normalised form).
+`id AND requested_by` (the stored, normalized form).
 - Another user's task is a 404 with the same body as an unknown id. The owner still gets 200, and the
   other user's response contains neither the task text nor the result
   (`test_task_of_another_user_is_404_like_an_unknown_id`).

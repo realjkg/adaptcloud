@@ -44,7 +44,7 @@ request with 401 before basic auth runs. `scripts/caddy_matrix.sh` checks every 
 against the real Caddy.
 
 Bounds (all optional, safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST_AI_MAX_TOKENS`
-(16000), `AIDIGEST_AI_MAX_CONCURRENCY` (2), `AIDIGEST_TASK_HOURLY_LIMIT` (20 per user, then 429),
+(16000), `AIDIGEST_AI_MAX_CONCURRENCY` (2), `AIDIGEST_TASK_HOURLY_LIMIT` (20 per Basic Auth account, then 429),
 `AIDIGEST_TASK_BUDGET_SECONDS` (600), `AIDIGEST_DAILY_BUDGET_SECONDS` (900),
 `AIDIGEST_DAILY_LEASE_SECONDS` (1200, must exceed the budget), `AIDIGEST_DAILY_HEARTBEAT_SECONDS`
 (60), `AIDIGEST_DAILY_MAX_ATTEMPTS` (3 per UTC day, then 429), `AIDIGEST_FETCH_TOTAL_SECONDS` (30),
@@ -109,9 +109,13 @@ All endpoints are served under `https://<host>/aidigest` and require Caddy basic
 - GET /digest
 - GET /digest.json
 - GET /knowledge?q=finops
-- POST /agent/tasks (429 with Retry-After after the per-user hourly cap; with the single basic-auth
+- POST /agent/tasks (429 with Retry-After after the per-account hourly cap; with the single basic-auth
   account Caddy ships with, that cap is shared by the whole team)
-- GET /agent/tasks/{id} (only the user who created the task; anyone else gets 404)
+- GET /agent/tasks/{id} (scoped to the authenticated Basic Auth ACCOUNT that created the task; a task of
+  another account gets 404). Isolation is by account, not by person: Caddy ships with one account, so
+  everyone who knows its password shares one `requested_by` and can read any task whose ID they know.
+  Per-person isolation needs a distinct Basic Auth credential per person (more `basic_auth` accounts
+  in the Caddyfile); the service then keeps their tasks apart with no code change.
 
 Example task body (strictly validated; unknown fields are rejected):
 

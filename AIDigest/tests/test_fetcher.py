@@ -637,7 +637,7 @@ async def test_gzip_in_16_byte_chunks_keeps_the_loop_responsive():
 
 
 async def test_non_yielding_stream_still_yields_the_loop_periodically():
-    """A transport that never suspends (already-buffered data) must not monopolise the loop.
+    """A transport that never suspends (already-buffered data) must not monopolize the loop.
     Counted in work, not time (review of ae012a0): a sleep(0) ticker records how many chunks the
     reader consumed between two of its turns; the read loop hands the loop back every
     YIELD_EVERY_CHUNKS chunks, so no stretch may be longer than that (+ slack for httpx's own steps)."""

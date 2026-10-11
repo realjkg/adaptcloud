@@ -163,7 +163,8 @@ def create_app(settings: Settings, *, engine: AsyncEngine | None = None, ai: AIC
 
     @app.get("/agent/tasks/{task_id}")
     async def read_task(task_id: str, request: Request):
-        # Per-user (DESIGN.md section 16): only the caller's own task; anyone else's is a plain 404.
+        # Account-scoped (DESIGN.md section 16): only a task of the caller's Basic Auth account; another
+        # account's is a plain 404. One shared account means one identity (not per person).
         row = await get_task(engine, task_id, who(request))
         if row is None:
             return JSONResponse({"error": "Task not found"}, status_code=404)

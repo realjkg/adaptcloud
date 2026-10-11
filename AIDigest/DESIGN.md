@@ -216,7 +216,7 @@ Rollback:
 | L4 | No scheduler catch-up | Run once at startup when past the slot; crashed rows reclaimable after lease expiry | `test_scheduler.py::test_scheduler_catches_up_once_on_startup` |
 | L5 | Thinking could truncate DAILY JSON | Explicit `output_config.effort` (medium), 16k max_tokens; `max_tokens` stop is a clean AIError, nothing stored | `test_ai.py::test_anthropic_adapter_makes_one_call_with_configured_model`, `test_daily.py::test_daily_max_tokens_truncation_is_clean_ai_error` |
 | L6 | README var count; unpinned deps; `read` without `IFS=` | README corrected; hash-pinned `requirements*.txt` + `--require-hashes`; `IFS= read` | gates (pip-audit, image build) |
-| L7 | Double-encoded entities; observed = any evidence | Entities decoded to a fixed point before escaping; TASK knowledge only from URLs fetched in that task | `test_daily.py::test_daily_double_encoded_entities_are_decoded_then_escaped`, `test_parsing_dos.py::test_clean_text_behaviour_preserved`, `test_tasks.py::test_knowledge_requires_url_fetched_in_this_task` |
+| L7 | Double-encoded entities; observed = any evidence | Entities decoded to a fixed point before escaping; TASK knowledge only from URLs fetched in that task | `test_daily.py::test_daily_double_encoded_entities_are_decoded_then_escaped`, `test_parsing_dos.py::test_clean_text_behavior_preserved`, `test_tasks.py::test_knowledge_requires_url_fetched_in_this_task` |
 
 ## 11. Challenger round 2 (review of 59f2c34): findings -> fixes
 
@@ -300,12 +300,12 @@ every caller is a member of the Adapt Cloud team. The data falls into three clas
 |---|---|---|
 | public | `GET /health` | no identity needed; returns only `{"status":"ok"}` |
 | shared (team) | `GET /`, `GET /digest`, `GET /digest.json`, `GET /knowledge`, `GET /ops/status`, `POST /ops/run-daily` | the digest, the knowledge base and the DAILY runs belong to the team, not to a user. Knowledge saved by a TASK is team knowledge by design; see "Knowledge saved by a TASK" below |
-| per-user | `POST /agent/tasks`, `GET /agent/tasks/{id}` | a task (request text, result, error) belongs to the user who created it. Reads filter on `id AND requested_by`. Another user's task is a 404 with the same body as an unknown id, so its existence is not revealed |
+| per-account | `POST /agent/tasks`, `GET /agent/tasks/{id}` | a task (request text, result, error) belongs to the Basic Auth account that created it (`requested_by` identifies the account, not a person). Reads filter on `id AND requested_by`. Another user's task is a 404 with the same body as an unknown id, so its existence is not revealed |
 
 **One user in the shipped deployment (review of ae012a0, L3).** Caddy's `basic_auth` is configured
 with a single account (`AIDIGEST_BASIC_AUTH_USER`), so `X-AIDigest-User`, and with it
 `requested_by`, is the same for everyone who knows that password.
-- The per-user rules above therefore separate users only once Caddy has more than one account.
+- The per-account rules above therefore separate people only once Caddy has one account per person: per-person identities need distinct credentials. No code change is needed for that.
   Today every caller sees every task.
 - The hourly task limit (`AIDIGEST_TASK_HOURLY_LIMIT`, 20) is a team-wide limit, not one per
   person.
@@ -319,7 +319,7 @@ with a single account (`AIDIGEST_BASIC_AUTH_USER`), so `X-AIDigest-User`, and wi
 - **Who sees it:** every caller can read it via `GET /knowledge`, and it is fed into other users'
   tasks as evidence (`_knowledge_evidence`).
 - **Opting out:** a user whose task text must stay private sends `"persist_knowledge": false`.
-- This is the designed behaviour (a shared team knowledge base), documented here so it is not
+- This is the designed behavior (a shared team knowledge base), documented here so it is not
   mistaken for a per-user store.
 
 There is no list endpoint for tasks. If one is added, it must filter on `requested_by` too.
@@ -385,7 +385,7 @@ The IDOR fix, the `.env` writer and the decoder held up. Changes:
 
 | ID | Finding | Fix | Tests |
 |---|---|---|---|
-| M1 | A DB frozen at TCP level (sockets open, nothing forwarded) kept TASK/DAILY running for 20-180 s past a 2 s budget. `asyncio.wait_for` cancels and then AWAITS the cleanup, which hangs in SQLAlchemy's shielded close / asyncpg's cancel | `run_within` runs each step as a task; at the deadline it cancels and abandons it (cleanup not awaited, outcome consumed). The DAILY heartbeat is stopped with a bounded 0.5 s wait. `make_engine`: connect timeout 5 s and `BoundedCloseConnection`, whose `close()` ends within 2 s and otherwise aborts the socket (asyncpg's close waits, unbounded, for the server's answer to the cancelled statement). An abandoned connection holds a pool slot for at most `ABANDONED_RELEASE_SECONDS` = 5 s; with 5 + 5 slots that needs more than 5 frozen runs per 5 s to fill, and even then the next checkout waits inside a budget | `tests/test_freeze.py`: a real freezing TCP proxy in front of `make_engine()`. TASK/DAILY freeze before the run, during the AI call, and (DAILY) during a lease refresh: each returns within budget + 1 s. Six frozen runs: every pool slot is back within the bound while still frozen, and the service recovers after the thaw. The asyncpg `close` API is pinned |
+| M1 | A DB frozen at TCP level (sockets open, nothing forwarded) kept TASK/DAILY running for 20-180 s past a 2 s budget. `asyncio.wait_for` cancels and then AWAITS the cleanup, which hangs in SQLAlchemy's shielded close / asyncpg's cancel | `run_within` runs each step as a task; at the deadline it cancels and abandons it (cleanup not awaited, outcome consumed). The DAILY heartbeat is stopped with a bounded 0.5 s wait. `make_engine`: connect timeout 5 s and `BoundedCloseConnection`, whose `close()` ends within 2 s and otherwise aborts the socket (asyncpg's close waits, unbounded, for the server's answer to the canceled statement). An abandoned connection holds a pool slot for at most `ABANDONED_RELEASE_SECONDS` = 5 s; with 5 + 5 slots that needs more than 5 frozen runs per 5 s to fill, and even then the next checkout waits inside a budget | `tests/test_freeze.py`: a real freezing TCP proxy in front of `make_engine()`. TASK/DAILY freeze before the run, during the AI call, and (DAILY) during a lease refresh: each returns within budget + 1 s. Six frozen runs: every pool slot is back within the bound while still frozen, and the service recovers after the thaw. The asyncpg `close` API is pinned |
 | M2 | Nothing proved the DB timeouts are transaction-local; `set_config(..., false)` survived | - | `test_db_tx_timeouts_do_not_leak_into_the_next_transaction_on_the_same_session`: `pool_size=1`, same `pg_backend_pid()` in both transactions, `lock_timeout`/`statement_timeout` back to 0 |
 | L1 | The lock-wait test did not prove that Postgres ended the wait | `statement_timeout` ends 0.25 s (`DB_MARGIN_SECONDS`) before the client-side deadline, and `lock_timeout` another 0.1 s (`LOCK_EARLIER_SECONDS`) earlier. Before, both were equal and the statement timer always won, as 57014. The margins were widened in a098883 (from 0.1 s and 0.05 s) after kill confirmation caught a loaded-machine flake: 55P03 arrived after the client had abandoned the step | the lock-wait test requires 55P03 in the cause chain. `test_our_own_statement_timeout_is_the_budget` requires 57014 in the cause, which kills the challenger's `DB_MARGIN_SECONDS = -0.04` |
 | L2 | Overwriting a 644 `.env` wrote the new secrets into a 644 temp file, then a 644 `.env` until the later chmod | `env_replace` chmods the temp copy to 600 before anything new is written and checks mode 600 + the original owner/group. The replaced file is always 600. Decision for the append/fill path: also 600 (`.env` holds secrets); a looser mode is tightened with a notice, and owner and group are kept | `test_setup_temp_copy_is_private_before_new_content_is_written` (fill, append), `test_full_setup_overwrite_writes_new_secrets_only_into_600_files`, mode tests now expect 600 |

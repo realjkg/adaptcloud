@@ -334,7 +334,7 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
     mode = resolve_mode(req.task, req.mode, req.urls)
     task_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    requested_by = _normalise_user(requested_by)
+    requested_by = _normalize_user(requested_by)
     stale_before = now - timedelta(seconds=cfg.budget_seconds + STALE_GRACE_SECONDS)
     try:
         await run_within(budget, _create_task_row(engine, task_id, requested_by, req, mode, now, cfg.hourly_limit,
@@ -373,7 +373,7 @@ async def run_task(engine: AsyncEngine, ai, fetcher, requested_by: str, req: Tas
         raise mapped from exc
 
 
-def _normalise_user(user: str) -> str:
+def _normalize_user(user: str) -> str:
     """The form stored in tasks.requested_by; reads compare against the same form."""
     return user.replace("\x00", "")[:320]
 
@@ -389,7 +389,7 @@ async def get_task(engine: AsyncEngine, task_id: str, requested_by: str) -> dict
         row = (await conn.execute(text(
             "SELECT id, requested_by, request_text, mode, status, result_json, error, created_at, completed_at "
             "FROM aidigest.tasks WHERE id=:id AND requested_by=:by"),
-            {"id": task_id, "by": _normalise_user(requested_by)})).mappings().first()
+            {"id": task_id, "by": _normalize_user(requested_by)})).mappings().first()
     if row is None:
         return None
     out = dict(row)
