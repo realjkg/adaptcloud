@@ -111,7 +111,7 @@ def effective_address(ip: ipaddress.IPv4Address | ipaddress.IPv6Address):
 
 
 def policy_blocks(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """Explicit deny rules that do not depend on the stdlib's is_global tables (defence in
+    """Explicit deny rules that do not depend on the stdlib's is_global tables (defense in
     depth: those tables have changed between Python releases). True = never connect."""
     ip = effective_address(ip)
     if ip.is_reserved or ip.is_multicast:

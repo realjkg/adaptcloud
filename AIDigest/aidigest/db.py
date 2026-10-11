@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 SCHEMA = "aidigest"
 REQUIRED_TABLES = ("articles", "knowledge", "tasks", "runs")
 SCHEMA_FILE = Path(__file__).resolve().parent.parent / "schema.sql"
-# Arbitrary constant: serialises concurrent schema application across replicas.
+# Arbitrary constant: serializes concurrent schema application across replicas.
 _SCHEMA_LOCK_KEY = 0x41494447
 
 

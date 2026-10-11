@@ -598,7 +598,7 @@ async def test_heartbeat_extends_the_lease(engine):
     assert float(remaining) > 50
 
 
-async def test_claim_is_serialised_by_the_per_day_advisory_lock(engine, pg_url):
+async def test_claim_is_serialized_by_the_per_day_advisory_lock(engine, pg_url):
     """L5 survivor: claiming holds pg_advisory_xact_lock(hashtext(run_key))."""
     holder = create_async_engine(pg_url, poolclass=NullPool)
     try:

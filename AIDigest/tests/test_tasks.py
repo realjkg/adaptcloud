@@ -187,7 +187,7 @@ async def test_task_persist_knowledge_false_saves_nothing(client, engine, fake_a
     assert await count(engine, "knowledge") == 0
 
 
-async def test_task_output_is_sanitised(client, fake_ai, fake_fetcher):
+async def test_task_output_is_sanitized(client, fake_ai, fake_fetcher):
     fake_fetcher.pages[URLS[0]] = "page"
     fake_ai.queue_json(answer(recommended_actions=[{"type": "DEPLOY", "text": "rm -rf"},
                                                    {"type": "WATCH", "text": "Watch it."}],

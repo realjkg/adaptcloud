@@ -10,7 +10,7 @@
 #      Only the fully configured combination with the right password may reach 502.
 #
 # Caddy is started exactly as docker-compose does: the compose "command" (caddy-entrypoint.sh,
-# which sanitises malformed AIDigest values) with the same files mounted.
+# which sanitizes malformed AIDigest values) with the same files mounted.
 #
 # Usage: AIDigest/scripts/caddy_matrix.sh [Caddyfile] [docker-compose.yml] [caddy-entrypoint.sh]
 # Needs docker, the caddy:2-alpine image and python3. Exit 0 = all expectations met.

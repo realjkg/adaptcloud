@@ -52,7 +52,7 @@ Final run: see section 9. The 339 tests break down as follows:
 |---|---|---|
 | test_auth.py | 113 | auth matrix: missing/empty/blank/forged user, missing/wrong/prefix/long/empty secret, x 12 routes; unconfigured secret fails closed; `hmac.compare_digest` spy |
 | test_fetcher.py | 75 | every SSRF case: scheme, credentials, IPv4/IPv6/int/hex/short IP literals, localhost/.local/.internal/metadata, port, DNS->private (v4, v6, mixed, mapped, NAT64, 6to4), IP pinning + Host/SNI, DNS rebinding, redirect re-validation and limit, Content-Length pre-check, streamed cap (chunked, lying length) |
-| test_tasks.py | 51 | findings 3, 6, 7, 8, 9; knowledge/citation guardrails; output sanitising; one AI call |
+| test_tasks.py | 51 | findings 3, 6, 7, 8, 9; knowledge/citation guardrails; output sanitizing; one AI call |
 | test_daily.py | 34 | findings 2, 3, 4, 10; duplicate, concurrent, restart, retry-after-failure and abandoned-run cases |
 | test_ai.py | 23 | Claude adapter (model from settings, no tools, refusal/truncation/API error -> AIError); finite-number and strict JSON parsing |
 | test_config.py | 18 | production validation, model default, daily time |
@@ -436,7 +436,7 @@ $ $PY scripts/mutation_check.py
 | 69 | `m5-unsupported-encoding-accepted` | unknown content encodings refused | killed | 1 failed, 331 passed in 22.27s |
 | 70 | `m6-unbounded-ai-concurrency` | global AI concurrency cap | killed | 1 failed, 456 passed in 36.83s |
 | 71 | `m6-no-hourly-cap` | per-user hourly TASK cap | killed | 1 failed, 456 passed in 36.94s |
-| 72 | `m6-hourly-cap-not-atomic` | count-then-insert serialised per user | killed | 1 failed, 456 passed in 37.29s |
+| 72 | `m6-hourly-cap-not-atomic` | count-then-insert serialized per user | killed | 1 failed, 456 passed in 37.29s |
 | 73 | `m6-no-daily-attempt-cap` | DAILY attempts capped per UTC day | killed | 1 failed, 39 passed in 5.53s |
 | 74 | `m7-setup-rewrites-existing-keys` | setup --aidigest never duplicates/changes existing keys | killed | 1 failed, 393 passed in 30.55s |
 | 75 | `m7-setup-overwrite-unconfirmed` | overwrite requires typing OVERWRITE | killed | 1 failed, 397 passed in 33.38s |
@@ -714,7 +714,7 @@ Round-2 rows (the full 113-row table is printed by the script):
 | 98 | `r2-m3-no-mapped-unwrap` | IPv4-mapped judged by its IPv4 (observable on 3.12.3) | killed | 1 failed, 363 passed in 22.39s |
 | 99 | `r2-l1-non-text-codec-allowed` | only text codecs decode bodies | killed | 1 failed, 369 passed in 26.07s |
 | 100 | `r2-l1-decode-errors-unmapped` | decode errors are 502 | killed | 1 failed, 371 passed in 24.47s |
-| 101 | `r2-l1-huge-charref` | huge numeric charrefs neutralised before html.unescape | killed | 1 failed, 406 passed in 26.94s |
+| 101 | `r2-l1-huge-charref` | huge numeric charrefs neutralized before html.unescape | killed | 1 failed, 406 passed in 26.94s |
 | 102 | `r2-l2-all-feeds-failed-completes` | all feeds failing is a failed (retryable) run | killed | 1 failed, 183 passed in 13.68s |
 | 103 | `r2-l3-empty-keys-not-filled` | setup.sh fills empty AIDigest keys | killed | 1 failed, 429 passed in 32.27s |
 | 104 | `r2-l4-readme-no-member-grant` | README role SQL works for a PG16 non-superuser admin | killed | 1 failed, 233 passed in 20.42s |
@@ -722,7 +722,7 @@ Round-2 rows (the full 113-row table is printed by the script):
 | 106 | `r2-l5-items-per-feed` | <= 25 items per feed | killed | 1 failed, 239 passed in 20.39s |
 | 107 | `r2-l5-description-cap` | <= 1800-char descriptions | killed | 1 failed, 240 passed in 22.89s |
 | 108 | `r2-l5-run-key-local-date` | run_key uses the UTC date | killed | 1 failed, 231 passed in 21.21s |
-| 109 | `r2-l5-no-claim-lock` | claims serialised by the per-day advisory lock | killed | 1 failed, 230 passed in 24.34s |
+| 109 | `r2-l5-no-claim-lock` | claims serialized by the per-day advisory lock | killed | 1 failed, 230 passed in 24.34s |
 | 110 | `r2-l5-heartbeat-never-runs` | the heartbeat extends the lease | killed | 1 failed, 229 passed in 26.16s |
 | 111 | `r2-l6-default-executor` | parsers use the dedicated bounded executor | killed | 1 failed, 241 passed in 22.48s |
 | 112 | `r2-l7-replica-clock-lease` | lease timestamps from the DB clock | killed | 1 failed, 29 passed in 3.78s |
@@ -737,7 +737,7 @@ A first pass over the 22 round-2 mutations left two survivors, fixed before the 
 - `r2-l1-decode-errors-unmapped`: every tested charset was refused by the text-codec check first. The redundant idna/punycode/undefined deny-list was removed; those codecs fail inside `decode` and now exercise the try/except alone.
 
 `URL control characters` (challenger L5): an equivalent mutant. httpx's URL parser itself rejects NUL, CR/LF,
-TAB and DEL in host and path (checked), so the explicit check cannot change behavior. It stays as defence in
+TAB and DEL in host and path (checked), so the explicit check cannot change behavior. It stays as defense in
 depth, and `test_validate_url_rejects_control_characters` covers the behavior.
 
 ### 11.7 Lint, compile, dependency audit
@@ -823,7 +823,7 @@ This section supersedes sections 1-11 for gate results.
 | `56eefc1` | M1: failing tests (red) - Settings/setup.sh user and secret rules, temp-file trap, 17 new Caddy matrix cases |
 | `efa9b3d` | M1: heredoc tokens for user/hash, proxy secret read at request time, format-checking guard, `caddy-entrypoint.sh`, Settings `aidigest_basic_auth_user`, setup.sh rules + trap |
 | `7a8bba5` | M2: documented role SQL runs as the database owner (PUBLIC CONNECT revoked in the test); README updated |
-| `73bb6ff` | 12 round-3 mutations (125 total); compose sentinels removed (the entrypoint is the single sanitising mechanism); behavioral trap test; outside-compose matrix cases; `MUTATION_PY312` fails loudly |
+| `73bb6ff` | 12 round-3 mutations (125 total); compose sentinels removed (the entrypoint is the single sanitizing mechanism); behavioral trap test; outside-compose matrix cases; `MUTATION_PY312` fails loudly |
 | this commit | DESIGN.md section 12 and auth text, this evidence |
 
 ### 12.1 Red
@@ -2179,9 +2179,10 @@ The 8 mutants: `r10-task-failure-record-db-unreachable`, `r11-nochange-skips-har
 ### 19.2 What was not run
 
 - **The full mutation run was not repeated on this head.** 208 mutants are defined (201 at
-  `432f908` plus the 7 `r11-*`). The earlier 200 were killed on `961972d` (section 17); the 8 above
-  on this head. A repeat of the remaining 131 was started and stopped after 16 (all killed, none
-  survived or SUSPECT), at the coordinator's request, so those 131 have no result on this head.
+  `432f908` plus the 7 `r11-*`). Only the 8 above were run on this head, so the other 200 have no
+  result on this head. Those 200 were killed on `961972d` (section 17); a repeat on a later head was
+  started and stopped after 16 spot-runs (all killed, none survived or SUSPECT), at the
+  coordinator's request.
 - `caddy_matrix.sh` and `setup_bash_matrix.sh` were not re-run: this round changed neither
   `Caddyfile`, `caddy-entrypoint.sh`, nor the signal/atomic-replace code of `setup.sh`.
   The existing Caddy mutants were not re-run either; the confirmation step for them is covered by
