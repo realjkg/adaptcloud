@@ -189,17 +189,29 @@ _ORIGINAL = _FILLER + "AIDIGEST_PROXY_SECRET=\n"
 _FILLED = _FILLER + "AIDIGEST_PROXY_SECRET=new\n"
 
 
-def _fill_empty_script(hook: str) -> str:
-    """The real error() helper and the real aidigest_fill_empty block (from its AIDIGEST_TMP global, when
-    there is one, to the end of the function), the hook first, then one call."""
+_APPENDED = _ORIGINAL + "\n# AIDigest (added by setup.sh on 2026-01-01 00:00 UTC)\nAIDIGEST_ADDED=new\n"
+_EXPECTED = {"fill": _FILLED, "append": _APPENDED}
+# The .env writer (PR review 4177765138): every change to .env goes through env_replace FILE PRODUCER...,
+# fill (an empty key gets a value) and append (a missing key is added) alike.
+_CALLS = {
+    "fill": 'env_replace "$1" aidigest_env_lines "$1" 1 "AIDIGEST_PROXY_SECRET=new"\n',
+    "append": 'env_replace "$1" aidigest_env_lines "$1" 0 "AIDIGEST_ADDED=new"\n',
+}
+_FIXED_DATE = "date() { builtin printf '%s\\n' '2026-01-01 00:00 UTC'; }\n"
+
+
+def _fill_empty_script(hook: str, path: str = "fill") -> str:
+    """The real error() helper and the real .env writer block of setup.sh (from its AIDIGEST_TMP global
+    to the end of aidigest_env_lines), the hook first, then one call of the given path."""
     text_ = (REPO / "setup.sh").read_text()
-    error_line = next(ln for ln in text_.splitlines() if ln.startswith("error()"))
-    func = text_.index("aidigest_fill_empty() {")
+    error_line = "\n".join(ln for ln in text_.splitlines() if ln.startswith(("error()", "info()")))
+    last = text_.find("aidigest_env_lines() {")
+    last = last if last >= 0 else text_.index("aidigest_fill_empty() {")
     start = text_.find('AIDIGEST_TMP=""')
-    start = start if 0 <= start < func else func
-    block = text_[start:text_.index("\n}\n", func) + 3]
-    return ("set -euo pipefail\nRED=; RESET=\n" + error_line + "\n" + _SIGNAL_HELPER + hook + block
-            + 'aidigest_fill_empty "$1" AIDIGEST_PROXY_SECRET "AIDIGEST_PROXY_SECRET=new"\n')
+    start = start if 0 <= start < last else last
+    block = text_[start:text_.index("\n}\n", last) + 3]
+    return ("set -euo pipefail\nRED=; CYAN=; RESET=\n" + error_line + "\n" + _SIGNAL_HELPER + _FIXED_DATE + hook + block
+            + _CALLS[path])
 
 
 def _default_signals() -> None:
@@ -212,22 +224,23 @@ def _default_signals() -> None:
         signal.signal(signum, signal.SIG_DFL)
 
 
-def _launch(tmp_path: Path, hook: str, env_file: Path | None = None, **env) -> subprocess.CompletedProcess:
+def _launch(tmp_path: Path, hook: str, env_file: Path | None = None, path: str = "fill",
+            **env) -> subprocess.CompletedProcess:
     """Every run of the function under test goes through here."""
     # start_new_session: the script gets its own process group, so "kill 0" cannot reach pytest
-    return subprocess.run(["bash", "-c", _fill_empty_script(hook), "fill", str(env_file or tmp_path / ".env")],
+    return subprocess.run(["bash", "-c", _fill_empty_script(hook, path), "fill", str(env_file or tmp_path / ".env")],
                           cwd=tmp_path, env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
                                              **env},
                           capture_output=True, text=True, timeout=60, start_new_session=True,
                           preexec_fn=_default_signals)
 
 
-def _run_fill(tmp_path: Path, hook: str, content: str = _ORIGINAL, mode: int | None = None,
+def _run_fill(tmp_path: Path, hook: str, content: str = _ORIGINAL, mode: int | None = None, path: str = "fill",
               **env) -> subprocess.CompletedProcess:
     (tmp_path / ".env").write_text(content)
     if mode is not None:
         (tmp_path / ".env").chmod(mode)
-    return _launch(tmp_path, hook, **env)
+    return _launch(tmp_path, hook, path=path, **env)
 
 
 def _created(tmp_path: Path) -> list[str]:
@@ -235,27 +248,29 @@ def _created(tmp_path: Path) -> list[str]:
     return created.read_text().split() if created.exists() else []
 
 
+@pytest.mark.parametrize("path", sorted(_CALLS))
 @pytest.mark.parametrize("target", ["shell", "group"])
 @pytest.mark.parametrize("sig", sorted(_SIGNUM))
 @pytest.mark.parametrize("point", sorted(_SIGNAL_POINTS))
-def test_setup_temp_file_removed_on_interrupt(tmp_path, point, sig, target):
+def test_setup_temp_file_removed_on_interrupt(tmp_path, point, sig, target, path):
     """HUP/INT/QUIT/TERM at any point: exit 128+signal, the 600-mode temp copy is gone, and .env is
     either untouched (signal before the replace) or completely replaced: never truncated or partial."""
-    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], SIG=sig, TARGET=target)
+    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], path=path, SIG=sig, TARGET=target)
     names = _created(tmp_path)
     assert len(names) == 1 and names[0].startswith(str(tmp_path / ".env.aidigest.")), names
     assert proc.returncode == 128 + _SIGNUM[sig], (proc.returncode, proc.stdout, proc.stderr)
     assert not Path(names[0]).exists(), "temp file with secrets left behind"
     assert not list(tmp_path.glob(".env.aidigest.*"))
-    assert (tmp_path / ".env").read_text() == (_FILLED if point == "after-replace" else _ORIGINAL)
+    assert (tmp_path / ".env").read_text() == (_EXPECTED[path] if point == "after-replace" else _ORIGINAL)
 
 
+@pytest.mark.parametrize("path", sorted(_CALLS))
 @pytest.mark.parametrize("target", ["shell", "group"])
 @pytest.mark.parametrize("point", ["during-copy", "at-replace"])
-def test_setup_sigkill_never_truncates_env(tmp_path, point, target):
+def test_setup_sigkill_never_truncates_env(tmp_path, point, target, path):
     """SIGKILL cannot be trapped: the temp file may remain (it is git-ignored), but .env is the old
     file or the complete new one, never partial or empty (in particular not an in-place rewrite)."""
-    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], SIG="KILL", TARGET=target)
+    proc = _run_fill(tmp_path, _SIGNAL_POINTS[point], path=path, SIG="KILL", TARGET=target)
     assert proc.returncode == -9, (proc.returncode, proc.stderr)
     assert (tmp_path / ".env").read_text() == _ORIGINAL
 
@@ -266,7 +281,8 @@ _FAILURES = {  # hook, the message that must explain it
                   'else builtin printf "$@"; fi; }\n', "Could not write"),
     # cp -p hitting a full disk: a real ENOSPC, the temp copy keeps mktemp's mode 600 (= .env's)
     "copy-fails": (_MKTEMP_RECORD + 'cp() { command cp "$1" /dev/full; }\n', "Could not copy"),
-    "mode-not-kept": (_MKTEMP_RECORD + 'cp() { command cp "$@" && chmod 0666 "${@: -1}"; }\n', "mode and owner"),
+    # the temp copy does not end up private (mode 600) with .env's owner: nothing is written into it
+    "mode-not-private": (_MKTEMP_RECORD + 'chmod() { command chmod 0644 "${@: -1}"; }\n', "mode and owner"),
     "rename-fails": (_MKTEMP_RECORD + "mv() { return 1; }\n", "Could not replace"),
     # fsync of the temp copy fails (I/O error) while `sync FILE` itself is supported
     "flush-fails": (_MKTEMP_RECORD + 'sync() { [[ "${1:-}" != *.aidigest.* ]] || return 1; command sync "$@"; }\n',
@@ -274,14 +290,15 @@ _FAILURES = {  # hook, the message that must explain it
 }
 
 
+@pytest.mark.parametrize("path", sorted(_CALLS))
 @pytest.mark.parametrize("failure", sorted(_FAILURES))
-def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure):
+def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure, path):
     """Any failure before the rename: exit 1 with a clear message, .env byte-identical, and the temp
     copy removed by the EXIT cleanup."""
     env_file = tmp_path / ".env"
     hook, message = _FAILURES[failure]
     # mode 600 as setup.sh writes it, so only the step under test can stop the replace
-    proc = _run_fill(tmp_path, hook, mode=0o600)
+    proc = _run_fill(tmp_path, hook, mode=0o600, path=path)
     names = _created(tmp_path)
     assert len(names) == 1, names
     assert proc.returncode == 1, (proc.returncode, proc.stdout, proc.stderr)
@@ -291,30 +308,34 @@ def test_setup_failure_before_rename_leaves_env_untouched(tmp_path, failure):
 
 
 def test_setup_temp_file_is_private_before_any_secret_is_copied(tmp_path):
-    """The temp copy exists with mode 600 before cp -p writes .env's content into it (only then does it
-    take .env's mode)."""
+    """The temp copy exists with mode 600 before cp -p copies .env (the OLD content, briefly at the old
+    mode) into it; it is chmod 600 again before any new content is written."""
     hook = _MKTEMP_RECORD + 'cp() { stat -c %a "${@: -1}" >> "$MODES"; command cp "$@"; }\n'
     env_file = tmp_path / ".env"
     proc = _run_fill(tmp_path, hook, mode=0o644, MODES=str(tmp_path / "modes.log"))
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert (tmp_path / "modes.log").read_text().split() == ["600"]
-    assert stat.S_IMODE(env_file.stat().st_mode) == 0o644 and env_file.read_text() == _FILLED
+    # review of ae012a0, L2: the replaced .env is 600 (it was 644)
+    assert stat.S_IMODE(env_file.stat().st_mode) == 0o600 and env_file.read_text() == _FILLED
 
 
-def test_setup_fill_keeps_mode_and_owner(tmp_path):
-    """.env is replaced by a rename, so the new file must get the old one's mode and owner."""
+@pytest.mark.parametrize("path", sorted(_CALLS))
+def test_setup_replace_keeps_owner_and_makes_env_private(tmp_path, path):
+    """.env is replaced by a rename: the new file keeps the old one's owner and group, and is mode 600
+    (review of ae012a0, L2: .env holds secrets; a looser mode is tightened, with a notice)."""
     env_file = tmp_path / ".env"
     env_file.write_text(_ORIGINAL)
     env_file.chmod(0o640)
     owner = (12345, 23456) if os.geteuid() == 0 else (os.getuid(), os.getgid())
     if os.geteuid() == 0:
         os.chown(env_file, *owner)
-    proc = _launch(tmp_path, _MKTEMP_RECORD)
+    proc = _launch(tmp_path, _MKTEMP_RECORD, path=path)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     st = env_file.stat()
-    assert env_file.read_text() == _FILLED
-    assert stat.S_IMODE(st.st_mode) == 0o640
+    assert env_file.read_text() == _EXPECTED[path]
+    assert stat.S_IMODE(st.st_mode) == 0o600
     assert (st.st_uid, st.st_gid) == owner
+    assert "600" in proc.stdout + proc.stderr     # the tightening is reported
     assert not list(tmp_path.glob(".env.aidigest.*"))
 
 
@@ -335,7 +356,8 @@ def test_setup_flushes_the_temp_copy(tmp_path, support):
         assert synced == ["<plain>"], synced
 
 
-def test_setup_refuses_a_symlinked_env(tmp_path):
+@pytest.mark.parametrize("path", sorted(_CALLS))
+def test_setup_refuses_a_symlinked_env(tmp_path, path):
     """A rename would replace the link with a regular file (and writing through it could reach a file
     outside the repository): a symlinked .env is refused with a clear message, link and target unchanged."""
     target = tmp_path / "elsewhere.env"
@@ -343,7 +365,7 @@ def test_setup_refuses_a_symlinked_env(tmp_path):
     target.chmod(0o600)
     link = tmp_path / ".env"
     link.symlink_to(target)
-    proc = _launch(tmp_path, _MKTEMP_RECORD)
+    proc = _launch(tmp_path, _MKTEMP_RECORD, path=path)
     assert proc.returncode == 1, (proc.returncode, proc.stdout, proc.stderr)
     assert ".env is a symlink" in proc.stdout + proc.stderr, proc.stdout + proc.stderr
     assert link.is_symlink() and os.readlink(link) == str(target)
@@ -366,6 +388,192 @@ def test_harness_works_when_pytest_starts_with_signals_ignored(tmp_path, sig):
     assert proc.returncode == 128 + _SIGNUM[sig], (proc.returncode, proc.stdout, proc.stderr)
     assert (tmp_path / ".env").read_text() == _ORIGINAL
     assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+# ── PR review 4177765138: the upgrade (append) path is the same atomic, symlink-refusing writer ──
+def test_upgrade_of_a_pre_pr_env_adds_the_keys_atomically_keeping_the_owner(tmp_path):
+    """The normal upgrade path: a pre-PR .env without any AIDigest key. The keys are added by
+    replacing .env (new inode, nothing written into the old file), with its mode and owner."""
+    env_file = _prepare(tmp_path)
+    env_file.chmod(0o640)
+    owner = (12345, 23456) if os.geteuid() == 0 else (os.getuid(), os.getgid())
+    if os.geteuid() == 0:
+        os.chown(env_file, *owner)
+    before, inode = env_file.read_bytes(), env_file.stat().st_ino
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    st = env_file.stat()
+    after = env_file.read_bytes()
+    assert after.startswith(before) and b"AIDIGEST_PROXY_SECRET=" in after and b"COMPOSE_PROFILES=aidigest" in after
+    assert st.st_ino != inode, "the keys were written into the old file instead of replacing it"
+    assert stat.S_IMODE(st.st_mode) == 0o600 and (st.st_uid, st.st_gid) == owner   # L2: tightened
+    assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+def test_upgrade_refuses_a_symlinked_env_on_the_append_path(tmp_path):
+    """setup.sh --aidigest on a pre-PR .env that is a symlink to a file elsewhere: refused, the
+    target outside the directory is not modified."""
+    shutil.copy(REPO / "setup.sh", tmp_path / "setup.sh")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "real.env"
+    target.write_text(PRE_PR_ENV)
+    (tmp_path / ".env").symlink_to(target)
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode != 0, proc.stdout + proc.stderr
+    assert ".env is a symlink" in proc.stdout + proc.stderr
+    assert target.read_text() == PRE_PR_ENV and (tmp_path / ".env").is_symlink()
+    assert not list(tmp_path.glob(".env.aidigest.*")) and not list(outside.glob(".env.aidigest.*"))
+
+
+# ── Review of 432f908 (HIGH): the no-change path still enforces mode 600 and refuses symlinks ──
+CONFIGURED_ENV = PRE_PR_ENV + (
+    "AIDIGEST_PROXY_SECRET=" + "ab" * 32 + "\nAIDIGEST_BASIC_AUTH_USER=opsuser\n"
+    f"AIDIGEST_BASIC_AUTH_HASH='{FAKE_HASH}'\n"
+    "AIDIGEST_DATABASE_URL=postgresql+asyncpg://aidigest_app:pw@db.example.com/sagedb?ssl=require\n"
+    "COMPOSE_PROFILES=aidigest\n")
+
+
+@pytest.mark.parametrize("mode", [0o644, 0o666, 0o640, 0o604])
+def test_no_change_path_tightens_a_loose_env_to_600(tmp_path, mode):
+    """Every AIDigest key is already set, so nothing is added or filled. The secret-bearing .env must
+    still end mode 600 (same content, same owner), with a notice."""
+    env_file = _prepare(tmp_path, CONFIGURED_ENV)
+    env_file.chmod(mode)
+    owner = (12345, 23456) if os.geteuid() == 0 else (os.getuid(), os.getgid())
+    if os.geteuid() == 0:
+        os.chown(env_file, *owner)
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    st = env_file.stat()
+    assert env_file.read_text() == CONFIGURED_ENV
+    assert stat.S_IMODE(st.st_mode) == 0o600 and (st.st_uid, st.st_gid) == owner
+    assert "mode 600" in proc.stdout + proc.stderr
+    assert not list(tmp_path.glob(".env.aidigest.*"))
+
+
+def test_no_change_path_leaves_a_private_env_untouched(tmp_path):
+    """Already mode 600 and complete: .env is not rewritten (same inode, same bytes)."""
+    env_file = _prepare(tmp_path, CONFIGURED_ENV)
+    inode = env_file.stat().st_ino
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert env_file.stat().st_ino == inode and env_file.read_text() == CONFIGURED_ENV
+    assert stat.S_IMODE(env_file.stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize("target_mode", [0o644, 0o600])
+def test_no_change_path_refuses_a_symlinked_env(tmp_path, target_mode):
+    """A complete .env that is a symlink: refused on the no-change path too, link and target unchanged.
+    A private (600) target must be refused as well: the refusal is the explicit symlink test, not a side
+    effect of the link's own mode string."""
+    shutil.copy(REPO / "setup.sh", tmp_path / "setup.sh")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "real.env"
+    target.write_text(CONFIGURED_ENV)
+    target.chmod(target_mode)
+    (tmp_path / ".env").symlink_to(target)
+    proc = _run(tmp_path, ["--aidigest"], ANSWERS)
+    assert proc.returncode != 0, proc.stdout + proc.stderr
+    assert ".env is a symlink" in proc.stdout + proc.stderr
+    assert target.read_text() == CONFIGURED_ENV and stat.S_IMODE(target.stat().st_mode) == target_mode
+    assert (tmp_path / ".env").is_symlink() and not list(outside.glob(".env.aidigest.*"))
+
+
+def test_no_direct_writes_to_env_anywhere():
+    """Sweep: .env and its backups (.env.*) change only through env_replace (temp file + rename).
+    setup.sh and the Makefile must not redirect into them, tee/sed -i/cp onto them, or rename anything
+    but the temp copy onto them."""
+    import re
+    env = r'(\.env(\.[\w-]+)*|\$\{?file\}?|\$1)'        # .env, .env.backup, "$file", ...
+    forbidden = [
+        re.compile(r'>>?\s*"?' + env + r'"?(\s|;|\)|$)'),                 # > .env, >> "$file", > .env.backup
+        re.compile(r'\btee\b[^|;]*\s"?' + env + r'"?(\s|;|$)'),
+        re.compile(r'\bsed\b[^|;]*\s-i'),
+        re.compile(r'\b(cp|install|ln)\b[^|;]*\s"?' + env + r'"?\s*(;|\|\||&&|$)'),   # cp .env .env.backup
+    ]
+    renames = []
+    for name in ("setup.sh", "Makefile"):
+        for number, line in enumerate((REPO / name).read_text().splitlines(), 1):
+            code = line.split(" #", 1)[0] if not line.lstrip().startswith("#") else ""
+            for pattern in forbidden:
+                assert not pattern.search(code), f"{name}:{number}: direct write to .env: {line.strip()}"
+            if re.search(r'\bmv\b', code):
+                renames.append(code.strip())
+    assert renames == ['mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."'], renames
+
+
+# ── Review of ae012a0, L2: new secrets are never written into a file looser than 600 ──
+@pytest.mark.parametrize("path", sorted(_CALLS))
+def test_setup_temp_copy_is_private_before_new_content_is_written(tmp_path, path):
+    hook = (_MKTEMP_RECORD + 'printf() { [[ -s "$MODES" ]] || stat -c %a "$AIDIGEST_TMP" >> "$MODES"; '
+            'builtin printf "$@"; }\n')
+    proc = _run_fill(tmp_path, hook, mode=0o644, path=path, MODES=str(tmp_path / "modes.log"))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (tmp_path / "modes.log").read_text().split() == ["600"]
+    assert stat.S_IMODE((tmp_path / ".env").stat().st_mode) == 0o600
+
+
+def test_full_setup_overwrite_writes_new_secrets_only_into_600_files(tmp_path):
+    """The full setup over an existing 644 .env (after the OVERWRITE confirmation): the fresh secrets go
+    into a 600 temp file and the replaced .env is 600 at once, not only after the later chmod."""
+    text_ = (REPO / "setup.sh").read_text()
+    start = text_.index("setup_env_content() {")
+    producer = text_[start:text_.index("\n}\n", start) + 3]
+    hook = _MKTEMP_RECORD + 'cat() { stat -c %a "$AIDIGEST_TMP" >> "$MODES"; command cat "$@"; }\n'
+    script = _fill_empty_script(hook).rsplit(_CALLS["fill"], 1)[0] + producer + (
+        "ANTHROPIC_API_KEY=k SECRET_KEY=new-secret MASTER_SECRET=m PARENT_PASSWORD=p CHILD_PIN=1234 "
+        "DATABASE_URL=d CORS_ORIGINS=c\n" 'env_replace "$1" setup_env_content\n')
+    env_file = tmp_path / ".env"
+    env_file.write_text("SECRET_KEY=old\n")
+    env_file.chmod(0o644)
+    proc = subprocess.run(["bash", "-c", script, "fill", str(env_file)], cwd=tmp_path, capture_output=True, text=True,
+                          env={"PATH": os.environ["PATH"], "CREATED": str(tmp_path / "created.log"),
+                               "MODES": str(tmp_path / "modes.log")}, timeout=60, preexec_fn=_default_signals)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (tmp_path / "modes.log").read_text().split() == ["600"]
+    assert "SECRET_KEY=new-secret" in env_file.read_text()
+    assert stat.S_IMODE(env_file.stat().st_mode) == 0o600
+
+
+# ── Review of ae012a0, L8: backups of .env go through the same writer ──
+def _backup(tmp_path):
+    shutil.copy(REPO / "setup.sh", tmp_path / "setup.sh")
+    return _run(tmp_path, ["--backup-env"], "")
+
+
+def test_backup_env_is_written_atomically_and_private(tmp_path):
+    env_file = _prepare(tmp_path)
+    env_file.chmod(0o644)
+    backup = tmp_path / ".env.backup"
+    backup.write_text("OLD BACKUP\n")
+    backup.chmod(0o644)
+    inode = backup.stat().st_ino
+    proc = _backup(tmp_path)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert backup.read_bytes() == env_file.read_bytes()
+    assert stat.S_IMODE(backup.stat().st_mode) == 0o600
+    assert backup.stat().st_ino != inode, "the backup was written into the old file instead of replacing it"
+    assert not list(tmp_path.glob(".env.backup.aidigest.*"))
+
+
+def test_backup_env_refuses_a_symlinked_backup(tmp_path):
+    _prepare(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "elsewhere"
+    target.write_text("NOT A BACKUP\n")
+    (tmp_path / ".env.backup").symlink_to(target)
+    proc = _backup(tmp_path)
+    assert proc.returncode != 0
+    assert ".env.backup is a symlink" in proc.stdout + proc.stderr
+    assert target.read_text() == "NOT A BACKUP\n"
+
+
+def test_makefile_backup_env_uses_the_writer():
+    recipe = (REPO / "Makefile").read_text().split("backup-env:", 1)[1].split("\n\n", 1)[0]
+    assert "setup.sh --backup-env" in recipe, recipe
 
 
 def test_setup_fill_empty_without_signal_still_fills(tmp_path):

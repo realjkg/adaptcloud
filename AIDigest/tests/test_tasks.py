@@ -2,11 +2,13 @@
 
 import json
 
+import httpx
 import pytest
 from sqlalchemy import text
 
 from aidigest.errors import AIError, UnsafeURLError, UpstreamError
 from aidigest.tasks import resolve_mode
+from tests.fakes import PROXY_SECRET
 
 URLS = ["https://a.example/one", "https://b.example/two", "https://c.example/three"]
 
@@ -185,7 +187,7 @@ async def test_task_persist_knowledge_false_saves_nothing(client, engine, fake_a
     assert await count(engine, "knowledge") == 0
 
 
-async def test_task_output_is_sanitised(client, fake_ai, fake_fetcher):
+async def test_task_output_is_sanitized(client, fake_ai, fake_fetcher):
     fake_fetcher.pages[URLS[0]] = "page"
     fake_ai.queue_json(answer(recommended_actions=[{"type": "DEPLOY", "text": "rm -rf"},
                                                    {"type": "WATCH", "text": "Watch it."}],
@@ -251,6 +253,28 @@ async def test_task_error_mapping_db_failure_is_503_and_recorded(client, engine,
     assert row["status"] == "failed" and row["error"]
 
 
+@pytest.mark.parametrize("failing_step", ["execute", "finish"])
+async def test_task_db_unreachable_while_recording_the_failure_is_503(client, fake_ai, fake_fetcher, monkeypatch,
+                                                                       failing_step):
+    """Review of 2493e19 L1: when the database is unreachable (ConnectionRefusedError, an OSError) from
+    _execute_task and/or _finish_task, the request ends as StorageError/503, never a raw 500. The
+    failure record itself cannot be written either, which must not escape the except block."""
+    from aidigest import tasks
+
+    fake_fetcher.pages[URLS[0]] = "page"
+    fake_ai.queue_json(answer())
+
+    async def refused(*_args, **_kwargs):
+        raise ConnectionRefusedError(111, "Connection refused")
+
+    monkeypatch.setattr(tasks, "_finish_task", refused)       # both the result and the failure record
+    if failing_step == "execute":
+        monkeypatch.setattr(tasks, "_execute_task", refused)
+    r = await client.post("/agent/tasks", json={"task": "Summarize this", "urls": URLS[:1]})
+    assert r.status_code == 503, r.text
+    assert "Connection refused" not in r.text
+
+
 async def test_task_unexpected_error_is_500_and_recorded(client, engine, fake_ai, fake_fetcher):
     fake_fetcher.pages[URLS[0]] = "page"
     fake_ai.queue(RuntimeError("boom"))
@@ -297,6 +321,101 @@ async def test_get_task(client, fake_ai, fake_fetcher):
 @pytest.mark.parametrize("task_id", ["00000000-0000-0000-0000-000000000000", "not-a-uuid", "1%27%20OR%201=1"])
 async def test_get_unknown_task_404(client, task_id):
     assert (await client.get(f"/agent/tasks/{task_id}")).status_code == 404
+
+
+# ── PR review 4177765103: a task is visible only to the user who created it ──
+OTHER = {"X-AIDigest-User": "someone-else@adapt.cloud", "X-AIDigest-Proxy-Secret": PROXY_SECRET}
+
+
+async def test_task_of_another_user_is_404_like_an_unknown_id(app, client, fake_ai, fake_fetcher):
+    fake_fetcher.pages[URLS[0]] = "page"
+    fake_ai.queue_json(answer())
+    created = (await client.post("/agent/tasks", json={"task": "Summarize this", "urls": URLS[:1]})).json()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://aidigest", headers=OTHER) as other:
+        theirs = await other.get(f"/agent/tasks/{created['id']}")
+        unknown = await other.get("/agent/tasks/00000000-0000-0000-0000-000000000000")
+    assert theirs.status_code == 404
+    assert theirs.json() == unknown.json()          # indistinguishable from a task that does not exist
+    assert "Short answer" not in theirs.text and "Summarize" not in theirs.text
+    assert (await client.get(f"/agent/tasks/{created['id']}")).status_code == 200   # the owner still can
+
+
+async def test_get_task_is_scoped_to_the_requester(engine):
+    from aidigest.tasks import get_task
+    task_id = "11111111-1111-1111-1111-111111111111"
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "INSERT INTO aidigest.tasks (id, requested_by, request_text, mode, status, created_at) "
+            "VALUES (:id, 'alice', 'secret plan', 'research', 'completed', now())"), {"id": task_id})
+    assert (await get_task(engine, task_id, "alice"))["request_text"] == "secret plan"
+    assert await get_task(engine, task_id, "bob") is None
+
+
+def _sql_literals(path):
+    """(enclosing function, SQL text) for every string literal in a module: implicit concatenation
+    (any number of fragments, merged by the parser), `+` concatenation of literals, and f-strings
+    (placeholders as {})."""
+    import ast
+
+    def text_of(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            return "".join(v.value if isinstance(v, ast.Constant) else "{}" for v in node.values)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            left, right = text_of(node.left), text_of(node.right)
+            return None if left is None or right is None else left + right
+        return None
+
+    found = []
+
+    def visit(node, func, inside_concat=False):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            func = node.name
+        sql = text_of(node)
+        if sql is not None and not inside_concat:
+            found.append((func, sql))
+        for child in ast.iter_child_nodes(node):
+            visit(child, func, inside_concat=sql is not None)
+
+    visit(ast.parse(path.read_text()), "<module>")
+    return found
+
+
+def test_every_query_on_tasks_is_scoped_to_a_user():
+    """Sweep (review of ae012a0, L5): every SQL statement that reads or changes aidigest.tasks must
+    filter on requested_by=:by and must not contain OR (no "... OR requested_by" escape hatch). The
+    only exemption is _finish_task, named explicitly: it updates the row this request created under
+    a fresh random id."""
+    import re
+    from pathlib import Path
+    statements = []
+    for path in sorted((Path(__file__).resolve().parents[1] / "aidigest").glob("*.py")):
+        for func, sql in _sql_literals(path):
+            flat = re.sub(r"\s+", " ", sql).strip()
+            if re.search(r"aidigest\.tasks\b", flat, re.I) and re.match(r"(SELECT|UPDATE|DELETE|WITH)\b", flat, re.I):
+                statements.append((path.name, func, flat))
+    assert len(statements) >= 3, f"too few task queries found: the sweep is stale ({statements})"
+    for name, func, sql in statements:
+        if (name, func) == ("tasks.py", "_finish_task"):
+            continue
+        assert re.search(r"\brequested_by\s*=\s*:by\b", sql, re.I), (name, func, sql)
+        assert not re.search(r"\bOR\b", sql, re.I), (name, func, sql)
+
+
+def test_every_route_has_an_access_policy(settings):
+    """New endpoints must be classified. Policy (DESIGN.md section 16): every authenticated user is a
+    team member; digest, knowledge and ops are shared; task records are per-user."""
+    from aidigest.app import create_app
+    policy = {
+        "/health": "public", "/": "shared", "/ops/status": "shared-ops", "/ops/run-daily": "shared-ops",
+        "/digest": "shared", "/digest.json": "shared", "/knowledge": "shared",
+        "/agent/tasks": "per-user (creates the caller's task)", "/agent/tasks/{task_id}": "per-user (owner only)",
+    }
+    app = create_app(settings, engine=object(), ai=object(), fetcher=object())
+    routes = {r.path for r in app.routes if getattr(r, "methods", None)}
+    assert routes == set(policy), routes ^ set(policy)
 
 
 # ── M3: NUL bytes are input errors, never 503 ────────────────────────────────
@@ -360,7 +479,7 @@ async def test_task_budget_is_enforced_and_recorded(settings, engine, fake_fetch
 
     ai = FakeAI(on_call=slow)
     ai.queue_json(answer())
-    app = create_app(settings.model_copy(update={"aidigest_task_budget_seconds": 0.3}),
+    app = create_app(settings.model_copy(update={"aidigest_task_budget_seconds": 1.0}),
                      engine=engine, ai=ai, fetcher=fake_fetcher)
     async with app.router.lifespan_context(app):
         async with _client_for(app) as c:
@@ -495,3 +614,180 @@ async def test_huge_charref_in_page_is_handled(settings, engine, fake_ai, ref):
     assert r.status_code == 200, r.text
     text_ = evidence_of(fake_ai.calls[0])[0]["text"]
     assert text_.startswith("before") and text_.endswith("after")
+
+
+# ═══════════ PR review 4177765211: the TASK budget is absolute ═══════════
+import asyncio  # noqa: E402
+import time  # noqa: E402
+
+from aidigest.errors import DeadlineError  # noqa: E402
+from tests.fakes import FakeAI, FakeFetcher, HangingEngine  # noqa: E402
+
+BUDGET = 1.0
+SLACK = 0.6
+
+
+async def _run_task_timed(engine, ai, fetcher, body):
+    from aidigest.tasks import TaskConfig, TaskRequest, run_task
+    start = time.monotonic()
+    try:
+        outcome = await asyncio.wait_for(run_task(engine, ai, fetcher, "operator@adapt.cloud", TaskRequest(**body),
+                                                  TaskConfig(budget_seconds=BUDGET)), 30)
+    except Exception as exc:  # noqa: BLE001 - asserted by the caller
+        outcome = exc
+    elapsed = time.monotonic() - start
+    await asyncio.sleep(0.3)    # let the abandoned step's cleanup (rollback) finish inside the test
+    return outcome, elapsed
+
+
+async def test_task_budget_covers_a_held_rate_limit_lock(settings, engine, fake_ai, fake_fetcher):
+    """Another session holds the per-user advisory lock that the task-row insert waits for; over
+    HTTP the caller gets 504 within the budget and no task row is left behind."""
+    from aidigest.app import create_app
+    app = create_app(settings.model_copy(update={"aidigest_task_budget_seconds": BUDGET}),
+                     engine=engine, ai=fake_ai, fetcher=fake_fetcher)
+    async with engine.connect() as holder:
+        await holder.execute(text("SELECT pg_advisory_lock(hashtext('task:operator@adapt.cloud'))"))
+        async with app.router.lifespan_context(app):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://aidigest",
+                                         headers={"X-AIDigest-User": "operator@adapt.cloud",
+                                                  "X-AIDigest-Proxy-Secret": PROXY_SECRET}) as c:
+                start = time.monotonic()
+                r = await asyncio.wait_for(c.post("/agent/tasks", json={"task": "Summarize this"}), 30)
+                elapsed = time.monotonic() - start
+        await holder.execute(text("SELECT pg_advisory_unlock_all()"))
+    assert r.status_code == 504, r.text
+    assert elapsed < BUDGET + SLACK, elapsed
+    assert fake_ai.calls == []
+    assert await count(engine, "tasks") == 0
+
+
+@pytest.mark.parametrize("needle", [
+    "information_schema.tables",     # readiness
+    "pg_advisory_xact_lock",         # the task-row insert (rate-limit lock)
+    "FROM aidigest.knowledge",       # during the run: evidence
+    "UPDATE aidigest.tasks SET",     # recording completion AND failure: both hang
+])
+async def test_task_budget_covers_a_database_that_never_answers(engine, needle):
+    ai, fetcher = FakeAI(), FakeFetcher()
+    ai.queue_json(answer())
+    hanging = HangingEngine(engine, needle)
+    outcome, elapsed = await _run_task_timed(hanging, ai, fetcher, {"task": "Summarize this knowledge"})
+    assert hanging.hung, "the needle never matched: the test does not test anything"
+    assert isinstance(outcome, DeadlineError), outcome
+    assert elapsed < BUDGET + SLACK, elapsed
+    if needle == "FROM aidigest.knowledge":   # the row exists and the failure record does not hang
+        row = await _only_task(engine)
+        assert row["status"] == "failed" and "budget" in row["error"]
+
+
+async def _only_task(engine):
+    async with engine.connect() as conn:
+        return dict((await conn.execute(text("SELECT status, error FROM aidigest.tasks"))).mappings().one())
+
+
+# ═══════════ Review of ae012a0, L7: a deadline during COMMIT leaves no stranded row ═══════════
+async def test_deadline_during_the_task_insert_commit_is_cleaned_up(engine):
+    """The insert COMMITTED on the server but the answer never arrived: the caller gets 504 and,
+    within the reserved slice, the row it cannot see is marked failed (keyed on its own id)."""
+    from tests.fakes import HangAfterCommitEngine
+    hanging = HangAfterCommitEngine(engine, "INSERT INTO aidigest.tasks")
+    outcome, elapsed = await _run_task_timed(hanging, FakeAI(), FakeFetcher(), {"task": "Summarize this"})
+    assert hanging.committed, "the insert never committed: the test does not test anything"
+    assert isinstance(outcome, DeadlineError), outcome
+    assert elapsed < BUDGET + SLACK, elapsed
+    row = await _only_task(engine)
+    assert row["status"] == "failed" and "abandoned" in row["error"], row
+
+
+async def test_stale_running_task_is_failed_on_the_next_request(engine):
+    """Self-healing when even the cleanup could not run (DB unreachable): a 'running' row older than
+    the task budget (+ grace) cannot belong to a live task; the user's next request marks it failed.
+    It still counts toward the hourly limit (it was a request)."""
+    from aidigest.tasks import TaskConfig, TaskRequest, run_task
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "INSERT INTO aidigest.tasks (id, requested_by, request_text, mode, status, created_at) VALUES "
+            "('22222222-2222-2222-2222-222222222222', 'operator@adapt.cloud', 'old', 'research', 'running', "
+            " now() - interval '10 minutes'), "
+            "('33333333-3333-3333-3333-333333333333', 'someone-else', 'theirs', 'research', 'running', "
+            " now() - interval '10 minutes'), "
+            "('44444444-4444-4444-4444-444444444444', 'operator@adapt.cloud', 'live', 'research', 'running', "
+            " now())"))
+    ai = FakeAI()
+    ai.queue_json(answer())
+    await run_task(engine, ai, FakeFetcher(), "operator@adapt.cloud", TaskRequest(task="Summarize this knowledge"),
+                   TaskConfig(budget_seconds=60))
+    async with engine.connect() as conn:
+        rows = dict((await conn.execute(text("SELECT request_text, status FROM aidigest.tasks"))).all())
+    assert rows["old"] == "failed"            # older than budget + grace: abandoned
+    assert rows["live"] == "running"          # may still be running
+    assert rows["theirs"] == "running"        # another user's rows are not touched by this request
+
+
+# ═══════════ Review of 432f908: a terminal status is written only to a still-'running' row ═══════════
+async def _insert_task(engine, task_id: str, status: str, error: str | None = None) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "INSERT INTO aidigest.tasks (id, requested_by, request_text, mode, status, error, created_at) "
+            "VALUES (:id, 'op', 'q', 'research', :status, :error, now())"),
+            {"id": task_id, "status": status, "error": error})
+
+
+@pytest.mark.parametrize("write", [
+    {"status": "completed", "result": {"answer": "late"}},
+    {"status": "failed", "error": "502: late failure"},
+])
+async def test_terminal_write_does_not_overwrite_an_abandoned_row(engine, write):
+    """The abandoned-late-commit race: the row was already failed ('abandoned', by the next request or the
+    creation cleanup) when the original request finally commits its own terminal write. The late
+    write must not turn the abandoned row into 'completed' (or replace its error)."""
+    from aidigest.tasks import ABANDONED_STALE, _finish_task
+    task_id = "55555555-5555-5555-5555-555555555555"
+    await _insert_task(engine, task_id, "failed", ABANDONED_STALE)
+    await _finish_task(engine, task_id, **write)
+    row = (await _rows(engine, task_id))
+    assert row["status"] == "failed" and row["error"] == ABANDONED_STALE and row["result_json"] is None, row
+
+
+@pytest.mark.parametrize("write", [
+    {"status": "completed", "result": {"answer": "ok"}},
+    {"status": "failed", "error": "502: boom"},
+])
+async def test_terminal_write_still_finishes_a_running_row(engine, write):
+    from aidigest.tasks import _finish_task
+    task_id = "66666666-6666-6666-6666-666666666666"
+    await _insert_task(engine, task_id, "running")
+    await _finish_task(engine, task_id, **write)
+    row = await _rows(engine, task_id)
+    assert row["status"] == write["status"] and row["completed_at"] is not None, row
+
+
+async def test_run_task_late_completion_leaves_the_abandoned_row_failed(engine, monkeypatch):
+    """End to end: while the request is still working, its row is failed as stale (the user's next
+    request ran). When the work finally completes, the row stays failed."""
+    from aidigest import tasks
+    from aidigest.tasks import ABANDONED_STALE, TaskConfig, TaskRequest, run_task
+    from tests.fakes import FakeAI, FakeFetcher
+    real = tasks._execute_task
+
+    async def abandoned_meanwhile(engine_, *args, **kwargs):
+        async with engine_.begin() as conn:
+            await conn.execute(text("UPDATE aidigest.tasks SET status='failed', error=:e, completed_at=now()"),
+                               {"e": ABANDONED_STALE})
+        return await real(engine_, *args, **kwargs)
+
+    monkeypatch.setattr(tasks, "_execute_task", abandoned_meanwhile)
+    ai = FakeAI()
+    ai.queue_json(answer())
+    await run_task(engine, ai, FakeFetcher(), "op", TaskRequest(task="Summarize this knowledge"),
+                   TaskConfig(budget_seconds=60))
+    row = await _only_task(engine)
+    assert row["status"] == "failed" and row["error"] == ABANDONED_STALE, row
+
+
+async def _rows(engine, task_id):
+    async with engine.connect() as conn:
+        return dict((await conn.execute(text("SELECT * FROM aidigest.tasks WHERE id=:id"), {"id": task_id}))
+                    .mappings().one())

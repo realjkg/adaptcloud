@@ -1,0 +1,285 @@
+"""Challenger review of ae012a0, M1: the budget must hold when the database freezes at TCP level.
+
+A real asyncio TCP proxy sits between the production engine (aidigest.db.make_engine: QueuePool,
+pre-ping) and Postgres. freeze() keeps every socket open but stops forwarding, the way a stalled
+network path or a hung host looks to the client. Connections frozen once stay dead; after thaw()
+only NEW connections are forwarded again.
+
+Every call is run as a task and waited for without awaiting its cleanup, so a test can never hang
+on the code it is testing; whatever is still stuck is unblocked when the proxy closes its sockets.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from urllib.parse import urlsplit
+
+import pytest
+
+from aidigest.daily import HEARTBEAT_STOP_SECONDS
+from tests.fakes import FakeAI, FakeFetcher, rss
+
+BUDGET = 2.0
+MARGIN = 1.0          # a TASK call returns within BUDGET + MARGIN
+# A DAILY call also waits up to HEARTBEAT_STOP_SECONDS for its heartbeat in the finally block. Since the
+# review of 432f908 that wait is also capped by the time left to the deadline (see the last test), so
+# this wider bound is only a safe upper limit for the freeze tests; the strict MARGIN is asserted there.
+DAILY_MARGIN = HEARTBEAT_STOP_SECONDS + 1.0
+GUARD = 25.0          # how long a test waits before it calls the call hung
+
+
+class FreezingProxy:
+    def __init__(self, host: str, port: int):
+        self.target = (host, port)
+        self.frozen = False
+        self.links: list[dict] = []
+        self.server: asyncio.base_events.Server | None = None
+        self.port = 0
+
+    async def start(self) -> None:
+        self.server = await asyncio.start_server(self._handle, "127.0.0.1", 0)
+        self.port = self.server.sockets[0].getsockname()[1]
+
+    async def _handle(self, reader, writer):
+        link = {"frozen": self.frozen, "writers": [writer]}
+        self.links.append(link)
+        try:
+            up_reader, up_writer = await asyncio.open_connection(*self.target)
+        except OSError:
+            writer.close()
+            return
+        link["writers"].append(up_writer)
+
+        async def pump(src, dst):
+            try:
+                while data := await src.read(65536):
+                    if link["frozen"]:
+                        continue                # swallowed: the socket stays open, nothing arrives
+                    dst.write(data)
+                    await dst.drain()
+            except (OSError, asyncio.CancelledError):
+                pass
+
+        await asyncio.gather(pump(reader, up_writer), pump(up_reader, writer))
+
+    def freeze(self) -> None:
+        self.frozen = True
+        for link in self.links:
+            link["frozen"] = True
+
+    def thaw(self) -> None:
+        self.frozen = False             # new connections only; frozen ones stay dead
+
+    async def close(self) -> None:
+        for link in self.links:
+            for w in link["writers"]:
+                w.transport.abort()
+        self.server.close()
+        await self.server.wait_closed()
+
+
+@pytest.fixture
+async def proxy(pg_url):
+    parts = urlsplit(pg_url)
+    p = FreezingProxy(parts.hostname, parts.port)
+    await p.start()
+    yield p
+    await p.close()
+
+
+@pytest.fixture
+async def frozen_engine(proxy, pg_url, engine):   # `engine` applies the schema on a direct connection
+    from aidigest.db import make_engine
+    parts = urlsplit(pg_url)
+    eng = make_engine(parts._replace(netloc=f"{parts.username}@127.0.0.1:{proxy.port}").geturl())
+    yield eng
+    await proxy.close()                               # unblock anything still stuck before disposing
+    await asyncio.wait_for(eng.dispose(), 10)
+
+
+async def returns_within(coro, limit: float = GUARD):
+    """(outcome, elapsed); outcome is "HUNG" if the call did not return within `limit` seconds.
+    The call is never awaited past that point (a hung cleanup cannot hang the test)."""
+    task = asyncio.ensure_future(coro)
+    start = time.monotonic()
+    done, _ = await asyncio.wait({task}, timeout=limit)
+    elapsed = time.monotonic() - start
+    if not done:
+        task.cancel()
+        task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        return "HUNG", elapsed
+    exc = task.exception()
+    return (exc if exc is not None else task.result()), elapsed
+
+
+def _task(engine, ai):
+    from aidigest.tasks import TaskConfig, TaskRequest, run_task
+    return run_task(engine, ai, FakeFetcher(), "operator@adapt.cloud", TaskRequest(task="Summarize this knowledge"),
+                    TaskConfig(budget_seconds=BUDGET))
+
+
+def _daily(engine, ai, heartbeat=3600.0):
+    from aidigest.daily import DailyConfig, run_daily
+    from aidigest.feeds import SOURCES
+    feed = rss([{"title": f"Agent governance FinOps security update {i}", "url": f"https://news.example/{i}",
+                 "description": "Inference pricing for enterprise agents"} for i in range(3)])
+    return run_daily(engine, ai, FakeFetcher({SOURCES[0].url: feed}), trigger="operator",
+                     config=DailyConfig(budget_seconds=BUDGET, lease_seconds=60, heartbeat_seconds=heartbeat))
+
+
+def _answer_task():
+    ai = FakeAI()
+    ai.queue_json({"answer": "Short answer.", "factual_findings": [], "adapt_implications": [],
+                   "recommended_actions": [], "citations": [], "knowledge": []})
+    return ai
+
+
+def _selection():
+    import hashlib
+    url = "https://news.example/0"
+    ai = FakeAI()
+    ai.queue_json([{"id": hashlib.sha256(url.encode()).hexdigest(), "url": url, "lead": "Lead.",
+                    "summary": "Summary.", "why_adapt": "Why.", "next_move": "Move.", "category": "Gov",
+                    "score_adjustment": 5, "knowledge": []}])
+    return ai
+
+
+def _assert_on_time(outcome, elapsed, margin: float = MARGIN):
+    from aidigest.errors import DeadlineError
+    assert outcome != "HUNG", f"still running after {elapsed:.1f}s (budget {BUDGET}s)"
+    assert isinstance(outcome, DeadlineError), repr(outcome)
+    assert elapsed < BUDGET + margin, f"{elapsed:.2f}s for a {BUDGET}s budget"
+
+
+async def test_task_returns_within_budget_when_db_freezes_before_the_run(proxy, frozen_engine):
+    proxy.freeze()
+    _assert_on_time(*await returns_within(_task(frozen_engine, _answer_task())))
+
+
+async def test_task_returns_within_budget_when_db_freezes_during_the_ai_call(proxy, frozen_engine):
+    ai = _answer_task()
+
+    async def freeze():
+        proxy.freeze()
+    ai.on_call = freeze
+    _assert_on_time(*await returns_within(_task(frozen_engine, ai)))
+
+
+async def test_daily_returns_within_budget_when_db_freezes_before_the_run(proxy, frozen_engine):
+    proxy.freeze()
+    _assert_on_time(*await returns_within(_daily(frozen_engine, _selection())), DAILY_MARGIN)
+
+
+async def test_daily_returns_within_budget_when_db_freezes_during_the_ai_call(proxy, frozen_engine):
+    ai = _selection()
+
+    async def freeze():
+        proxy.freeze()
+    ai.on_call = freeze
+    _assert_on_time(*await returns_within(_daily(frozen_engine, ai)), DAILY_MARGIN)
+
+
+async def test_daily_returns_within_budget_when_db_freezes_during_a_lease_refresh(proxy, frozen_engine):
+    """heartbeat 0.3 s: the AI call outlives two refreshes, then the DB freezes so the next refresh
+    hangs inside the heartbeat task; the run must still end (its heartbeat wait is bounded)."""
+    ai = _selection()
+
+    async def slow_then_freeze():
+        await asyncio.sleep(0.7)
+        proxy.freeze()
+        await asyncio.sleep(0.5)       # a refresh starts while frozen
+    ai.on_call = slow_then_freeze
+    _assert_on_time(*await returns_within(_daily(frozen_engine, ai, heartbeat=0.3)), DAILY_MARGIN)
+
+
+async def test_abandoned_connections_are_released_within_the_bound(proxy, frozen_engine):
+    """Repeated freezes must not exhaust the pool (5 + 5 overflow): every connection a deadline
+    abandons is closed and handed back within aidigest.db.ABANDONED_RELEASE_SECONDS, even while the
+    database stays frozen. Then, once the database answers again, the service recovers."""
+    from aidigest.db import ABANDONED_RELEASE_SECONDS
+    for _ in range(6):                  # each run strands its run connection mid-transaction
+        proxy.thaw()
+        ai = _answer_task()
+
+        async def freeze():
+            proxy.freeze()
+        ai.on_call = freeze
+        _assert_on_time(*await returns_within(_task(frozen_engine, ai)))
+    pool = frozen_engine.pool
+    deadline = time.monotonic() + ABANDONED_RELEASE_SECONDS + 2
+    while pool.checkedout() and time.monotonic() < deadline:
+        await asyncio.sleep(0.2)
+    assert pool.checkedout() == 0, f"{pool.checkedout()} connections still held after the bound (pool exhaustion)"
+    proxy.thaw()
+    for _attempt in range(8):           # stale pooled connections from before the freeze are discarded
+        outcome, _ = await returns_within(_task(frozen_engine, _answer_task()))
+        if isinstance(outcome, dict):
+            break
+    assert isinstance(outcome, dict) and outcome["status"] == "completed", outcome
+
+
+def test_bounded_close_targets_the_pinned_asyncpg_api():
+    """aidigest.db.BoundedCloseConnection overrides asyncpg's Connection.close(*, timeout=None) and
+    relies on terminate(); asyncpg is hash-pinned, and this fails loudly if an upgrade changes them."""
+    import inspect
+
+    import asyncpg
+
+    from aidigest.db import BoundedCloseConnection
+    assert asyncpg.__version__ == "0.31.0"
+    close = inspect.signature(asyncpg.Connection.close).parameters
+    assert list(close) == ["self", "timeout"] and close["timeout"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert inspect.iscoroutinefunction(asyncpg.Connection.close)
+    assert callable(asyncpg.Connection.terminate)
+    assert issubclass(BoundedCloseConnection, asyncpg.Connection)
+
+
+@pytest.mark.parametrize("kind", ["task", "daily"])
+async def test_connect_timeout_is_database_unavailable_not_a_deadline(proxy, frozen_engine, kind):
+    """Review of ae012a0, L6: with plenty of budget left, a connection that cannot be opened ends
+    after the connect timeout as 'database unavailable' (503), not as the budget (504) and not as
+    an unhandled TimeoutError (500)."""
+    from aidigest.daily import DailyConfig, run_daily
+    from aidigest.db import CONNECT_TIMEOUT_SECONDS
+    from aidigest.errors import DeadlineError, StorageError
+    from aidigest.tasks import TaskConfig, TaskRequest, run_task
+    proxy.freeze()
+    if kind == "task":
+        call = run_task(frozen_engine, _answer_task(), FakeFetcher(), "operator@adapt.cloud",
+                        TaskRequest(task="Summarize this"), TaskConfig(budget_seconds=30))
+    else:
+        call = run_daily(frozen_engine, _selection(), FakeFetcher(), trigger="operator",
+                         config=DailyConfig(budget_seconds=30, lease_seconds=60))
+    outcome, elapsed = await returns_within(call)
+    assert isinstance(outcome, StorageError) and not isinstance(outcome, DeadlineError), repr(outcome)
+    assert elapsed < CONNECT_TIMEOUT_SECONDS + MARGIN, elapsed
+
+
+# ═══════════ Review of 432f908: the heartbeat wait never runs past the budget ═══════════
+async def test_daily_heartbeat_cleanup_is_capped_by_the_remaining_deadline(engine, monkeypatch):
+    """A heartbeat that ignores cancellation (stuck in a lease refresh) is waited for at most the time
+    left to the deadline, and at most HEARTBEAT_STOP_SECONDS. Here the stop wait is 5 s, but the run has
+    already spent its budget, so a DAILY call returns within BUDGET + MARGIN, not BUDGET + 5 s."""
+    from aidigest import daily
+    monkeypatch.setattr(daily, "HEARTBEAT_STOP_SECONDS", 5.0)
+    release = asyncio.Event()
+
+    async def stubborn_heartbeat(*args, **kwargs):
+        while not release.is_set():
+            try:
+                await asyncio.sleep(0.05)
+            except asyncio.CancelledError:
+                pass                      # swallows the cancel: the cleanup must not wait for it
+
+    monkeypatch.setattr(daily, "_heartbeat", stubborn_heartbeat)
+    ai = _selection()
+
+    async def spend_the_budget():
+        await asyncio.sleep(BUDGET + 3)   # the run's work outlives the whole budget
+    ai.on_call = spend_the_budget
+    try:
+        outcome, elapsed = await returns_within(_daily(engine, ai))
+    finally:
+        release.set()
+    _assert_on_time(outcome, elapsed, MARGIN)

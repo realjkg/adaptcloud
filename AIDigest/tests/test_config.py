@@ -182,3 +182,22 @@ def test_heredoc_marker_is_the_one_the_caddyfile_uses():
     assert set(re.findall(r"<<([A-Za-z0-9_-]+)", caddyfile)) == {HEREDOC_MARKER}
     assert f"HEREDOC_MARKER={HEREDOC_MARKER}\n" in (repo / "caddy-entrypoint.sh").read_text()
     assert f"!= *{HEREDOC_MARKER}* ]]" in (repo / "setup.sh").read_text()
+
+
+# ── Review of d23075f, L-3: a budget must be usable as a Postgres timeout and a deadline ──
+@pytest.mark.parametrize("field", ["aidigest_daily_budget_seconds", "aidigest_task_budget_seconds"])
+@pytest.mark.parametrize("value", [86_401, 3_000_000, 1e12, float("inf"), float("nan"), 0, -1])
+def test_budgets_outside_a_sane_range_are_rejected(field, value):
+    overrides = {field: value}
+    if field == "aidigest_daily_budget_seconds":
+        overrides["aidigest_daily_lease_seconds"] = 10**13
+    with pytest.raises(ValidationError, match=field):
+        make_settings(**{**GOOD_PROD, **overrides})
+
+
+@pytest.mark.parametrize("field", ["aidigest_daily_budget_seconds", "aidigest_task_budget_seconds"])
+def test_a_budget_of_one_day_is_accepted(field):
+    overrides = {field: 86_400}
+    if field == "aidigest_daily_budget_seconds":
+        overrides["aidigest_daily_lease_seconds"] = 90_000
+    assert getattr(make_settings(**{**GOOD_PROD, **overrides}), field) == 86_400

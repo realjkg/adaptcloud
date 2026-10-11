@@ -92,3 +92,105 @@ def rss(items: list[dict[str, str]]) -> str:
         for i in items
     )
     return f'<?xml version="1.0"?><rss version="2.0"><channel><title>x</title>{body}</channel></rss>'
+
+
+class HangingEngine:
+    """Wraps a real AsyncEngine; any statement containing `needle` never gets an answer (a DB that
+    accepts the connection and then goes silent). Everything else runs on the real engine."""
+
+    def __init__(self, engine, needle: str):
+        self.engine = engine
+        self.needle = needle
+        self.hung: list[str] = []
+
+    def begin(self):
+        return _HangingContext(self, self.engine.begin())
+
+    def connect(self):
+        return _HangingContext(self, self.engine.connect())
+
+    def __getattr__(self, name):
+        return getattr(self.engine, name)
+
+
+class _HangingContext:
+    def __init__(self, owner: HangingEngine, context):
+        self.owner = owner
+        self.context = context
+
+    async def __aenter__(self):
+        return _HangingConnection(self.owner, await self.context.__aenter__())
+
+    async def __aexit__(self, *exc):
+        return await self.context.__aexit__(*exc)
+
+
+class _HangingConnection:
+    def __init__(self, owner: HangingEngine, conn):
+        self.owner = owner
+        self.conn = conn
+
+    async def execute(self, statement, *args, **kwargs):
+        import asyncio
+
+        if self.owner.needle in str(statement):
+            self.owner.hung.append(str(statement))
+            await asyncio.Event().wait()   # never answers
+        return await self.conn.execute(statement, *args, **kwargs)
+
+    async def scalar(self, statement, *args, **kwargs):
+        return (await self.execute(statement, *args, **kwargs)).scalar()
+
+    def __getattr__(self, name):
+        return getattr(self.conn, name)
+
+
+class HangAfterCommitEngine:
+    """Wraps a real AsyncEngine: a transaction that executed a statement containing `needle` COMMITS
+    on the server and then never reports back (the deadline hits during COMMIT, after the server
+    already committed). The caller cannot know the row exists."""
+
+    def __init__(self, engine, needle: str):
+        self.engine = engine
+        self.needle = needle
+        self.committed: list[str] = []
+
+    def begin(self):
+        return _CommitThenHang(self, self.engine.begin())
+
+    def connect(self):
+        return self.engine.connect()
+
+    def __getattr__(self, name):
+        return getattr(self.engine, name)
+
+
+class _CommitThenHang:
+    def __init__(self, owner: HangAfterCommitEngine, context):
+        self.owner = owner
+        self.context = context
+        self.matched = False
+
+    async def __aenter__(self):
+        conn = await self.context.__aenter__()
+        outer = self
+
+        class _Conn:
+            async def execute(self, statement, *args, **kwargs):
+                if outer.owner.needle in str(statement):
+                    outer.matched = True
+                return await conn.execute(statement, *args, **kwargs)
+
+            def __getattr__(self, name):
+                return getattr(conn, name)
+
+        return _Conn()
+
+    async def __aexit__(self, *exc):
+        import asyncio
+
+        result = await self.context.__aexit__(*exc)   # the real COMMIT (or rollback)
+        if self.matched and exc[0] is None:
+            self.owner.committed.append(self.owner.needle)
+            await asyncio.Event().wait()                # ... and the answer never arrives
+        return result

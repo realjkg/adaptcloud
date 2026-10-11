@@ -3,6 +3,7 @@
 # Usage: bash setup.sh              (or: make setup)           full first-run setup
 #        bash setup.sh --aidigest   (or: make setup-aidigest)  add AIDigest to an existing .env
 #                                   (append-only: existing keys are never modified)
+#        bash setup.sh --backup-env (or: make backup-env)      copy .env to .env.backup (mode 600)
 set -euo pipefail
 
 BOLD='\033[1m'
@@ -20,9 +21,10 @@ blank()   { echo ""; }
 
 MODE=full
 case "${1:-}" in
-  "")         ;;
-  --aidigest) MODE=aidigest ;;
-  *)          echo "Usage: bash setup.sh [--aidigest]" >&2; exit 2 ;;
+  "")           ;;
+  --aidigest)   MODE=aidigest ;;
+  --backup-env) MODE=backup-env ;;
+  *)            echo "Usage: bash setup.sh [--aidigest | --backup-env]" >&2; exit 2 ;;
 esac
 
 # ── AIDigest helpers ──────────────────────────────────────────────────────────
@@ -67,25 +69,31 @@ aidigest_collect() {
   success "AIDigest password hashed (bcrypt cost 10) and AIDIGEST_PROXY_SECRET generated"
 }
 
-# Replace an EMPTY "KEY=" / "KEY=''" / 'KEY=""' line with the new line; every other line is
-# copied unchanged. Used for a .env copied from .env.example, whose AIDigest keys are empty.
+# ── The .env writer: the ONLY way setup.sh changes .env (review 4177765138) ──────
+# env_replace FILE PRODUCER [ARGS...] runs PRODUCER (which writes the complete new content to stdout,
+# reading FILE if it needs to) into a temp file next to FILE and renames it over FILE (atomic). The
+# temp file has FILE's owner and group (cp -p, verified) and mode 600 BEFORE anything new is written
+# into it, so the replaced FILE is always mode 600: .env and its backups hold secrets, and a looser
+# mode is tightened, with a notice (review of ae012a0, L2). Filling empty keys, appending missing
+# ones, writing a fresh .env and backing .env up (.env.backup) all go through it.
 #
-# .env is never rewritten in place (rounds 4-5): the new content is written to a temp file next to
-# it, given .env's mode and owner (cp -p, verified), synced, and renamed over .env (atomic). Until
-# the rename .env is untouched, so no signal (HUP on an SSH disconnect, Ctrl-C, QUIT, TERM, even
-# KILL) and no I/O error (disk full) can leave it truncated or partial. The temp copy is removed on
-# HUP/INT/QUIT/TERM (exit 128+signal) and on any other exit (EXIT trap, e.g. a failed write). The
-# traps exist before the temp file; mktemp ignores the signals, so a process-group signal cannot kill
-# it between creating the file and printing its name (this shell runs its trap once mktemp is done).
-# Only SIGKILL can leave the temp file behind; .gitignore covers ".env.*".
+# .env is never written in place: until the rename it is untouched, so no signal (HUP on an SSH
+# disconnect, Ctrl-C, QUIT, TERM, even KILL) and no I/O error (disk full) can leave it truncated or
+# partial. The temp copy is removed on HUP/INT/QUIT/TERM (exit 128+signal) and on any other exit (EXIT
+# trap, e.g. a failed write). The traps exist before the temp file; mktemp ignores the signals, so a
+# process-group signal cannot kill it between creating the file and printing its name (this shell
+# runs its trap once mktemp is done). Only SIGKILL can leave the temp file behind; .gitignore covers
+# ".env.*".
 AIDIGEST_TMP=""   # global, so the EXIT trap still sees it once the function has been left
 aidigest_tmp_cleanup() { if [[ -n "$AIDIGEST_TMP" ]]; then rm -f "$AIDIGEST_TMP"; AIDIGEST_TMP=""; fi; }
-aidigest_mode_owner() { ls -ldn "$1" | awk '{ print substr($1, 1, 10), $3, $4 }'; }
-# fsync $1. `sync FILE` (GNU coreutils 8.24+) is probed on $2, an existing file: where it works, a
-# failure to flush $1 is an error; only where it is unsupported does a plain `sync` stand in.
+aidigest_mode() { ls -ldn "$1" | awk '{ print substr($1, 1, 10) }'; }
+aidigest_owner() { ls -ldn "$1" | awk '{ print $3, $4 }'; }
+# fsync $1. `sync FILE` (GNU coreutils 8.24+) is probed on $2, an existing directory: where it works,
+# a failure to flush $1 is an error; only where it is unsupported does a plain `sync` stand in.
 aidigest_flush() { if sync "$2" 2>/dev/null; then sync "$1"; else sync; fi; }
-aidigest_fill_empty() {
-  local file=$1 key=$2 newline=$3 l unchanged="${1} was not changed"
+env_replace() {
+  local file=$1 unchanged="${1} was not changed"
+  shift
   # A symlinked .env is refused: the rename would replace the link with a regular file, and writing
   # through the link could reach a file outside the repository. (A hard-linked .env loses the link:
   # after the rename, the other names still have the old content.)
@@ -98,25 +106,51 @@ aidigest_fill_empty() {
   trap 'aidigest_tmp_cleanup; exit 143' TERM
   AIDIGEST_TMP=$(trap '' HUP INT QUIT TERM; mktemp "${file}.aidigest.XXXXXX") \
     || error "Could not create a temporary file next to ${file}; ${unchanged}."
-  cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); ${unchanged}."
-  [[ "$(aidigest_mode_owner "$AIDIGEST_TMP")" == "$(aidigest_mode_owner "$file")" ]] \
-    || error "Could not give the temporary copy the mode and owner of ${file}; ${unchanged}."
-  while IFS= read -r l || [[ -n "$l" ]]; do
-    if [[ "$l" == "${key}=" || "$l" == "${key}=''" || "$l" == "${key}=\"\"" ]]; then
-      l=$newline
+  if [[ -e "$file" ]]; then   # owner and group from FILE (a new file: mktemp's, i.e. the caller's)
+    cp -p "$file" "$AIDIGEST_TMP" || error "Could not copy ${file} to ${AIDIGEST_TMP} (disk full?); ${unchanged}."
+    if [[ "$(aidigest_mode "$file")" != "-rw-------" ]]; then
+      info "${file} was $(aidigest_mode "$file"); it holds secrets, so it is written with mode 600 (-rw-------)"
     fi
-    printf '%s\n' "$l" || error "Could not write ${AIDIGEST_TMP} (disk full?); ${unchanged}." >&2
-  done < "$file" > "$AIDIGEST_TMP"
-  aidigest_flush "$AIDIGEST_TMP" "$file" || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."
+  fi
+  chmod 600 "$AIDIGEST_TMP"
+  [[ "$(aidigest_mode "$AIDIGEST_TMP")" == "-rw-------" ]] \
+    && { [[ ! -e "$file" ]] || [[ "$(aidigest_owner "$AIDIGEST_TMP")" == "$(aidigest_owner "$file")" ]]; } \
+    || error "Could not give the temporary copy mode 600 and the mode and owner of ${file}; ${unchanged}."
+  "$@" > "$AIDIGEST_TMP" || error "Could not write ${AIDIGEST_TMP} (disk full?); ${unchanged}."
+  aidigest_flush "$AIDIGEST_TMP" "$(dirname -- "$file")" \
+    || error "Could not flush ${AIDIGEST_TMP} to disk; ${unchanged}."
   mv -f "$AIDIGEST_TMP" "$file" || error "Could not replace ${file}; ${unchanged}."
   AIDIGEST_TMP=""
   trap - HUP INT QUIT TERM EXIT
 }
+# Producer: FILE with the first NFILL lines' keys filled where FILE has them EMPTY ("KEY=",
+# "KEY=''", 'KEY=""'), every other line copied unchanged, then the remaining lines appended under an
+# "AIDigest" header. A failed write (e.g. disk full) fails the producer.
+aidigest_env_lines() {
+  local file=$1 nfill=$2 l f key
+  shift 2
+  local -a fills=("${@:1:nfill}") adds=("${@:nfill+1}")
+  while IFS= read -r l || [[ -n "$l" ]]; do
+    for f in ${fills[@]+"${fills[@]}"}; do
+      key=${f%%=*}
+      if [[ "$l" == "${key}=" || "$l" == "${key}=''" || "$l" == "${key}=\"\"" ]]; then
+        l=$f
+        break
+      fi
+    done
+    printf '%s\n' "$l" || return 1
+  done < "$file"
+  if [[ ${#adds[@]} -gt 0 ]]; then
+    printf '\n# AIDigest (added by setup.sh on %s)\n' "$(date -u +"%Y-%m-%d %H:%M UTC")" || return 1
+    for f in "${adds[@]}"; do printf '%s\n' "$f" || return 1; done
+  fi
+}
 
-# A key that already has a value is never modified; an EMPTY AIDigest key is filled in place;
-# a missing key is appended.
+# A key that already has a value is never modified; an EMPTY AIDigest key is filled; a missing key
+# is appended. Both happen in ONE atomic replace of .env, and only if something changes.
 aidigest_append() {
-  local file=$1 line key header_done=0
+  local file=$1 line key
+  local -a fill=() add=()
   for line in "AIDIGEST_PROXY_SECRET=${AIDIGEST_PROXY_SECRET}" \
               "AIDIGEST_BASIC_AUTH_USER=${AIDIGEST_BASIC_AUTH_USER}" \
               "AIDIGEST_BASIC_AUTH_HASH='${AIDIGEST_BASIC_AUTH_HASH}'" \
@@ -124,8 +158,8 @@ aidigest_append() {
               "COMPOSE_PROFILES=aidigest"; do
     key=${line%%=*}
     if [[ "$key" != COMPOSE_PROFILES ]] && grep -Eq "^${key}=(''|\"\")?\$" "$file"; then
-      aidigest_fill_empty "$file" "$key" "$line"
-      info "Filled empty ${key}"
+      fill+=("$line")
+      info "Filling empty ${key}"
       continue
     fi
     if grep -q "^${key}=" "$file"; then
@@ -136,13 +170,17 @@ aidigest_append() {
       fi
       continue
     fi
-    if [[ $header_done -eq 0 ]]; then
-      if [[ -s "$file" && -n "$(tail -c1 "$file")" ]]; then printf '\n' >> "$file"; fi
-      printf '\n# AIDigest (added by setup.sh on %s)\n' "$(date -u +"%Y-%m-%d %H:%M UTC")" >> "$file"
-      header_done=1
-    fi
-    printf '%s\n' "$line" >> "$file"
+    add+=("$line")
   done
+  if [[ $((${#fill[@]} + ${#add[@]})) -eq 0 ]]; then
+    # Nothing to add or fill. A private regular .env is left untouched; anything else goes through the
+    # writer with its own content, which refuses a symlink and tightens a looser mode to 600 atomically
+    # (review of 432f908: the secrets must not stay readable because the keys already exist).
+    if [[ ! -L "$file" && "$(aidigest_mode "$file")" == "-rw-------" ]]; then return 0; fi
+    env_replace "$file" cat "$file"
+    return 0
+  fi
+  env_replace "$file" aidigest_env_lines "$file" "${#fill[@]}" ${fill[@]+"${fill[@]}"} ${add[@]+"${add[@]}"}
 }
 
 aidigest_only() {
@@ -156,7 +194,16 @@ aidigest_only() {
   exit 0
 }
 
+# .env.backup through the same writer (review of ae012a0, L8): mode 600, atomic, a symlink refused.
+backup_env_only() {
+  [[ -f .env ]] || error ".env not found; nothing to back up."
+  env_replace .env.backup cat .env
+  success ".env backed up to .env.backup (mode 600 — never commit either file)"
+  exit 0
+}
+
 if [[ "$MODE" == aidigest ]]; then aidigest_only; fi
+if [[ "$MODE" == backup-env ]]; then backup_env_only; fi
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 blank
@@ -179,8 +226,8 @@ if [[ -f .env ]]; then
       warn "encrypted student record (voice profiles, configs, audit log) PERMANENTLY unreadable."
       IFS= read -rp "   Type OVERWRITE to continue: " CONFIRM || CONFIRM=""
       [[ "$CONFIRM" == "OVERWRITE" ]] || error "Not confirmed; .env left unchanged."
-      cp .env .env.backup
-      success "Existing .env backed up to .env.backup"
+      env_replace .env.backup cat .env
+      success "Existing .env backed up to .env.backup (mode 600)"
       ;;
     *) info "Keeping existing .env. Run 'make start' to launch."; exit 0 ;;
   esac
@@ -255,7 +302,8 @@ fi
 # ── Write .env ────────────────────────────────────────────────────────────────
 blank
 info "Writing .env..."
-cat > .env <<EOF
+setup_env_content() {   # producer for env_replace: the complete new .env
+  cat <<EOF
 # Generated by setup.sh on $(date -u +"%Y-%m-%d %H:%M UTC")
 # DO NOT commit this file — it contains secrets.
 
@@ -269,6 +317,8 @@ CORS_ORIGINS=${CORS_ORIGINS}
 DISABLE_API_DOCS=true
 PRODUCTION=true
 EOF
+}
+env_replace .env setup_env_content   # mode 600 from the start; overwrite: atomic, backup made above
 chmod 600 .env
 success ".env written (mode 600 — only readable by you)"
 

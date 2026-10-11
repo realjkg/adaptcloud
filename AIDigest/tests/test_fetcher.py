@@ -446,6 +446,51 @@ async def test_corrupt_gzip_is_upstream_error():
         await f.fetch("https://a.example/")
 
 
+# ── PR review 4177765193: compressed bodies must be complete and end where the stream ends ──
+def _compressed(encoding: str, data: bytes) -> bytes:
+    import gzip
+    import zlib
+    return gzip.compress(data) if encoding in ("gzip", "x-gzip") else zlib.compress(data)
+
+
+_TEXT = b"a complete body of plain text " * 40
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "x-gzip", "deflate"])
+@pytest.mark.parametrize("chunk", [7, 65536])
+@pytest.mark.parametrize("damage", ["truncated", "trailing-garbage", "two-streams"])
+async def test_incomplete_or_padded_compressed_body_is_rejected(encoding, chunk, damage):
+    """A truncated stream would otherwise come back as a silently partial body; bytes after the end
+    of the compressed stream are not part of the body either."""
+    body = _compressed(encoding, _TEXT)
+    wire = {"truncated": body[: len(body) // 2], "trailing-garbage": body + b"GARBAGE",
+            "two-streams": body + body}[damage]
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(wire, chunk), headers={"content-encoding": encoding}),
+                {"a.example": [PUBLIC_V4]}, max_bytes=100_000)
+    with pytest.raises(UpstreamError, match="(?i)truncated|trailing"):
+        await f.fetch("https://a.example/")
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "x-gzip", "deflate"])
+@pytest.mark.parametrize("chunk", [1, 7, 65536])
+async def test_complete_compressed_body_is_decoded(encoding, chunk):
+    f = fetcher(lambda req: httpx.Response(200, content=streamed(_compressed(encoding, _TEXT), chunk),
+                                           headers={"content-encoding": encoding}),
+                {"a.example": [PUBLIC_V4]}, max_bytes=100_000)
+    assert (await f.fetch("https://a.example/")).text == _TEXT.decode()
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "deflate"])
+async def test_pre_read_compressed_body_is_refused(encoding):
+    """An in-process transport hands over a body httpx already decoded, without checking that the
+    stream was complete (a truncated gzip comes back as a few bytes): it cannot be verified."""
+    truncated = _compressed(encoding, _TEXT)[:30]
+    f = fetcher(lambda req: httpx.Response(200, content=truncated, headers={"content-encoding": encoding}),
+                {"a.example": [PUBLIC_V4]}, max_bytes=100_000)
+    with pytest.raises(UpstreamError, match="(?i)verif"):
+        await f.fetch("https://a.example/")
+
+
 # ── L2: the explicit policy layer, tested independently of ipaddress.is_global ─
 @pytest.mark.parametrize(
     "ip",
@@ -487,7 +532,8 @@ def test_reserved_but_stdlib_global_address_is_rejected():
 ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent
 
 _CHUNK_CHILD = """
-import asyncio, gzip, os, sys, time, httpx
+import asyncio, gzip, os, resource, sys, time, httpx
+resource.setrlimit(resource.RLIMIT_CPU, (30, 35))   # all samples together: 30 CPU s, then SIGXCPU
 from aidigest.fetcher import GuardedFetcher
 
 async def resolve(host):
@@ -507,15 +553,19 @@ def plain(n):
 async def run(n, encoding):
     raw = plain(2 * n) if encoding else plain(n)       # hex text gzips ~2:1 -> ~n wire bytes either way
     body = gzip.compress(raw) if encoding else raw
-    t = time.monotonic()
+    t = time.process_time()        # CPU time of this process: other load on the machine does not count
     result = await make(body, encoding).fetch("https://a.example/")
     assert result.text.encode() == raw
-    return time.monotonic() - t, len(body)
+    return time.process_time() - t, len(body)
+
+async def best(n, enc):            # min of 3 samples: noise only ever adds time
+    samples = [await run(n, enc) for _ in range(3)]
+    return min(s[0] for s in samples), samples[0][1]
 
 async def main():
     enc = sys.argv[1] or None
-    q, nq = await run({n} // 4, enc)
-    f, nf = await run({n}, enc)
+    q, nq = await best({n} // 4, enc)
+    f, nf = await best({n}, enc)
     print(f"{{q:.4f}} {{f:.4f}} {{nq}} {{nf}}")
 
 asyncio.run(main())
@@ -524,17 +574,19 @@ asyncio.run(main())
 
 @pytest.mark.parametrize("encoding", ["gzip", ""])
 def test_200k_one_byte_chunks_are_linear(encoding):
-    """M1 (round 2): per-chunk work must be O(1); 200k one-byte wire chunks, child hard-killed at 30 s,
-    and linear growth from N/4 to N (quadratic would be ~16x)."""
+    """M1 (round 2): per-chunk work must be O(1); 200k one-byte wire chunks, and linear growth from
+    N/4 to N (quadratic would be ~16x). Measured as the child's CPU time, min of 3 samples per size
+    (review of ae012a0: wall-clock was flaky under load); the child is hard-killed at 120 s wall-clock."""
     import subprocess
     import sys
 
     n = 200_000
     try:
         proc = subprocess.run([sys.executable, "-c", _CHUNK_CHILD.format(n=n), encoding], cwd=ROOT,
-                              capture_output=True, text=True, timeout=30)
+                              capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired:
-        pytest.fail(f"{encoding or 'identity'}: 200k one-byte chunks exceeded 30 s (child killed)")
+        pytest.fail(f"{encoding or 'identity'}: 200k one-byte chunks exceeded 120 s (child killed)")
+    assert proc.returncode != -__import__("signal").SIGXCPU, f"{encoding or 'identity'}: used up 30 s of CPU (super-linear)"
     assert proc.returncode == 0, proc.stderr[-2000:]
     quarter, full, n_quarter, n_full = proc.stdout.split()
     assert int(n_full) > 150_000, n_full
@@ -548,10 +600,12 @@ async def _max_loop_gap(coro) -> float:
     stop = asyncio.Event()
 
     async def ticker():
-        worst, last = 0.0, time.monotonic()
+        # CPU time of the event-loop thread between two ticker turns (review of ae012a0): the work
+        # the loop did without yielding. Time the process spends descheduled under load is not counted.
+        worst, last = 0.0, time.thread_time()
         while not stop.is_set():
             await asyncio.sleep(0.005)
-            now = time.monotonic()
+            now = time.thread_time()
             worst, last = max(worst, now - last), now
         return worst
 
@@ -583,15 +637,42 @@ async def test_gzip_in_16_byte_chunks_keeps_the_loop_responsive():
 
 
 async def test_non_yielding_stream_still_yields_the_loop_periodically():
-    """A transport that never suspends (already-buffered data) must not monopolise the loop."""
+    """A transport that never suspends (already-buffered data) must not monopolize the loop.
+    Counted in work, not time (review of ae012a0): a sleep(0) ticker records how many chunks the
+    reader consumed between two of its turns; the read loop hands the loop back every
+    YIELD_EVERY_CHUNKS chunks, so no stretch may be longer than that (+ slack for httpx's own steps)."""
+    import asyncio
+
+    from aidigest.fetcher import YIELD_EVERY_CHUNKS
+    produced = 0
+
     async def gen():
-        for _ in range(1_000_000):           # ~1 s of reading: without periodic yields one ~1 s stall
+        nonlocal produced
+        for _ in range(200_000):
+            produced += 1
             yield b"a"
+
+    stretches: list[int] = []
+    stop = asyncio.Event()
+
+    async def ticker():
+        last = produced
+        while not stop.is_set():
+            await asyncio.sleep(0)
+            stretches.append(produced - last)
+            last = produced
 
     f = fetcher(lambda req: httpx.Response(200, content=gen()), {"a.example": [PUBLIC_V4]},
                 max_bytes=2_000_000, total_timeout=60)
-    gap = await _max_loop_gap(f.fetch("https://a.example/"))
-    assert gap < 0.25, f"event loop stalled {gap:.2f}s"
+    tick = asyncio.create_task(ticker())
+    await asyncio.sleep(0)
+    try:
+        await f.fetch("https://a.example/")
+    finally:
+        stop.set()
+        await tick
+    assert produced == 200_000
+    assert max(stretches) <= YIELD_EVERY_CHUNKS + 8, f"{max(stretches)} chunks without yielding the loop"
 
 
 # ── L1 (round 2): non-text codecs and pathological charrefs ───────────────────

@@ -52,7 +52,7 @@ Final run: see section 9. The 339 tests break down as follows:
 |---|---|---|
 | test_auth.py | 113 | auth matrix: missing/empty/blank/forged user, missing/wrong/prefix/long/empty secret, x 12 routes; unconfigured secret fails closed; `hmac.compare_digest` spy |
 | test_fetcher.py | 75 | every SSRF case: scheme, credentials, IPv4/IPv6/int/hex/short IP literals, localhost/.local/.internal/metadata, port, DNS->private (v4, v6, mixed, mapped, NAT64, 6to4), IP pinning + Host/SNI, DNS rebinding, redirect re-validation and limit, Content-Length pre-check, streamed cap (chunked, lying length) |
-| test_tasks.py | 51 | findings 3, 6, 7, 8, 9; knowledge/citation guardrails; output sanitising; one AI call |
+| test_tasks.py | 51 | findings 3, 6, 7, 8, 9; knowledge/citation guardrails; output sanitizing; one AI call |
 | test_daily.py | 34 | findings 2, 3, 4, 10; duplicate, concurrent, restart, retry-after-failure and abandoned-run cases |
 | test_ai.py | 23 | Claude adapter (model from settings, no tools, refusal/truncation/API error -> AIError); finite-number and strict JSON parsing |
 | test_config.py | 18 | production validation, model default, daily time |
@@ -217,7 +217,7 @@ A scratch compose project with the same hardening as `docker-compose.yml`
 (`read_only`, `cap_drop: [ALL]`, `no-new-privileges`, tmpfs, `expose` only,
 `PRODUCTION=true`) and the repo Caddyfile. The only difference was `tls
 internal { on_demand }`, because the repo's existing `:443 { tls internal }`
-issues no certificate for an unknown SNI (pre-existing behaviour,
+issues no certificate for an unknown SNI (pre-existing behavior,
 unchanged by this PR). Requests came from a container on the compose network:
 
 ```
@@ -436,7 +436,7 @@ $ $PY scripts/mutation_check.py
 | 69 | `m5-unsupported-encoding-accepted` | unknown content encodings refused | killed | 1 failed, 331 passed in 22.27s |
 | 70 | `m6-unbounded-ai-concurrency` | global AI concurrency cap | killed | 1 failed, 456 passed in 36.83s |
 | 71 | `m6-no-hourly-cap` | per-user hourly TASK cap | killed | 1 failed, 456 passed in 36.94s |
-| 72 | `m6-hourly-cap-not-atomic` | count-then-insert serialised per user | killed | 1 failed, 456 passed in 37.29s |
+| 72 | `m6-hourly-cap-not-atomic` | count-then-insert serialized per user | killed | 1 failed, 456 passed in 37.29s |
 | 73 | `m6-no-daily-attempt-cap` | DAILY attempts capped per UTC day | killed | 1 failed, 39 passed in 5.53s |
 | 74 | `m7-setup-rewrites-existing-keys` | setup --aidigest never duplicates/changes existing keys | killed | 1 failed, 393 passed in 30.55s |
 | 75 | `m7-setup-overwrite-unconfirmed` | overwrite requires typing OVERWRITE | killed | 1 failed, 397 passed in 33.38s |
@@ -714,7 +714,7 @@ Round-2 rows (the full 113-row table is printed by the script):
 | 98 | `r2-m3-no-mapped-unwrap` | IPv4-mapped judged by its IPv4 (observable on 3.12.3) | killed | 1 failed, 363 passed in 22.39s |
 | 99 | `r2-l1-non-text-codec-allowed` | only text codecs decode bodies | killed | 1 failed, 369 passed in 26.07s |
 | 100 | `r2-l1-decode-errors-unmapped` | decode errors are 502 | killed | 1 failed, 371 passed in 24.47s |
-| 101 | `r2-l1-huge-charref` | huge numeric charrefs neutralised before html.unescape | killed | 1 failed, 406 passed in 26.94s |
+| 101 | `r2-l1-huge-charref` | huge numeric charrefs neutralized before html.unescape | killed | 1 failed, 406 passed in 26.94s |
 | 102 | `r2-l2-all-feeds-failed-completes` | all feeds failing is a failed (retryable) run | killed | 1 failed, 183 passed in 13.68s |
 | 103 | `r2-l3-empty-keys-not-filled` | setup.sh fills empty AIDigest keys | killed | 1 failed, 429 passed in 32.27s |
 | 104 | `r2-l4-readme-no-member-grant` | README role SQL works for a PG16 non-superuser admin | killed | 1 failed, 233 passed in 20.42s |
@@ -722,7 +722,7 @@ Round-2 rows (the full 113-row table is printed by the script):
 | 106 | `r2-l5-items-per-feed` | <= 25 items per feed | killed | 1 failed, 239 passed in 20.39s |
 | 107 | `r2-l5-description-cap` | <= 1800-char descriptions | killed | 1 failed, 240 passed in 22.89s |
 | 108 | `r2-l5-run-key-local-date` | run_key uses the UTC date | killed | 1 failed, 231 passed in 21.21s |
-| 109 | `r2-l5-no-claim-lock` | claims serialised by the per-day advisory lock | killed | 1 failed, 230 passed in 24.34s |
+| 109 | `r2-l5-no-claim-lock` | claims serialized by the per-day advisory lock | killed | 1 failed, 230 passed in 24.34s |
 | 110 | `r2-l5-heartbeat-never-runs` | the heartbeat extends the lease | killed | 1 failed, 229 passed in 26.16s |
 | 111 | `r2-l6-default-executor` | parsers use the dedicated bounded executor | killed | 1 failed, 241 passed in 22.48s |
 | 112 | `r2-l7-replica-clock-lease` | lease timestamps from the DB clock | killed | 1 failed, 29 passed in 3.78s |
@@ -737,8 +737,8 @@ A first pass over the 22 round-2 mutations left two survivors, fixed before the 
 - `r2-l1-decode-errors-unmapped`: every tested charset was refused by the text-codec check first. The redundant idna/punycode/undefined deny-list was removed; those codecs fail inside `decode` and now exercise the try/except alone.
 
 `URL control characters` (challenger L5): an equivalent mutant. httpx's URL parser itself rejects NUL, CR/LF,
-TAB and DEL in host and path (checked), so the explicit check cannot change behaviour. It stays as defence in
-depth, and `test_validate_url_rejects_control_characters` covers the behaviour.
+TAB and DEL in host and path (checked), so the explicit check cannot change behavior. It stays as defense in
+depth, and `test_validate_url_rejects_control_characters` covers the behavior.
 
 ### 11.7 Lint, compile, dependency audit
 
@@ -823,7 +823,7 @@ This section supersedes sections 1-11 for gate results.
 | `56eefc1` | M1: failing tests (red) - Settings/setup.sh user and secret rules, temp-file trap, 17 new Caddy matrix cases |
 | `efa9b3d` | M1: heredoc tokens for user/hash, proxy secret read at request time, format-checking guard, `caddy-entrypoint.sh`, Settings `aidigest_basic_auth_user`, setup.sh rules + trap |
 | `7a8bba5` | M2: documented role SQL runs as the database owner (PUBLIC CONNECT revoked in the test); README updated |
-| `73bb6ff` | 12 round-3 mutations (125 total); compose sentinels removed (the entrypoint is the single sanitising mechanism); behavioural trap test; outside-compose matrix cases; `MUTATION_PY312` fails loudly |
+| `73bb6ff` | 12 round-3 mutations (125 total); compose sentinels removed (the entrypoint is the single sanitizing mechanism); behavioral trap test; outside-compose matrix cases; `MUTATION_PY312` fails loudly |
 | this commit | DESIGN.md section 12 and auth text, this evidence |
 
 ### 12.1 Red
@@ -988,7 +988,7 @@ Survivors on the first round-3 pass, and what killed them:
   `r2-m2-entrypoint-keeps-bad-user`, `r3-m1-entrypoint-keeps-bad-hash` and
   `r2-m2-compose-skips-entrypoint`.
 - `r3-note-no-temp-trap`: the text assertion still matched `trap - INT TERM`. Replaced with a
-  behavioural test (SIGTERM to the real `aidigest_fill_empty` while it rewrites a 150k-line `.env`).
+  behavioral test (SIGTERM to the real `aidigest_fill_empty` while it rewrites a 150k-line `.env`).
 
 `r3-m2-readme-hardcoded-db` is killed only when the test database is not `postgres`, which is why
 the run uses `AIDIGEST_TEST_DBNAME=aidigest_it`.
@@ -1153,12 +1153,12 @@ unreadable. For a normal-size `.env` the window is microseconds, but the result 
 - The trap is installed before `mktemp`.
 - Bash runs a trap only after the foreground child finishes. A signal during the command
   substitution is therefore handled after `tmp` is assigned. The `before-mktemp`/`after-mktemp`
-  shell cases pin this behaviour (GNU bash 5.2.21).
+  shell cases pin this behavior (GNU bash 5.2.21).
 - The two children that can hold the only knowledge of the file ignore INT/TERM, and an ignored
   disposition is inherited across `exec`. `mktemp` cannot die between creating the file and
   printing its name. `cat` cannot be cut off after the truncation. For the rewrite, the
   redirection is inside the subshell, after `trap ''`.
-- `set -e` behaviour is unchanged: `tmp=$(...)` is a plain assignment, so a failing `mktemp` still
+- `set -e` behavior is unchanged: `tmp=$(...)` is a plain assignment, so a failing `mktemp` still
   stops the script, and the rewrite subshell's status is the status of `cat`.
 
 ### 13.5 M1 under load, after the fix
@@ -1320,7 +1320,7 @@ line. `r4-l1-settings-allows-marker` removes only the marker clause.
   entrypoint), like a non-bcrypt hash there. The supported deployment always goes through the
   entrypoint, and the matrix asserts the compose `command`.
 - The trap ordering relies on bash running a trap only after a foreground child (here the command
-  substitution) finishes. The shell-target cases pin this behaviour on GNU bash 5.2.21; no other
+  substitution) finishes. The shell-target cases pin this behavior on GNU bash 5.2.21; no other
   bash version was available to run them.
 - SIGKILL, or a crash between the copy and the rewrite, can still leave the 600-mode temp file
   behind. A `set -e` failure inside the copy loop (e.g. disk full) can too, because the trap
@@ -1801,3 +1801,389 @@ Run without `-x` in the foreground over `test_setup_sh.py`, each mutation is kil
   `.env` at that moment, and the rename itself is still atomic.
 - The end-to-end run of section 11.9 was not repeated: this round changes only setup.sh, tests and
   scripts.
+
+## 16. Copilot review of PR #60 (`0ed8b21`): 2 High, 3 Medium
+
+PR #60 was merged at `0ed8b21` (`origin/main` = `f789743`). These fixes are on a new branch,
+`fix/aidigest-copilot-review`, cut from `origin/main`. The first five commits were written on
+`feat/ai-digest-initial` before the merge, then cherry-picked. `git log origin/main..HEAD` contains
+only the commits below. This section supersedes sections 1-15 for gate results.
+
+| SHA | What |
+|---|---|
+| `62f40b4` | Red: tests for all five findings (cherry-pick of `27aa055`) |
+| `766adb6` | High 4177765103: a task is readable only by its requester; access policy (DESIGN.md 16.1) |
+| `13556df` | Medium 4177765193: compressed bodies must reach their end marker with nothing after it |
+| `32aeb9a` | Medium 4177765160 / 4177765211: absolute DAILY and TASK budgets, DB-side timeouts |
+| `90787ab` | High 4177765138: one atomic writer for every `.env` change in setup.sh |
+| `40e3178` | 17 mutations (168 total); 9 targets moved |
+| `8c6aab4` | The DAILY failure-record test reaches the failure record (kills #158, the one survivor of the full run) |
+| this commit | this evidence |
+
+### 16.1 Red (on `0ed8b21`)
+
+```
+test_setup_sh.py:                     129 failed, 28 passed   (the writer, the append path, symlink, static sweep)
+test_tasks.py + test_fetcher.py:      24 failed  (IDOR x3; 20 damaged-stream cases + 2 pre-read cases: "DID NOT RAISE UpstreamError")
+budget tests (budget/daily/tasks):    14 failed, 5 passed in 246.89s   (each hanging case ran into its 30 s test guard)
+```
+
+The 5 budget tests that already passed are cases that were inside the old `wait_for`: a hang in the
+DAILY final store, a hang in TASK knowledge evidence, and the three existing budget tests.
+
+### 16.2 High 4177765103: task IDOR
+
+`GET /agent/tasks/{id}` passes the caller to `get_task`, which filters on
+`id AND requested_by` (the stored, normalized form).
+- Another user's task is a 404 with the same body as an unknown id. The owner still gets 200, and the
+  other user's response contains neither the task text nor the result
+  (`test_task_of_another_user_is_404_like_an_unknown_id`).
+- Sweep: every route is classified as public, shared or per-user
+  (`test_every_route_has_an_access_policy`; policy in DESIGN.md 16.1). Every SQL statement on
+  `aidigest.tasks` names `requested_by`, except the status update of the row this request just
+  created under a fresh random id (`test_every_query_on_tasks_is_scoped_to_a_user`).
+- There is no task list endpoint. Runs, the digest and knowledge are team-shared by policy.
+
+### 16.3 High 4177765138: `.env` writes
+
+All `.env` changes go through `env_replace FILE PRODUCER`: a temp file next to `.env`, `cp -p` plus a
+mode/owner check, flush, `mv -f`, the HUP/INT/QUIT/TERM/EXIT traps, and the symlink refusal. Three
+paths use it:
+- fill empty keys and append missing ones, in one replace;
+- the pre-PR upgrade, which only appends;
+- the full-setup fresh write (which was `cat > .env`).
+
+The `>>` append is gone.
+
+Tests: the signal harness now covers both paths (fill / append): 4 signals x 6 points x
+shell/group x 2 paths = 96 cases. It also covers SIGKILL and the failures (`/dev/full`, `cp`,
+mode, `mv`, flush) on both paths, plus mode/owner and the symlink. On top of that:
+- `test_upgrade_of_a_pre_pr_env_adds_the_keys_atomically_keeping_mode_and_owner`: a real
+  `setup.sh --aidigest` on a pre-PR `.env` with mode 0640 and owner 12345:23456. The keys are
+  added, the old content is a prefix of the new, mode and owner are kept, and the inode is new
+  (replaced, not written into).
+- `test_upgrade_refuses_a_symlinked_env_on_the_append_path`: a real `--aidigest` run, with `.env`
+  a symlink to a file outside the directory. The run is refused and the outside file is unchanged.
+- `test_no_direct_writes_to_env_anywhere`: setup.sh and the Makefile contain no `>`/`>>`, `tee`,
+  `sed -i` or `cp` onto `.env`. The only `mv` onto it is the temp-copy rename.
+
+Full-setup path, checked by hand: the real `env_replace .env setup_env_content` creates a fresh `.env`
+with mode 600 even under `umask 022`. Over an existing 644 `.env` it writes a new inode, and setup.sh
+then runs `chmod 600`.
+
+Elsewhere in the repository, `insurance-agent-demo/Makefile` runs `cp .env.example .env` only when
+that separate app has no `.env`. It is not part of this stack and was not changed.
+
+### 16.4 Medium 4177765160 / 4177765211: absolute budgets
+
+`aidigest/budget.py` (DESIGN.md 16.3) takes one deadline at entry. Readiness, the claim or task-row
+insert (including the advisory-lock wait), the run and the final recording each run in the time that
+is left. Every DAILY/TASK transaction sets local `lock_timeout` and `statement_timeout` 0.1 s below
+it. `min(5 s, budget/2)` is reserved for recording a failure.
+
+| Test (budget 1.0 s, bound 1.6 s) | Result |
+|---|---|
+| advisory lock held by another session: DAILY claim / TASK insert (HTTP 504) | DeadlineError within the bound; no AI call, no row left `running` |
+| DB never answers (`tests/fakes.HangingEngine`): readiness, claim, task insert, final store | DeadlineError within the bound |
+| ... final store hangs, failure record answers | run row / task row `failed` with "budget" |
+| ... completion AND failure record hang | still DeadlineError within the bound (fail safe, logged) |
+| `db_tx` | `lock_timeout` and `statement_timeout` are set, > 0 and within the time left, local to the transaction |
+| DB-side lock wait | ended by Postgres (55P03), reported as DeadlineError; no backend left waiting in `pg_locks` |
+
+### 16.5 Medium 4177765193: compressed bodies
+
+After the last chunk the decoder is flushed, and the flushed bytes count against the cap. The
+stream must then have reached its end (`decoder.eof`) with nothing left over (`unused_data`), for
+gzip, x-gzip and deflate. The damage cases (truncated, trailing garbage, two streams) are rejected
+with chunk sizes 7 and 65536. Complete streams still decode with chunks of 1, 7 and 65536. A
+pre-read compressed body is refused: httpx decoded it without a completeness check, and returns a
+truncated gzip as a 10-byte body.
+
+### 16.6 Gates
+
+pytest, each combination in the foreground and as a background job (INT/QUIT ignored):
+
+```
+foreground  Python 3.11.15  DB=postgres  748 passed in 55.06s
+background  Python 3.11.15  DB=postgres  748 passed in 52.26s
+foreground  Python 3.11.15  DB=aidigest_it  748 passed in 53.80s
+background  Python 3.11.15  DB=aidigest_it  748 passed in 54.68s
+foreground  Python 3.12.3  DB=postgres  748 passed in 55.58s
+background  Python 3.12.3  DB=postgres  748 passed in 55.22s
+foreground  Python 3.12.3  DB=aidigest_it  748 passed in 56.28s
+background  Python 3.12.3  DB=aidigest_it  748 passed in 59.37s
+$ ruff check .                          All checks passed!
+$ python -m compileall ... (3.11, 3.12)  compile-ok
+$ bash -n setup.sh caddy_matrix.sh setup_bash_matrix.sh; sh -n / dash -n caddy-entrypoint.sh   syntax-ok
+$ pip-audit -r requirements.txt          No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt      No known vulnerabilities found
+$ AIDigest/scripts/caddy_matrix.sh       30 cases, 199 checks, 0 failures
+$ AIDigest/scripts/setup_bash_matrix.sh  118 cases (fill + append) on bash 4.4, 5.0, 5.1, 5.2, 5.3: 118 passed each
+```
+
+An earlier pass of the same 8-run loop had one failure in each of two runs (3.11 / `aidigest_it`,
+foreground and background). Both foreground `postgres` runs of that pass took 85 s instead of about
+55 s. The failing test was not captured: each run overwrote one log file. That pass ran while another
+session on this shared machine was starting containers on the same docker daemon.
+- 14 later full runs passed: 6 x 3.11/`aidigest_it` plus the 8 above, each logged separately.
+- The likely candidate is `test_non_yielding_stream_still_yields_the_loop_periodically` (an
+  event-loop gap under 0.25 s). It is an earlier test, unchanged in this round. It also failed in
+  mutation-analysis runs that overlapped with `dockerd` starting and image pulls, and passed 5/5 on
+  a quiet machine.
+
+### 16.7 Mutation check (168 mutations)
+
+**Full run at `40e3178`.** It was launched as `( nohup $PY scripts/mutation_check.py ... & )`, with
+HUP, INT and QUIT ignored, `AIDIGEST_TEST_DBNAME=aidigest_it`, and `MUTATION_PY312` set.
+
+```
+baseline: PASS (748 passed in 56.71s) 58s
+167/168 mutations killed, 1 survived.
+SURVIVED r7-daily-failure-record-unbounded      748 passed in 56.67s
+```
+
+**#158 was a test gap, not an equivalent mutation.**
+- The test hung every statement containing `aidigest.runs SET status=`, which also matches the
+  claim's own `UPDATE aidigest.runs SET status='failed', error='abandoned'`. The run therefore timed
+  out in the claim, before any row existed, and never reached the failure record that the mutation
+  changes.
+- The TASK counterpart (#161, killed) was valid, because a TASK row is created by an INSERT, which
+  its needle does not match.
+- `8c6aab4` hangs only statements on the run's own claimed row (`AND owner=:owner AND
+  status='running'`: the ownership check, the final store, the failure record). It asserts that the
+  failure-record UPDATE was attempted and that the row exists.
+- Against the mutated code: `AssertionError: TimeoutError()`, because the run hangs until the 30 s
+  test guard. Against the real code: passed in 3.9 s.
+
+**Re-run of the round-7 set at `8c6aab4`** (`--only r7-`, launched the same way):
+
+```
+baseline: PASS (748 passed in 55.43s) 57s
+17/17 mutations killed, 0 survived.
+```
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 1 | `r7-task-read-not-scoped` | a task is readable only by its requester (IDOR, 4177765103) | killed | 1 failed, 723 passed in 49.86s |
+| 2 | `r7-append-in-place` | the upgrade (append) path replaces .env atomically (4177765138) | killed | 1 failed, 658 passed in 45.48s |
+| 3 | `r7-full-setup-in-place` | the full setup writes .env through the same writer | killed | 1 failed, 660 passed in 47.99s |
+| 4 | `r7-producer-write-error-ignored` | the .env producer fails on a failed write (disk full) | killed | 1 failed, 639 passed in 44.62s |
+| 5 | `r7-daily-readiness-unbounded` | DAILY readiness is inside the budget (4177765160) | killed | 1 failed, 289 passed in 54.88s |
+| 6 | `r7-daily-claim-unbounded` | the DAILY claim (incl. its lock wait) is inside the budget | killed | 1 failed, 288 passed in 26.14s |
+| 7 | `r7-daily-failure-record-unbounded` | recording a DAILY failure uses only the reserved slice | killed | 1 failed, 292 passed in 57.24s |
+| 8 | `r7-task-readiness-unbounded` | TASK readiness is inside the budget (4177765211) | killed | 1 failed, 744 passed in 84.00s (0:01:23) |
+| 9 | `r7-task-insert-unbounded` | the TASK row insert (incl. the rate-limit lock wait) is inside the budget | killed | 1 failed, 743 passed in 52.33s |
+| 10 | `r7-task-failure-record-unbounded` | recording a TASK failure uses only the reserved slice | killed | 1 failed, 747 passed in 86.41s (0:01:26) |
+| 11 | `r7-task-insert-timeout-as-storage-error` | a lock_timeout on the task insert is a deadline, not a 503 | killed | 1 failed, 743 passed in 53.10s |
+| 12 | `r7-no-db-side-timeouts` | db_tx sets lock_timeout/statement_timeout inside the budget | killed | 1 failed, 154 passed in 15.46s |
+| 13 | `r7-db-timeout-not-a-deadline` | Postgres lock/statement timeouts are reported as the deadline | killed | 1 failed, 156 passed in 16.63s |
+| 14 | `r7-no-reserve` | a slice of the budget is reserved for recording a failure | killed | 1 failed, 157 passed in 16.39s |
+| 15 | `r7-truncated-stream-accepted` | a compressed stream must reach its end marker (4177765193) | killed | 1 failed, 409 passed in 30.02s |
+| 16 | `r7-trailing-data-accepted` | nothing may follow the compressed stream | killed | 1 failed, 415 passed in 29.42s |
+| 17 | `r7-pre-read-compressed-accepted` | a pre-read compressed body (cannot be verified) is refused | killed | 1 failed, 436 passed in 28.29s |
+
+Every other mutation was killed in the full run. Rows for the retargeted ones (same intent as before):
+
+| # | Mutation | Control reverted | Result | Suite tail |
+|---|---|---|---|---|
+| 34 | `task-urls-not-reserved` | explicit URLs get the first evidence slots (finding 6) | killed | 1 failed, 701 passed in 45.49s |
+| 39 | `errors-not-recorded` | failures recorded on the task row (finding 8) | killed | 1 failed, 707 passed in 46.50s |
+| 40 | `task-no-readiness-gate` | TASK gated on readiness (finding 9) | killed | 1 failed, 715 passed in 51.05s |
+| 41 | `daily-no-readiness-gate` | DAILY gated on readiness (finding 10) | killed | 1 failed, 30 passed in 4.26s |
+| 52 | `m1-no-daily-budget` | DAILY run budget | killed | 1 failed, 277 passed in 25.55s |
+| 53 | `m1-no-task-budget` | TASK budget | killed | 1 failed, 732 passed in 53.14s |
+| 54 | `m2-no-owner-check-before-ai` | ownership re-checked before the AI call | killed | 1 failed, 272 passed in 18.63s |
+| 135 | `r5-mode-owner-not-kept` | the new .env gets the old one's mode and owner (cp -p and its check) | killed | 1 failed, 515 passed in 41.15s |
+| 136 | `r5-mode-owner-not-verified` | mode/owner of the temp copy verified before the rename | killed | 1 failed, 643 passed in 43.21s |
+| 142 | `r5-write-error-ignored` | a failed write (disk full) stops before the rename (the writer checks the producer) | killed | 1 failed, 639 passed in 41.36s |
+| 151 | `r6-fsync-result-ignored` | the flush result is checked | killed | 1 failed, 641 passed in 41.77s |
+
+Total: 168 mutations. 167 were killed in the full run, and the remaining one (#158) is killed since
+`8c6aab4`. Survivors: none.
+
+### 16.8 Final pytest gates (at `8c6aab4`)
+
+```
+foreground  Python 3.11.15  DB=postgres  748 passed in 55.03s
+background  Python 3.11.15  DB=postgres  748 passed in 60.28s (0:01:00)
+foreground  Python 3.11.15  DB=aidigest_it  748 passed in 57.46s
+background  Python 3.11.15  DB=aidigest_it  748 passed in 55.31s
+foreground  Python 3.12.3  DB=postgres  748 passed in 57.98s
+background  Python 3.12.3  DB=postgres  748 passed in 58.79s
+foreground  Python 3.12.3  DB=aidigest_it  748 passed in 59.76s
+background  Python 3.12.3  DB=aidigest_it  748 passed in 55.30s
+```
+
+## 17. Challenger review of `ae012a0` (REQUEST CHANGES: 0 High, 2 Medium, 8 Low)
+
+Fixes are in `6b2c420`..`a098883` (the findings and fixes are in DESIGN.md section 17). This section
+records only what was measured. The logs come from the working directory `/tmp/aidg-r8` of those runs.
+
+| SHA | What |
+|---|---|
+| `6b2c420` | red tests for the review |
+| `79e53ba` | M1 (TCP freeze), L1, L6: budgets hold when the DB freezes; DB-side timeouts |
+| `2562adb` | L7: a deadline during COMMIT leaves no stranded `running` row |
+| `ee0735d` | L2, L8: `.env` and its backup are always mode 600 |
+| `48bdf55` | L3, L4: documentation |
+| `bc19df9` | `lock_timeout` is `statement_timeout` minus a margin (one mechanism) |
+| `f8ca8c2` | CPU-time limits instead of wall-clock kills for the DoS timing tests |
+| `ad3129e` | `mutation_check.py` confirms each kill; 23 new mutants (191 in total) |
+| `da02345` | `setup_bash_matrix.sh` expects mode 600 with the owner kept (L2) |
+| `fd47f89` | DESIGN.md section 17 |
+| `a098883` | wider DB-side margins (0.25 s statement, 0.1 s lock, 0.5 s attribution); a SUSPECT kill shows its errors |
+
+### 17.1 Mutants for this review (191 in total)
+
+`scripts/mutation_check.py` records the test that killed each mutant. It then runs that test alone
+on the mutated tree and on the baseline: the test must fail on the first and pass on the second.
+Otherwise the mutant is SUSPECT, and the run fails.
+
+```
+23 new mutants, first run:   17 killed, 1 survived, 5 suspect      (baseline 770 passed)
+23 new mutants, second run:  23 killed, 0 survived, 0 suspect      (baseline 770 passed)
+```
+
+The full run of all 191 mutants was interrupted by a container restart after 178 results. All 178
+were `killed`. A second pass of the 23 new mutants (10 of them had already been run in the full run)
+was `23 killed`. Every one of the 191 mutants therefore has a `killed` result:
+
+| pass | mutants | killed | survived | suspect |
+|---|---|---|---|---|
+| full run (interrupted) | 178 | 178 | 0 | 0 |
+| second pass, the 23 new mutants | 23 | 23 | 0 | 0 |
+| union (191 distinct) | 191 | 191 | 0 | 0 |
+
+### 17.2 Flaky timing tests
+
+The freeze tests and the timing tests that were flaky under load were run repeatedly:
+
+```
+final_flake.log          12 runs of 18 tests:  12 x 18 passed
+final3_flake_load.log    12 runs of 33 tests under CPU load: 12 x 33 passed
+```
+
+An earlier load series (`final2_flake_load*.log`) showed failures and led to the `a098883` margins.
+The last series above is the one that passed on the final code.
+
+## 18. Challenger reviews of `d23075f` and `2493e19`
+
+### 18.1 Review of `d23075f` (REQUEST CHANGES: 0 High, 2 Medium, 6 Low): fixed in `961972d`
+
+The findings and fixes are in DESIGN.md section 17.1. `961972d` added `tests/test_reserve.py`, the
+idle-in-transaction timeout, the one-day cap on both budgets, and nine mutants (`r9-*`), which
+brings the total to 200.
+
+Gates at `961972d` (`final4_gates.log`):
+
+```
+$ ruff check .                                     All checks passed!
+$ python -m compileall                             compile-ok on 3.11 and 3.12
+$ bash -n / sh -n                                  syntax-ok
+$ pip-audit -r requirements.txt                    No known vulnerabilities found
+$ pip-audit -r requirements-dev.txt                No known vulnerabilities found
+DB=postgres    Python 3.11.15  801 passed in 98.51s
+DB=aidigest_it Python 3.11.15  801 passed in 100.27s
+DB=postgres    Python 3.12.3   801 passed in 101.40s
+DB=aidigest_it Python 3.12.3   801 passed in 101.94s
+```
+
+The previous head (`d23075f`) had 770 tests. `caddy_matrix.sh` (`exit=0`, all expectations met) and
+`setup_bash_matrix.sh` (118 cases on bash 4.4, 5.0, 5.1, 5.2 and 5.3, all passed) were run at
+`d23075f`. `961972d` changes none of the files they exercise (`setup.sh`, `Caddyfile`,
+`caddy-entrypoint.sh`).
+
+Mutants. The first run of the nine `r9-*` mutants gave `8 killed, 0 survived, 1 suspect`. The
+suspect was `r9-mark-failed-no-reserve`: its recorded killer, an older freeze test, passed when
+re-run alone. Naming the test written to kill it (`first="tests/test_reserve.py"`) gave `killed` by
+`test_reserve.py::test_mark_failed_lands_when_the_work_slice_is_spent_and_the_db_is_slow`. After
+that, a full run on the 801-test baseline and re-runs of the mutants it did not reach gave:
+
+```
+full run (baseline 801 passed):           186 mutants, all killed
+separate passes (mut_p4, baseline 801):    14 mutants not reached by the full run, all killed
+                                           (the 5 r8-sweep/temp/backup mutants and the 9 r9-* mutants)
+total: 200 distinct mutants, 200 killed, 0 survived, 0 suspect
+```
+
+### 18.2 Review of `2493e19` (CHANGES: 0 High, 1 Medium, 4 Low)
+
+`2493e19` merges `origin/main` into the branch. The review found the code sound.
+
+| ID | Finding | Resolution |
+|---|---|---|
+| M1 | EVIDENCE.md ended at 16.8, but DESIGN.md pointed at a section 18 and the PR body at section 17 | sections 17 and 18 above |
+| L1 | `run_task` did not catch an unreachable database (`DB_UNREACHABLE`) while recording a TASK failure; `ConnectionRefusedError` escaped the `except` block as a raw 500 | `*DB_UNREACHABLE` added to that `except`, as in `daily.py` and the other TASK steps. Red test first (`60e4542`): `test_task_db_unreachable_while_recording_the_failure_is_503[execute|finish]`, which fails on `2493e19` with the raw `ConnectionRefusedError`. Mutant `r10-task-failure-record-db-unreachable`: killed by the `[execute]` case |
+| L2 | PR body inaccuracies: no `.github` file changed; `lock_timeout` is the statement margin minus 100 ms (`LOCK_EARLIER_SECONDS` = 0.1), not 50 ms; it is upstream response bodies that the fetcher strict-decodes, not request bodies | PR body text (not part of the repository) |
+| L3 | PR body said the DB timeout "always" lands first | "usually; see DESIGN.md 17.2" in the PR body |
+| L4 | the `setup.sh` usage comment did not mention `--backup-env` | added to the comment |
+
+The gates for this round are in 18.3.
+
+### 18.3 Gates for the fix (L1, L4, evidence)
+
+```
+Python 3.11.15  DB=postgres     803 passed in 120.60s
+Python 3.11.15  DB=aidigest_it  803 passed in 118.79s
+Python 3.12.3   DB=postgres     803 passed in 121.43s
+Python 3.12.3   DB=aidigest_it  803 passed in 121.09s
+$ ruff check .                                   All checks passed!
+$ python -m compileall (3.11 and 3.12)           compile-ok
+$ bash -n setup.sh / caddy_matrix.sh / setup_bash_matrix.sh; sh -n caddy-entrypoint.sh    syntax-ok
+$ mutation_check.py --only r10-                  1/1 killed (re-run of the killing test confirmed), 0 survived, 0 suspect
+```
+
+The 803 tests are the 801 of `961972d` plus the two cases of
+`test_task_db_unreachable_while_recording_the_failure_is_503`. The mutant total is now 201 (200
+killed in 18.1, plus `r10-task-failure-record-db-unreachable`). The full mutation run was not
+repeated: this round changed one `except` tuple in `tasks.py`, one usage comment in `setup.sh`,
+and documentation. `caddy_matrix.sh` and `setup_bash_matrix.sh` were not re-run for the same
+reason (no change to `Caddyfile`, `caddy-entrypoint.sh` or to any code path in `setup.sh`).
+
+## 19. Copilot review of `432f908` (12 findings): fixes and exactly what was run on the current head
+
+| Finding | Fix | Commit | Killed by |
+|---|---|---|---|
+| HIGH `setup.sh` no-change path skipped the mode hardening | the path tightens a loose `.env` to 600 and refuses a symlink; a private, complete `.env` is left untouched | `12ffd8c` (red), `ee7f9e5` | `test_no_change_path_tightens_a_loose_env_to_600`, `..._refuses_a_symlinked_env`, `..._leaves_a_private_env_untouched` |
+| terminal TASK writes could move an abandoned row | both terminal writes carry `AND status = 'running'` | `e41c0a7` (red), `c5edd0a` | `test_terminal_write_does_not_overwrite_an_abandoned_row` |
+| DAILY heartbeat cleanup could overrun the budget | the wait is capped by the remaining deadline | `d55959d` (red), `d835dcc` | `test_daily_heartbeat_cleanup_is_capped_by_the_remaining_deadline` |
+| README/DESIGN said "per person" | account-scoped wording (one Basic Auth identity = one `requested_by`) | `45076c8` | docs |
+| Caddy mutants bypassed the kill confirmation | Caddy mutants are confirmed on the mutated tree and the baseline matrix | `bfeb5ab` | `test_every_caddy_mutant_is_confirmed_not_exempt`, `test_matrix_kill_is_confirmed_when_the_mutant_fails_again_and_the_baseline_passes` |
+| missing current-head evidence | this section | this commit | - |
+| U.S. English (behavior, normalized, canceled x5, monopolize) and `_normalise_user` | spelling fixed; helper is `_normalize_user` | `45076c8` | `ruff`, `git grep` for the British forms |
+
+Survivor found while writing the mutants: the symlink refusal of the no-change path was not
+observable; `23fc01c` made it observable (`r11-nochange-follows-symlink`, now killed).
+`0b255c8` adds `mutation_check.py --names-file` so an interrupted run can be finished.
+
+### 19.1 What was run on this head
+
+```
+pytest -q -rs (823 tests)
+Python 3.11.15  DB=postgres     823 passed in 116.20s
+Python 3.11.15  DB=aidigest_it  823 passed in 118.36s
+Python 3.12.3   DB=postgres     823 passed in 118.57s
+Python 3.12.3   DB=aidigest_it  823 passed in 115.35s
+ruff check .                                  All checks passed!
+compileall (aidigest main.py tests scripts)   compile-ok
+bash -n setup.sh caddy_matrix.sh setup_bash_matrix.sh; sh -n caddy-entrypoint.sh   syntax-ok
+mutation_check.py --names-file <the 8 r10-*/r11-* mutants>
+  baseline: PASS (823 passed in 141.96s)
+  8/8 killed (each kill confirmed on the mutated and the baseline tree), 0 survived, 0 suspect
+```
+
+The 8 mutants: `r10-task-failure-record-db-unreachable`, `r11-nochange-skips-hardening`,
+`r11-nochange-follows-symlink`, `r11-nochange-always-rewrites`, `r11-finish-task-unguarded`,
+`r11-heartbeat-wait-uncapped`, `r11-caddy-kill-unconfirmed`, `r11-matrix-kill-baseline-ignored`.
+
+### 19.2 What was not run
+
+- **The full mutation run was not repeated on this head.** 208 mutants are defined (201 at
+  `432f908` plus the 7 `r11-*`). Only the 8 above were run on this head, so the other 200 have no
+  result on this head. Those 200 were killed on `961972d` (section 17); a repeat on a later head was
+  started and stopped after 16 spot-runs (all killed, none survived or SUSPECT), at the
+  coordinator's request.
+- `caddy_matrix.sh` and `setup_bash_matrix.sh` were not re-run: this round changed neither
+  `Caddyfile`, `caddy-entrypoint.sh`, nor the signal/atomic-replace code of `setup.sh`.
+  The existing Caddy mutants were not re-run either; the confirmation step for them is covered by
+  the two `test_mutation_check.py` tests above.

@@ -54,7 +54,7 @@ DEFAULT_PARSE_TIMEOUT = 10.0
 # getaddrinfo uses, so a burst of slow parses cannot starve DNS. Python threads cannot be
 # killed: a parse that misses its deadline finishes in the background (linear time, so at most
 # ~0.2 s per MB) while its pool slot stays busy; the pool never grows past PARSE_WORKERS and
-# requests queued behind it are cancelled by their own deadline before they start.
+# requests queued behind it are canceled by their own deadline before they start.
 PARSE_WORKERS = 4
 PARSE_EXECUTOR = ThreadPoolExecutor(max_workers=PARSE_WORKERS, thread_name_prefix="aidigest-parse")
 

@@ -6,7 +6,8 @@
 # process group (job control), so "kill 0" reaches only the case, and a probe launched like a case
 # must show HUP/INT/QUIT/TERM at their default disposition. Checked per case: exit status,
 # .env (untouched / completely replaced), no temp file left (except after SIGKILL), one temp name
-# recorded, the failure message, and mode/owner for the mode case.
+# recorded, the failure message, and for the mode case: mode 600 with the original owner (a 640 .env
+# is tightened, review of ae012a0 L2).
 #
 # Usage: AIDigest/scripts/setup_bash_matrix.sh [setup.sh]   (env: BASH_VERSIONS, PYTHON)
 # Needs docker and a PYTHON with requirements-dev.txt installed. Exit 0 = every case passed.
@@ -30,24 +31,27 @@ import tests.test_setup_sh as t
 out = Path(sys.argv[1]); cases = out / "cases"
 t.REPO = out                                   # _fill_empty_script reads REPO / "setup.sh"
 rows = []
-def add(name, hook, rc, final, env="", msg="", prep=""):
-    (cases / f"{name}.sh").write_text(t._fill_empty_script(hook))
+def add(name, hook, rc, final, env="", msg="", prep="", path="fill"):
+    (cases / f"{name}.sh").write_text(t._fill_empty_script(hook, path))
     rows.append("|".join([name, str(rc), final, env, msg, prep]))
-for point, hook in sorted(t._SIGNAL_POINTS.items()):
-    for sig, n in sorted(t._SIGNUM.items()):
+for path in sorted(t._CALLS):                  # fill an empty key / append a missing key
+    done = f"new-{path}"
+    for point, hook in sorted(t._SIGNAL_POINTS.items()):
+        for sig, n in sorted(t._SIGNUM.items()):
+            for target in ("shell", "group"):
+                add(f"{path}-sig-{point}-{sig}-{target}", hook, 128 + n,
+                    done if point == "after-replace" else "original", f"SIG={sig} TARGET={target}", path=path)
+    for point in ("during-copy", "at-replace"):
         for target in ("shell", "group"):
-            add(f"sig-{point}-{sig}-{target}", hook, 128 + n,
-                "filled" if point == "after-replace" else "original", f"SIG={sig} TARGET={target}")
-for point in ("during-copy", "at-replace"):
-    for target in ("shell", "group"):
-        add(f"kill-{point}-{target}", t._SIGNAL_POINTS[point], 137, "original", f"SIG=KILL TARGET={target}")
-for failure, (hook, message) in sorted(t._FAILURES.items()):
-    add(f"fail-{failure}", hook, 1, "original", msg=message, prep="600")
-add("mode-owner", t._MKTEMP_RECORD, 0, "filled", prep="640owner")
-add("control", t._MKTEMP_RECORD, 0, "filled")
+            add(f"{path}-kill-{point}-{target}", t._SIGNAL_POINTS[point], 137, "original",
+                f"SIG=KILL TARGET={target}", path=path)
+    for failure, (hook, message) in sorted(t._FAILURES.items()):
+        add(f"{path}-fail-{failure}", hook, 1, "original", msg=message, prep="600", path=path)
+    add(f"{path}-mode-owner", t._MKTEMP_RECORD, 0, done, prep="640owner", path=path)
+    add(f"{path}-control", t._MKTEMP_RECORD, 0, done, path=path)
+    (out / done).write_text(t._EXPECTED[path])
 (out / "cases.txt").write_text("\n".join(rows) + "\n")
 (out / "original").write_text(t._ORIGINAL)
-(out / "filled").write_text(t._FILLED)
 print(f"{len(rows)} cases generated from tests/test_setup_sh.py")
 PY
 )
@@ -82,7 +86,7 @@ while IFS='|' read -r name rc final envs msg prep; do
     [[ $(cat "$w/created.log" 2>/dev/null | wc -l) -eq 1 ]] || why+=" temp names recorded != 1"
   fi
   [[ -z "$msg" ]] || grep -q "$msg" "$w/out" || why+=" message '$msg' missing"
-  if [[ $prep == 640owner && "$(stat -c '%a %u %g' "$w/.env")" != "640 12345 23456" ]]; then why+=" mode/owner"; fi
+  if [[ $prep == 640owner && "$(stat -c '%a %u %g' "$w/.env")" != "600 12345 23456" ]]; then why+=" mode/owner"; fi
   if [[ -z "$why" ]]; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "  FAIL $name:$why"; fi
   rm -rf "$w"
 done < cases.txt
