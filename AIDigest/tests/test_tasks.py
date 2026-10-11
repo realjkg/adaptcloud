@@ -724,3 +724,70 @@ async def test_stale_running_task_is_failed_on_the_next_request(engine):
     assert rows["old"] == "failed"            # older than budget + grace: abandoned
     assert rows["live"] == "running"          # may still be running
     assert rows["theirs"] == "running"        # another user's rows are not touched by this request
+
+
+# ═══════════ Review of 432f908: a terminal status is written only to a still-'running' row ═══════════
+async def _insert_task(engine, task_id: str, status: str, error: str | None = None) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "INSERT INTO aidigest.tasks (id, requested_by, request_text, mode, status, error, created_at) "
+            "VALUES (:id, 'op', 'q', 'research', :status, :error, now())"),
+            {"id": task_id, "status": status, "error": error})
+
+
+@pytest.mark.parametrize("write", [
+    {"status": "completed", "result": {"answer": "late"}},
+    {"status": "failed", "error": "502: late failure"},
+])
+async def test_terminal_write_does_not_overwrite_an_abandoned_row(engine, write):
+    """The abandoned-late-commit race: the row was already failed ('abandoned', by the next request or the
+    creation cleanup) when the original request finally commits its own terminal write. The late
+    write must not turn the abandoned row into 'completed' (or replace its error)."""
+    from aidigest.tasks import ABANDONED_STALE, _finish_task
+    task_id = "55555555-5555-5555-5555-555555555555"
+    await _insert_task(engine, task_id, "failed", ABANDONED_STALE)
+    await _finish_task(engine, task_id, **write)
+    row = (await _rows(engine, task_id))
+    assert row["status"] == "failed" and row["error"] == ABANDONED_STALE and row["result_json"] is None, row
+
+
+@pytest.mark.parametrize("write", [
+    {"status": "completed", "result": {"answer": "ok"}},
+    {"status": "failed", "error": "502: boom"},
+])
+async def test_terminal_write_still_finishes_a_running_row(engine, write):
+    from aidigest.tasks import _finish_task
+    task_id = "66666666-6666-6666-6666-666666666666"
+    await _insert_task(engine, task_id, "running")
+    await _finish_task(engine, task_id, **write)
+    row = await _rows(engine, task_id)
+    assert row["status"] == write["status"] and row["completed_at"] is not None, row
+
+
+async def test_run_task_late_completion_leaves_the_abandoned_row_failed(engine, monkeypatch):
+    """End to end: while the request is still working, its row is failed as stale (the user's next
+    request ran). When the work finally completes, the row stays failed."""
+    from aidigest import tasks
+    from aidigest.tasks import ABANDONED_STALE, TaskConfig, TaskRequest, run_task
+    from tests.fakes import FakeAI, FakeFetcher
+    real = tasks._execute_task
+
+    async def abandoned_meanwhile(engine_, *args, **kwargs):
+        async with engine_.begin() as conn:
+            await conn.execute(text("UPDATE aidigest.tasks SET status='failed', error=:e, completed_at=now()"),
+                               {"e": ABANDONED_STALE})
+        return await real(engine_, *args, **kwargs)
+
+    monkeypatch.setattr(tasks, "_execute_task", abandoned_meanwhile)
+    ai = FakeAI()
+    ai.queue_json(answer())
+    await run_task(engine, ai, FakeFetcher(), "op", TaskRequest(task="Summarize this knowledge"),
+                   TaskConfig(budget_seconds=60))
+    row = await _only_task(engine)
+    assert row["status"] == "failed" and row["error"] == ABANDONED_STALE, row
+
+
+async def _rows(engine, task_id):
+    async with engine.connect() as conn:
+        return dict((await conn.execute(text("SELECT * FROM aidigest.tasks WHERE id=:id"), {"id": task_id}))
+                    .mappings().one())
