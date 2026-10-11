@@ -245,10 +245,13 @@ async def _save_knowledge(engine: AsyncEngine, knowledge: list[dict], now: datet
 
 async def _finish_task(engine, task_id: str, status: str, *, result=None, error=None,
                        budget: Budget | None = None, reserve: bool = False) -> None:
+    # Both terminal writes (completed, failed) only ever move a 'running' row: a row already failed as
+    # abandoned (the creation cleanup, or the user's next request) is final, so a late commit of the
+    # original request cannot turn it into 'completed' or replace its error (review of 432f908).
     async with db_tx(engine, budget, reserve=reserve) as conn:
         await conn.execute(text(
             "UPDATE aidigest.tasks SET status=:status, result_json=:result, error=:error, completed_at=:done "
-            "WHERE id=:id"),
+            "WHERE id=:id AND status='running'"),
             {"status": status, "result": json.dumps(result) if result is not None else None, "error": error,
              "done": datetime.now(timezone.utc), "id": task_id})
 
