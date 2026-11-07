@@ -36,7 +36,7 @@ jobs:
           cp -R ccar-f/. _site/ccar-f/
           touch _site/.nojekyll
           cat > _site/index.html <<'EOF'
-          <!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=./ccar-f/"><title>AdaptCloud CCAR-F Study Simulator</title><a href="./ccar-f/">Open the CCAR-F Study Simulator</a>
+          <!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=./ccar-f/"><title>Claude Certification Study Simulator</title><a href="./ccar-f/">Open the Claude Certification Study Simulator</a>
           EOF
 
       - name: Upload Pages artifact

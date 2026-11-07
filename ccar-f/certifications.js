@@ -99,7 +99,7 @@ window.CLAUDE_CERTIFICATIONS = {
     bankStatus: "complete",
     bankDepth: 2,
     blueprintStatus: "current-public-guide-corroborated",
-    blueprintNote: "63-question, seven-domain geometry is corroborated by current public exam-guide mirrors; verify the official Anthropic Partner Academy guide before an exam sitting.",
+    blueprintNote: "The 63-question, seven-domain format matches current public copies of the exam guide. Check the official guide in Anthropic Partner Academy before you sit the exam.",
     domains: {
       P1: { name: "Integration", weight: 19, mock: 12 },
       P2: { name: "Solution Design & Architecture", weight: 17, mock: 11 },
