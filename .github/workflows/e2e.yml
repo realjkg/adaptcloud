@@ -106,8 +106,10 @@ jobs:
           npx --yes @stoplight/prism-cli@5 mock \
             azure/workloads/insurance-app/connectors/claims-api.openapi.yaml \
             > /tmp/prism.log 2>&1 &
+          # The spec requires an oauth2 token; Prism checks only that one is present, so probe
+          # with the same placeholder the local-mode tests send (a bare request gets 401).
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            curl -sf http://127.0.0.1:4010/claims -o /dev/null && exit 0
+            curl -sf -H "Authorization: Bearer local-mock-token" http://127.0.0.1:4010/claims -o /dev/null && exit 0
             sleep 1
           done
           echo "prism never came up"; cat /tmp/prism.log; exit 1

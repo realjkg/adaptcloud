@@ -51,9 +51,19 @@ def bearer_token(test_mode: str) -> str:
     return DefaultAzureCredential().get_token(scope).token
 
 
+# Prism checks only that a credential is present for the spec's oauth2 scheme, not that it is valid.
+LOCAL_MOCK_TOKEN = "local-mock-token"
+
+
 @pytest.fixture(scope="session")
-def auth_headers(bearer_token: str) -> dict:
-    return {"Authorization": f"Bearer {bearer_token}", "Content-Type": "application/json"}
+def auth_headers(test_mode: str, request) -> dict:
+    """Headers for an authenticated call. Local mode sends a placeholder token so the Prism mock
+    accepts the request; Azure mode uses a real Entra ID token (see bearer_token)."""
+    if test_mode == "local":
+        token = LOCAL_MOCK_TOKEN
+    else:
+        token = request.getfixturevalue("bearer_token")
+    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
 @pytest.fixture(scope="session")
