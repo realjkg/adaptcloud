@@ -113,10 +113,50 @@ for (const paper of P.papers) {
   }
 }
 
-// 6. Layout and wiring.
+// 6. Targeted-practice drill: reworded bank questions that no paper uses, with comprehension-grade
+// answer sets (plausible alternatives, a rationale for every choice, no length or position tell).
+const drill = P.drill || [];
+const paperText = new Set(P.items.map(q => q.q));
+check(drill.length >= 60, `Drill pool has ${drill.length} questions; expected at least 60`);
+const drillObjs = new Set(drill.map(q => q.objectiveId));
+for (const o of allObjectives) check(drillObjs.has(o), `Drill pool has no question for objective ${o}`);
+const dpos = [0, 0, 0, 0];
+let dLongest = 0;
+for (const q of drill) {
+  check(q.rewritten, `${q.id}: drill question has no rewritten answer set in ccar-p.drill-items-*.js`);
+  check(!paperText.has(q.q), `${q.id}: drill question also appears in a paper`);
+  check(q.choices.length === 4 && new Set(q.choices).size === 4 && Number.isInteger(q.answer), `${q.id}: needs four distinct choices and one answer`);
+  check(q.choiceWhy?.length === 4 && q.choiceWhy.every(w => String(w).length >= 25), `${q.id}: needs a rationale for every choice`);
+  check(/^Correct\b/.test(q.choiceWhy?.[q.answer] || ""), `${q.id}: rationale for the correct choice should start with "Correct"`);
+  dpos[q.answer]++;
+  const L = q.choices.map(c => c.length);
+  if (L[q.answer] === Math.max(...L) && L.filter(l => l === L[q.answer]).length === 1) dLongest++;
+}
+check(dLongest / (drill.length || 1) <= 0.4, `Drill: the correct choice is the longest in ${dLongest}/${drill.length}; keep it at or below 40%`);
+dpos.forEach((n, i) => check(n / (drill.length || 1) <= 0.3, `Drill: answer position ${"ABCD"[i]} is used for ${n}/${drill.length}`));
+
+// 7. Official source links: every paper and drill question links to at least one official page.
+const SRC = window.CERT_SOURCES?.["ccar-p"];
+check(SRC && typeof SRC.linksFor === "function", "ccar-p.sources.js must define CERT_SOURCES['ccar-p'].linksFor");
+if (SRC) {
+  for (const [id, s] of Object.entries(SRC.sources)) {
+    let host = "";
+    try { const u = new URL(s.url); host = u.hostname; check(u.protocol === "https:", `Source ${id} must use https`); } catch { check(false, `Source ${id} has an invalid URL`); }
+    check(SRC.allowedHosts.includes(host), `Source ${id} is not on an official Anthropic host: ${host}`);
+    check(s.title && s.title.length >= 4, `Source ${id} needs a title`);
+  }
+  for (const o of allObjectives) check((SRC.objectives[o] || []).length >= 2 && SRC.objectives[o].every(id => SRC.sources[id]), `Objective ${o} needs at least two known sources`);
+  for (const q of [...P.items, ...drill]) {
+    const links = SRC.linksFor(q, objectiveOf(q));
+    check(links.length >= 1, `${q.id}: no source link`);
+  }
+  check(/^\d{4}-\d{2}-\d{2}$/.test(SRC.verified), "ccar-p.sources.js needs a verified date");
+}
+
+// 8. Layout and wiring.
 check(layout.builderVersion === P.version, `Layout was built with builder ${layout.builderVersion}, current builder is ${P.version}`);
 const loader = fs.readFileSync(path.join(ROOT, "loader.js"), "utf8");
-for (const f of ["ccar-p.papers-items-p1", "ccar-p.papers-items-session", "ccar-p.papers-overrides", "ccar-p.mock-papers-layout", "ccar-p.mock-papers"]) {
+for (const f of ["ccar-p.papers-items-p1", "ccar-p.papers-items-session", "ccar-p.papers-overrides", "ccar-p.drill-items-1", "ccar-p.drill-items-2", "ccar-p.mock-papers-layout", "ccar-p.mock-papers", "ccar-p.sources"]) {
   const at = loader.indexOf(`"${f}"`);
   check(at >= 0 && at < loader.lastIndexOf("./exam.js"), `loader.js must load ${f}.js before exam.js`);
 }
@@ -127,6 +167,8 @@ check(audit.paperCount === P.papers.length && audit.pool?.total === P.items.leng
 check(audit.formatReference?.questionTextUsed === false && /No live/.test(audit.contentProvenance || ""), "audits/ccar-p-mock-papers.json must keep the no-live-content boundary");
 const exam = fs.readFileSync(path.join(ROOT, "exam.js"), "utf8");
 check(exam.includes("CCARP_MOCK_PAPERS") && exam.includes("paperId"), "exam.js must support paper selection");
+for (const token of ["sourcesHtml", "makePerm", "buildAdaptive", "newTotal", "window.ExamCore"]) check(exam.includes(token), `exam.js is missing ${token}`);
+check(loader.indexOf('"./exam-insight.js"') > loader.indexOf('"./exam.js"'), "loader.js must load exam-insight.js after exam.js");
 
 if (problems.length) { console.error(problems.map(p => "FAIL " + p).join("\n")); console.error(`${problems.length} problems`); process.exit(1); }
 const counts = { single: singles.length, multi: multis.length, longest: `${longest}/${singles.length}`, positions: pos.join("/") };

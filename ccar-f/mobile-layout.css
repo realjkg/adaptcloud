@@ -66,7 +66,7 @@ button,label{white-space:normal}
   .choice{font-size:15px!important;line-height:1.4!important}
   #quizView .exam-intro h3{font-size:clamp(38px,12vw,58px)!important;line-height:.92!important}
   #quizView .exam-intro-grid{grid-template-columns:1fr!important}
-  #quizView .exam-intro-grid div{border-right:0!important;border-bottom:1px solid rgba(255,255,255,.35)!important}
+  #quizView .exam-intro-grid div{border-right:0!important;border-bottom:1px solid var(--c-ffffff59)!important}
   #quizView .exam-intro-grid div:last-child{border-bottom:0!important}
 
   .review-row{display:flex!important;flex-wrap:wrap!important;gap:7px 10px!important;align-items:center!important}

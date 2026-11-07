@@ -4,18 +4,40 @@
   "reviewedAt": "2026-11-06",
   "purpose": "Six fixed, non-overlapping 63-question CCAR-P practice papers (Practice exam 1-6), plus the existing random mix.",
   "guideVersion": "Exam Guide v1.0 (effective July 2026)",
-  "builderVersion": "2026-11-06-ccar-p-papers-v1",
-  "layoutVersion": "2026-11-06-layout-v1",
+  "builderVersion": "2026-11-06-ccar-p-papers-v2",
+  "layoutVersion": "2026-11-06-layout-v2",
   "paperCount": 6,
   "itemsPerPaper": 63,
   "minutesPerPaper": 120,
-  "perPaperMix": { "single": 44, "multi": 14, "matching": 4, "matrix": 1 },
-  "perPaperDomains": { "P1": 12, "P2": 11, "P3": 10, "P4": 9, "P5": 9, "P6": 8, "P7": 4 },
+  "perPaperMix": {
+    "single": 44,
+    "multi": 14,
+    "matching": 4,
+    "matrix": 1
+  },
+  "perPaperDomains": {
+    "P1": 12,
+    "P2": 11,
+    "P3": 10,
+    "P4": 9,
+    "P5": 9,
+    "P6": 8,
+    "P7": 4
+  },
   "pool": {
     "total": 378,
-    "byOrigin": { "new": 246, "sessionBank": 32, "existingBank": 100 },
-    "byType": { "single": 264, "multi": 84, "matching": 24, "matrix": 6 },
-    "note": "Every pool item appears in exactly one paper. Existing-bank items are reused under a PX- prefix with wording overrides in ccar-p.papers-overrides.js; the source bank is unchanged."
+    "byOrigin": {
+      "new": 246,
+      "sessionBank": 32,
+      "existingBank": 100
+    },
+    "byType": {
+      "single": 264,
+      "multi": 84,
+      "matching": 24,
+      "matrix": 6
+    },
+    "note": "Every pool item appears in exactly one paper. Existing-bank items are reused under a PX- prefix with wording overrides in ccar-p.papers-overrides.js; the source bank is unchanged. Paper contents are seeded separately from the layout version, so v2 keeps the same six papers as v1."
   },
   "constraints": [
     "Every paper matches the exam's seven-domain weights and the 44/14/5 item-type mix of the existing exam simulation.",
@@ -30,11 +52,21 @@
     "questionTextUsed": false
   },
   "followUps": [
-    "The practice-question bank outside these papers still often makes the correct choice the longest one. The papers correct this through overrides; the practice bank itself needs the same review.",
-    "Updated CCAR-P exam guides are due November 17, 2026, with content effective December 7, 2026. Re-verify objectives and weights against the new guide and rebuild the layout."
+    "Updated CCAR-P exam guides are due November 17, 2026, with content effective December 7, 2026. Re-verify objectives and weights against the new guide and rebuild the layout.",
+    "The 68 drill questions were rewritten; the remaining practice-bank questions outside the papers and the drill still need the same answer-set review.",
+    "D6 objectives have little dedicated official documentation; their links point to the closest official guidance (success criteria, evaluations, outcomes)."
   ],
   "validation": [
     "node ccar-f/tools/validate-ccar-p-papers.js",
     "node ccar-f/tools/build-ccar-p-papers.js --check"
-  ]
+  ],
+  "paperAssignmentSeed": "2026-11-06-layout-v1",
+  "comprehension": {
+    "sourceLinks": "Every paper and drill question links to official Anthropic pages (platform.claude.com/docs, code.claude.com/docs, anthropic.com, trust.anthropic.com), chosen by topic and exam-guide objective in ccar-p.sources.js. URLs and section anchors were checked against the live pages on 2026-11-06.",
+    "reviewRationales": "The post-exam review shows the rationale for every choice, tagged Correct and Your answer, so a learner sees why each plausible alternative loses. Correct answers flagged for review are included.",
+    "newQuestionScore": "Results report a separate score on questions the learner had not seen before (matched by question text), so retakes can't hide memorization.",
+    "retakeShuffle": "On a retake, choices for questions already seen appear in a new order.",
+    "adaptiveMix": "After the six papers, the default is an adaptive 63-question form with exam geometry, weighted toward weak objectives, missed questions and unseen questions.",
+    "targetedPractice": "After each exam, a 12-question drill on the missed objectives with instant feedback and source links, drawn from 68 reworded bank questions that no paper uses. Their answer sets were rewritten (ccar-p.drill-items-*.js) with plausible alternatives and a rationale for every choice."
+  }
 }

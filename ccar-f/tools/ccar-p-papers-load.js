@@ -23,7 +23,7 @@ const BANK_FILES = ["certifications", "ccar-p.bank-architecture", "ccar-p.d3-top
   "ccar-p.d3-reconcile", "ccar-p.exam-simulation"];
 const PAPER_FILES = ["ccar-p.papers-items-p1", "ccar-p.papers-items-p2", "ccar-p.papers-items-p3", "ccar-p.papers-items-p4",
   "ccar-p.papers-items-p5", "ccar-p.papers-items-p6", "ccar-p.papers-items-p7", "ccar-p.papers-items-session",
-  "ccar-p.papers-overrides"];
+  "ccar-p.papers-overrides", "ccar-p.drill-items-1", "ccar-p.drill-items-2"];
 
 function loadCcarpPapers(root, { withLayout = false } = {}) {
   global.window = {};
@@ -32,6 +32,7 @@ function loadCcarpPapers(root, { withLayout = false } = {}) {
   PAPER_FILES.forEach(load);
   if (withLayout) load("ccar-p.mock-papers-layout");
   load("ccar-p.mock-papers");
+  load("ccar-p.sources");
   const objectivesByDomain = {};
   for (const f of fs.readdirSync(path.join(root, "audits")).filter(f => /^ccar-p-d\d\.json$/.test(f))) {
     const a = JSON.parse(fs.readFileSync(path.join(root, "audits", f), "utf8"));
