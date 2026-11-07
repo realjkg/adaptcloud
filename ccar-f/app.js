@@ -1,3 +1,5 @@
+// Same global the other tracks get from multi-app.js; exam.js and foundations-exam.js read it.
+const PROFILE=window.CERT_PROFILE;
 const DOMAINS={D1:{name:"Agentic Architecture & Orchestration",weight:27,mock:16},D2:{name:"Tool Design & MCP Integration",weight:18,mock:11},D3:{name:"Claude Code Configuration & Workflows",weight:20,mock:12},D4:{name:"Prompt Engineering & Structured Output",weight:20,mock:12},D5:{name:"Context Management & Reliability",weight:15,mock:9}};
 const CARDS=window.CCARF_CARDS;const QUESTIONS=window.CCARF_QUESTIONS;
 const KEY="ccar-f-study-sim-v2";
