@@ -41,12 +41,12 @@ async def least_privilege_url(pg_url):
         # The documented one-time DBA step: the schema is created for (and owned by) the role.
         await conn.execute(text(f"CREATE SCHEMA aidigest AUTHORIZATION {ROLE}"))
         await conn.execute(text(f'REVOKE CREATE ON DATABASE "{await current_db(conn)}" FROM PUBLIC, {ROLE}'))
-        await conn.execute(text("CREATE TABLE IF NOT EXISTS public.homeschool_secret (v text)"))
-        await conn.execute(text("REVOKE ALL ON public.homeschool_secret FROM PUBLIC"))
+        await conn.execute(text("CREATE TABLE IF NOT EXISTS public.other_app_secret (v text)"))
+        await conn.execute(text("REVOKE ALL ON public.other_app_secret FROM PUBLIC"))
     yield as_role(pg_url, ROLE)
     async with admin.connect() as conn:
         await conn.execute(text("DROP SCHEMA IF EXISTS aidigest CASCADE"))
-        await conn.execute(text("DROP TABLE IF EXISTS public.homeschool_secret"))
+        await conn.execute(text("DROP TABLE IF EXISTS public.other_app_secret"))
         await conn.execute(text(f"DROP OWNED BY {ROLE}"))
         await conn.execute(text(f"DROP ROLE {ROLE}"))
     await admin.dispose()
@@ -68,7 +68,7 @@ async def test_least_privilege_role_is_ready(least_privilege_url):
         assert result["status"] == "completed"
         with pytest.raises(ProgrammingError, match="permission denied"):
             async with eng.connect() as conn:
-                await conn.execute(text("SELECT * FROM public.homeschool_secret"))
+                await conn.execute(text("SELECT * FROM public.other_app_secret"))
         with pytest.raises(ProgrammingError, match="permission denied"):
             async with eng.begin() as conn:
                 await conn.execute(text("CREATE SCHEMA aidigest_other"))
@@ -105,8 +105,8 @@ async def test_documented_role_sql_works_for_non_superuser_admin(pg_url):
         # Hardened like many managed databases: no CONNECT for PUBLIC, so the README's
         # GRANT CONNECT ON DATABASE <dbname> must name the right database (round 3 M2).
         await conn.execute(text(f'REVOKE CONNECT ON DATABASE "{dbname}" FROM PUBLIC'))
-        await conn.execute(text("CREATE TABLE IF NOT EXISTS public.homeschool_secret (v text)"))
-        await conn.execute(text("REVOKE ALL ON public.homeschool_secret FROM PUBLIC"))
+        await conn.execute(text("CREATE TABLE IF NOT EXISTS public.other_app_secret (v text)"))
+        await conn.execute(text("REVOKE ALL ON public.other_app_secret FROM PUBLIC"))
     admin = create_async_engine(as_role(pg_url, "dba_admin"), poolclass=NullPool,
                                 isolation_level="AUTOCOMMIT")
     app_engine = create_async_engine(as_role(pg_url, "aidigest_app"), poolclass=NullPool)
@@ -127,7 +127,7 @@ async def test_documented_role_sql_works_for_non_superuser_admin(pg_url):
                 "SELECT has_database_privilege(current_user, current_database(), 'CREATE')"))).scalar() is False
         with pytest.raises(ProgrammingError, match="permission denied"):
             async with app_engine.connect() as conn:
-                await conn.execute(text("SELECT * FROM public.homeschool_secret"))
+                await conn.execute(text("SELECT * FROM public.other_app_secret"))
     finally:
         await app_engine.dispose()
         await admin.dispose()
@@ -135,7 +135,7 @@ async def test_documented_role_sql_works_for_non_superuser_admin(pg_url):
             await conn.execute(text(f'ALTER DATABASE "{await current_db(conn)}" OWNER TO postgres'))
             await conn.execute(text(f'GRANT CONNECT ON DATABASE "{await current_db(conn)}" TO PUBLIC'))
             await conn.execute(text("DROP SCHEMA IF EXISTS aidigest CASCADE"))
-            await conn.execute(text("DROP TABLE IF EXISTS public.homeschool_secret"))
+            await conn.execute(text("DROP TABLE IF EXISTS public.other_app_secret"))
             for role in ("aidigest_app", "dba_admin"):
                 await conn.execute(text(f"DROP OWNED BY {role}"))
                 await conn.execute(text(f"DROP ROLE {role}"))

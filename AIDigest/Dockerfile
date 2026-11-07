@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Unprivileged runtime user with no shell (same pattern as homeschool-api's "sage").
+# Unprivileged runtime user with no shell.
 RUN useradd --no-create-home --shell /bin/false aidigest
 
 WORKDIR /app

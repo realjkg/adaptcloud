@@ -17,14 +17,14 @@ Caddy identity -> strict validation -> readiness gate -> deterministic mode -> <
 
 ## Configuration
 
-AIDigest is **optional**: it runs under the docker-compose profile `aidigest`, so the base
-homeschool stack starts with or without any AIDigest value. All values live in the root `.env`
-(never committed); `.env.example` lists the names.
+AIDigest runs under the docker-compose profile `aidigest`. `make setup` turns the profile on
+(`COMPOSE_PROFILES=aidigest` in `.env`), and Caddy starts with or without any AIDigest value. All
+values live in the root `.env` (never committed); `.env.example` lists the names.
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | aidigest | Claude API key (shared with the tutor API) |
-| `AIDIGEST_DATABASE_URL` | aidigest | `postgresql+asyncpg://aidigest_app:...`, a dedicated least-privilege role (below), **not** the tutor's `DATABASE_URL` |
+| `ANTHROPIC_API_KEY` | aidigest | Claude API key |
+| `AIDIGEST_DATABASE_URL` | aidigest | `postgresql+asyncpg://aidigest_app:...`, a dedicated least-privilege role (below), **not** a generic `DATABASE_URL` |
 | `AIDIGEST_PROXY_SECRET` | aidigest, caddy | Shared secret Caddy sends to the service (`openssl rand -hex 32`, at least 32 characters) |
 | `AIDIGEST_BASIC_AUTH_USER` | caddy | Basic-auth user name for `/aidigest/*` |
 | `AIDIGEST_BASIC_AUTH_HASH` | caddy | bcrypt hash (cost 10) of that user's password; keep it single-quoted in `.env` because it contains `$` |
@@ -54,7 +54,7 @@ Bounds (all optional, safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST
 
 AIDigest connects as its own role that owns **only** schema `aidigest`. It needs no
 database-level `CREATE` (startup skips `CREATE SCHEMA` when the schema exists) and has no access
-to the homeschool tables in `public`. Run this as the database owner with `CREATEROLE` (on managed
+to other tables in `public`. Run this as the database owner with `CREATEROLE` (on managed
 Postgres, the admin/owner role you were given; a superuser works too). Replace `<admin>` with that
 role's name and `<dbname>` with the database name (`SELECT current_database();`):
 
@@ -73,7 +73,7 @@ Nothing else: no `CREATE` on the database, no grants on schema `public`.
 
 **PostgreSQL 14 and older:** every role may create objects in schema `public` by default. Also
 run `REVOKE CREATE ON SCHEMA public FROM PUBLIC;` (or at least `FROM aidigest_app`) so the
-AIDigest role cannot create tables next to the homeschool data. PostgreSQL 15+ already defaults
+AIDigest role cannot create tables next to other data in that database. PostgreSQL 15+ already defaults
 to that.
 
 On managed Postgres (Neon, Supabase, ...) create the role in the provider console if `CREATE
@@ -86,15 +86,15 @@ simply not started and Caddy answers `/aidigest/*` with 401. To add AIDigest:
 
 1. Create the database role above.
 2. `make setup-aidigest`: it **appends** the AIDigest keys and `COMPOSE_PROFILES=aidigest` to
-   `.env`, never edits an existing key and is safe to re-run. Do **not** use `make setup` → overwrite
-   on a live install: it regenerates `MASTER_SECRET`, which makes encrypted student data
-   unreadable (it now requires typing `OVERWRITE`).
+   `.env`, never edits an existing key and is safe to re-run. Avoid `make setup` → overwrite on a
+   live install: it replaces every value in `.env`, including the AIDigest password and proxy
+   secret (it backs up the old file to `.env.backup` and requires typing `OVERWRITE`).
 3. `make aidigest-start`, then `make aidigest-status` (must report `"ready": true`).
 
 ## First use (order matters)
 
-1. Configure the database role and auth first (`make setup-aidigest`, or a fresh `make setup` and
-   answer `y` to "Also set up AIDigest").
+1. Configure the database role and auth first (`make setup` on a new install, which asks for the
+   AIDigest settings, or `make setup-aidigest` to add them to an existing `.env`).
 2. `make aidigest-start` (or `make start` once `COMPOSE_PROFILES=aidigest` is in `.env`).
 3. `make aidigest-status` must report `"ready": true` (all of articles, knowledge, tasks and runs present). Do not use the endpoints until it does.
 4. Optionally run the first digest now with `make aidigest-run-daily`; otherwise it runs at the next scheduled time (or immediately, once, if the service starts after today's slot).

@@ -67,7 +67,7 @@ never call Claude or the internet.
    compose network can reach it. Caddy is the only public entry.
 2. Caddy protects `/aidigest/*` with `basic_auth`; user and bcrypt hash come
    from `AIDIGEST_BASIC_AUTH_USER` / `AIDIGEST_BASIC_AUTH_HASH` (bcrypt cost 10).
-   Caddy is the only ingress for the homeschool UI, so no AIDigest value may stop it:
+   Caddy is the only ingress, so no AIDigest value may stop it:
    - compose starts Caddy through `caddy-entrypoint.sh`, which replaces a missing or
      malformed user/hash with non-empty sentinels (user `aidigest-disabled`, a bcrypt
      hash of a discarded random value). Caddy refuses to provision a hash that is neither
@@ -120,9 +120,9 @@ never call Claude or the internet.
 | **Cost blow-up** | Exactly one Claude call per DAILY run and per TASK (no planner, no loop, no tools); no call when there are no candidates, readiness fails or the lease is lost; explicit `effort` and `AIDIGEST_AI_MAX_TOKENS`; global AI concurrency semaphore (2); per-user TASK cap (20/hour, 429 + Retry-After, atomic under an advisory lock); DAILY attempts capped per day (3, then 429); <=12 DAILY candidates; <=24 TASK evidence items; <=3 explicit URLs; Caddy `request_body max_size 64KB` | `test_daily.py`, `test_tasks.py`, `test_ai.py` |
 | **NUL bytes** (Postgres TEXT rejects them; previously a 503 and a wasted AI call on every retry) | Rejected with 422/400 in task text, URLs and `q`; stripped from feed/page text, model output and stored error text | `test_tasks.py`, `test_daily.py`, `test_api.py` |
 | **Basic-auth CPU DoS on the shared Caddy** | bcrypt cost 10 instead of Caddy's default 14 (about 16x less CPU per failed attempt) with a 16+ character password; stock Caddy has no rate-limit directive (it needs a plugin), so none is configured | documented (L3) |
-| **Ops: AIDigest breaking the homeschool stack** | AIDigest is an opt-in compose profile; compose evaluates `:?` even for inactive profiles, so its variables default to empty: the service then refuses to start, while `caddy-entrypoint.sh` substitutes sentinels for missing/malformed values so Caddy always starts, and a guard route answers 401 for any missing, partial or malformed combination. A pre-PR `.env` renders and starts the base stack unchanged. `setup.sh --aidigest` only appends missing keys; the overwrite path needs a typed `OVERWRITE` because a new `MASTER_SECRET` makes student data unreadable | `test_setup_sh.py`, compose proof in EVIDENCE.md |
+| **Ops: an AIDigest value stopping Caddy** | AIDigest is an opt-in compose profile; compose evaluates `:?` even for inactive profiles, so its variables default to empty: the service then refuses to start, while `caddy-entrypoint.sh` substitutes sentinels for missing/malformed values so Caddy always starts, and a guard route answers 401 for any missing, partial or malformed combination. A pre-PR `.env` renders and starts the base stack unchanged. `setup.sh --aidigest` only appends missing keys; the overwrite path needs a typed `OVERWRITE` because a new `MASTER_SECRET` makes student data unreadable | `test_setup_sh.py`, compose proof in EVIDENCE.md |
 | **Weak or missing secrets in production** | `Settings` validator refuses to start when `PRODUCTION=true` and `ANTHROPIC_API_KEY`, `AIDIGEST_DATABASE_URL` or `AIDIGEST_PROXY_SECRET` is missing, a placeholder, or (secret) shorter than 32 chars; limits are validated (lease > budget, heartbeat < lease, positive caps) | `test_config.py` |
-| **Database blast radius** | Dedicated role that owns only schema `aidigest`; no database CREATE (startup skips `CREATE SCHEMA` when it exists); no access to `public.*` homeschool tables | `test_db_role.py` |
+| **Database blast radius** | Dedicated role that owns only schema `aidigest`; no database CREATE (startup skips `CREATE SCHEMA` when it exists); no access to other `public.*` tables | `test_db_role.py` |
 | **Running on a broken schema** | Startup applies schema; `/ops/status` lists missing tables; TASK returns 503 before creating a task; DAILY records `schema_not_ready` and makes no AI call | `test_api.py`, `test_tasks.py`, `test_daily.py` |
 
 Out of scope / accepted: Caddy's basic auth has no lockout or MFA (LAN
@@ -131,7 +131,7 @@ the proxy secret by design.
 
 ## 5. Data model
 
-Postgres schema `aidigest` (no collision with homeschool tables in `public`).
+Postgres schema `aidigest` (no collision with other tables in `public`).
 Column semantics are those of the original `schema.sql`; timestamps become
 `TIMESTAMPTZ`, `runs` gains `run_key` and `trigger`.
 
@@ -185,19 +185,22 @@ an observed source URL; one AI call per DAILY or TASK.
 
 Rollout (existing install): create the least-privilege role and schema (README), run
 `make setup-aidigest` (append-only), `make aidigest-start`, then `make aidigest-status` must
-report `ready: true` before anyone uses the endpoints. Nothing changes for the homeschool
-services until the `aidigest` profile is enabled.
+report `ready: true` before anyone uses the endpoints. Nothing else changes until the
+`aidigest` profile is enabled.
 
 Rollback:
 - Service only: remove `aidigest` from `COMPOSE_PROFILES` (or `docker compose stop aidigest`).
-  Caddy then answers `/aidigest/*` with 502 (or 401 if the AIDigest values are removed);
-  homeschool is unaffected.
+  Caddy then answers `/aidigest/*` with 502 (or 401 if the AIDigest values are removed).
 - Data: everything lives in schema `aidigest`; `DROP SCHEMA aidigest CASCADE; DROP ROLE
-  aidigest_app;` removes it without touching homeschool tables.
+  aidigest_app;` removes it without touching other tables.
 - Back to the Worker: revert this branch to `f96765d`. No Cloudflare resources were created by
   this change, so nothing needs cleaning up there.
 
 ## 10. Challenger round 1 (review of 351e7b2): findings -> fixes
+
+Sections 10-17 are the review record and are kept as written. When they were written, a
+homeschool tutor shared this Caddy, so "homeschool down" or "the UI" there means that app,
+which has since been removed from the repository.
 
 | ID | Finding | Fix | Tests |
 |---|---|---|---|

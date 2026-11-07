@@ -36,7 +36,7 @@ The running service never creates infrastructure, changes its own configuration,
 - A DAILY run holds a lease with an owner token; a stale run that resumes after being taken over makes no AI call and writes nothing. Runs, tasks and fetches have total time budgets; failed DAILY attempts are capped per day.
 - AI calls are globally concurrency-limited and TASKs are capped per user per hour (429).
 - Untrusted text is parsed only with linear-time scanners, off the event loop, under a deadline. NUL bytes are rejected at the API and stripped from stored text.
-- AIDigest connects as a least-privilege role that owns only schema `aidigest`; it is an opt-in compose profile and never blocks the homeschool stack.
+- AIDigest connects as a least-privilege role that owns only schema `aidigest`; it is an opt-in compose profile, and no AIDigest value can stop Caddy from starting.
 - Prefer original primary sources. Do not reproduce full articles or long passages.
 
 ## Adapt Cloud relevance

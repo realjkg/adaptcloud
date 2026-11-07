@@ -1,4 +1,4 @@
-"""Production validation (mirrors homeschool-api core/config.py)."""
+"""Production validation: with PRODUCTION=true the service refuses weak or missing settings."""
 
 import pytest
 from pydantic import ValidationError
@@ -8,7 +8,7 @@ from tests.fakes import PROXY_SECRET, make_settings
 GOOD_PROD = dict(
     production="true",
     anthropic_api_key="sk-ant-api03-" + "x" * 40,
-    aidigest_database_url="postgresql+asyncpg://aidigest_app:p@db.example.com/sagedb?ssl=require",
+    aidigest_database_url="postgresql+asyncpg://aidigest_app:p@db.example.com/appdb?ssl=require",
     aidigest_proxy_secret=PROXY_SECRET,
     aidigest_basic_auth_user="ops",
 )
@@ -67,11 +67,12 @@ def test_daily_time_rejects_invalid(bad):
 
 
 def test_database_url_comes_from_aidigest_database_url(monkeypatch):
-    """M8: AIDigest uses its own least-privilege connection string, never the tutor's DATABASE_URL."""
+    """M8: AIDigest uses its own least-privilege connection string, never a generic DATABASE_URL
+    (which another app on the same host may set)."""
     from aidigest.config import Settings
 
-    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://sage:x@db/sagedb")
-    monkeypatch.setenv("AIDIGEST_DATABASE_URL", "postgresql+asyncpg://aidigest_app:y@db/sagedb")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://other_app:x@db/appdb")
+    monkeypatch.setenv("AIDIGEST_DATABASE_URL", "postgresql+asyncpg://aidigest_app:y@db/appdb")
     assert Settings(_env_file=None).aidigest_database_url.startswith("postgresql+asyncpg://aidigest_app")
     monkeypatch.delenv("AIDIGEST_DATABASE_URL")
     assert Settings(_env_file=None).aidigest_database_url == ""

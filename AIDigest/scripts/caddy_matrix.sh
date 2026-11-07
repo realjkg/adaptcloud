@@ -4,7 +4,7 @@
 # For every combination of AIDIGEST_BASIC_AUTH_USER / AIDIGEST_BASIC_AUTH_HASH being empty or set
 # (plus "both set, proxy secret empty"):
 #   1. resolve Caddy's environment exactly as docker compose does from a .env
-#   2. `caddy adapt` must succeed (a Caddy that cannot start would take the homeschool UI down)
+#   2. `caddy adapt` must succeed (a Caddy that cannot start would take the whole site down)
 #   3. start the real Caddy (no aidigest upstream) and probe /aidigest/ops/status:
 #        401 = denied by Caddy, 502 = authentication passed (upstream unreachable)
 #      Only the fully configured combination with the right password may reach 502.
@@ -29,7 +29,7 @@ NET="aidigest-caddy-matrix-$$"
 FAILURES=0
 
 cleanup() {
-  docker rm -f "caddy-matrix-$$" "ui-matrix-$$" >/dev/null 2>&1 || true
+  docker rm -f "caddy-matrix-$$" >/dev/null 2>&1 || true
   docker network rm "$NET" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
@@ -41,9 +41,6 @@ KNOWN_HASH=$(printf '%s\n' "$PASSWORD" | docker run --rm -i "$IMAGE" caddy hash-
 sed 's/^  tls internal$/  tls internal {\n    on_demand\n  }/' "$CADDYFILE" > "$WORK/Caddyfile"
 caddy_mounts() { echo -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$ENTRYPOINT:/usr/local/bin/caddy-entrypoint.sh:ro"; }
 docker network create "$NET" >/dev/null
-# Stand-in for the homeschool UI: every case must keep it reachable (Caddy must never stop).
-docker run -d --name "ui-matrix-$$" --network "$NET" --network-alias ui "$IMAGE" \
-  caddy respond --listen :80 "homeschool ui" >/dev/null
 
 dotenv_quote() {  # a value as a .env line value: single quotes, or double quotes if it contains one
   if [[ "$1" == *"'"* ]]; then printf '"%s"' "$1"; else printf "'%s'" "$1"; fi
@@ -52,11 +49,6 @@ dotenv_quote() {  # a value as a .env line value: single quotes, or double quote
 caddy_env() {  # $1 user  $2 hash  $3 proxy secret  -> env-file for caddy, as compose renders it
   cat > "$WORK/.env" <<EOF
 ANTHROPIC_API_KEY=x
-SECRET_KEY=x
-MASTER_SECRET=x
-PARENT_PASSWORD=x
-CHILD_PIN=1234
-DATABASE_URL=x
 AIDIGEST_BASIC_AUTH_USER=$(dotenv_quote "$1")
 AIDIGEST_BASIC_AUTH_HASH=$(dotenv_quote "$2")
 AIDIGEST_PROXY_SECRET=$(dotenv_quote "$3")
@@ -107,7 +99,7 @@ run_case() {  # $1 label  $2 user  $3 hash  $4 secret  $5 expected status for op
     $(caddy_mounts) "$IMAGE" /bin/sh /usr/local/bin/caddy-entrypoint.sh >/dev/null
   sleep 2
   local user=${2:-ops}
-  expect "homeschool UI /" 200 "$(probe / "" "")"
+  expect "Caddy up (/ is 404)" 404 "$(probe / "" "")"
   expect "no credentials" 401 "$(probe /aidigest/ops/status "" "")"
   expect "configured user:<right password>" "$5" "$(probe /aidigest/ops/status "$user" "$PASSWORD")"
   expect "aidigest-disabled:<right password>" 401 "$(probe /aidigest/ops/status aidigest-disabled "$PASSWORD")"
@@ -132,7 +124,7 @@ run_raw_case() {  # $1 label [$2 user $3 hash $4 secret]: Caddy started OUTSIDE 
   docker run -d --name "caddy-matrix-$$" --network "$NET" --network-alias caddy --env-file "$WORK/raw.env" \
     -v "$WORK/Caddyfile:/etc/caddy/Caddyfile:ro" "$IMAGE" >/dev/null
   sleep 2
-  expect "homeschool UI /" 200 "$(probe / "" "")"
+  expect "Caddy up (/ is 404)" 404 "$(probe / "" "")"
   expect "no credentials" 401 "$(probe /aidigest/ops/status "" "")"
   expect "aidigest-disabled:<right password>" 401 "$(probe /aidigest/ops/status aidigest-disabled "$PASSWORD")"
   if [[ $# -gt 1 ]]; then
@@ -148,7 +140,7 @@ run_case "user empty, hash set"     ""    "$KNOWN_HASH" "$SECRET" 401
 run_case "user set,   hash set"     "ops" "$KNOWN_HASH" "$SECRET" 502
 run_case "user+hash set, no secret" "ops" "$KNOWN_HASH" ""        401
 # Round 3 M1: hand-edited values the old Caddyfile split into extra tokens (Caddy exited).
-# Each must adapt, keep the UI up, and keep /aidigest/* at 401 unless complete and valid.
+# Each must adapt, keep Caddy up, and keep /aidigest/* at 401 unless complete and valid.
 run_case "user with a space"            "ops admin" "$KNOWN_HASH" "$SECRET" 401
 run_case "user is a single space"       " "         "$KNOWN_HASH" "$SECRET" 401
 run_case "user with a double quote"     'o"ps'      "$KNOWN_HASH" "$SECRET" 401
@@ -163,7 +155,7 @@ run_case "hash with a double quote"     "ops" '$2a$10$"broken' "$SECRET" 401
 run_case "hash with spaces"             "ops" '$2a$10$ broken hash value' "$SECRET" 401
 # Round 4 L1: a user containing the Caddyfile heredoc marker (AIDIGEST_VALUE_END) is made only of
 # allowed characters but ends the heredoc early, so `caddy adapt` failed and Caddy restart-looped.
-# The entrypoint replaces it: Caddy adapts, the UI stays up, /aidigest/* is 401 for it.
+# The entrypoint replaces it: Caddy adapts and stays up, /aidigest/* is 401 for it.
 run_case "user is the heredoc marker"           "AIDIGEST_VALUE_END"       "$KNOWN_HASH" "$SECRET" 401
 run_case "user = x + heredoc marker"            "xAIDIGEST_VALUE_END"      "$KNOWN_HASH" "$SECRET" 401
 run_case "user = ops- + heredoc marker"         "ops-AIDIGEST_VALUE_END"   "$KNOWN_HASH" "$SECRET" 401

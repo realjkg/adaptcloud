@@ -1,9 +1,9 @@
 #!/bin/sh
 # Caddy entrypoint (docker-compose "caddy" service).
 #
-# Caddy is the only ingress for the homeschool UI, so it must start whatever is in the AIDigest
-# variables. Caddy refuses to load a basic_auth hash that is neither a "$..." hash string nor valid
-# base64, so a hand-edited AIDIGEST_BASIC_AUTH_HASH (or user) could otherwise stop the whole UI.
+# Caddy is the only ingress, so it must start whatever is in the AIDigest variables. Caddy
+# refuses to load a basic_auth hash that is neither a "$..." hash string nor valid base64, so a
+# hand-edited AIDIGEST_BASIC_AUTH_HASH (or user) could otherwise stop Caddy entirely.
 # Any value that is not well-formed is replaced by the "not configured" sentinel; the Caddyfile
 # guard then answers /aidigest/* with 401. The proxy secret is only read at request time
 # ({env.AIDIGEST_PROXY_SECRET}) and is validated by the guard, so it is passed through.
