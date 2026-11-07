@@ -2,29 +2,29 @@
 
 ## Principle
 
-The workload is portable; providers are replaceable deployment targets. Kubernetes is the workload portability boundary and Terraform is the infrastructure lifecycle boundary.
+The app moves; the cloud underneath can be swapped. Kubernetes is what keeps the app the same on every cloud, and Terraform is what creates, changes and deletes the infrastructure.
 
 ## Layers
 
 ### Applied AI workload
 
-The canonical workload must expose a functional request path plus liveness and readiness endpoints. Application telemetry uses OpenTelemetry-compatible signals rather than directly coupling application code to one cloud monitoring SDK.
+The standard app must answer real requests and have liveness and readiness endpoints. It reports telemetry in a form OpenTelemetry understands, so the app code isn't tied to one cloud's monitoring library.
 
 ### OCI container
 
-One image is built and identified by immutable tag/digest. Environment promotion references the tested artifact instead of rebuilding different binaries for dev, QA, staging and production.
+The image is built once and identified by a tag or digest that never changes. Moving to the next environment uses that same tested image instead of building new binaries for dev, QA, staging and production.
 
 ### Kubernetes workload
 
-Provider-neutral manifests define the workload. Provider-specific concerns such as cluster creation, workload identity, registry, ingress/load balancing, DNS and storage are handled below or through documented overlays.
+The same manifests describe the app on every cloud. Things that differ by cloud, such as creating the cluster, workload identity, the registry, ingress and load balancing, DNS and storage, are handled underneath or through documented overlays.
 
 ### Optional Korifi / Cloud Foundry
 
-Korifi is an optional PaaS exercise after the Kubernetes path works. It demonstrates the `cf` developer experience without making Cloud Foundry a prerequisite for provider portability.
+Korifi is an optional platform-as-a-service exercise for after the Kubernetes path works. It shows the `cf` developer experience, but you don't need Cloud Foundry to move between clouds.
 
 ### Terraform providers
 
-Provider adapters must converge on common lifecycle semantics and document provider-specific differences honestly. Do not hide meaningful differences in identity, networking, managed Kubernetes, observability or cost models merely to make interfaces look identical.
+Provider adapters must behave the same way across the lifecycle and describe each cloud's differences honestly. Don't hide real differences in identity, networking, managed Kubernetes, observability or cost just so the adapters look identical.
 
 ## Environments
 
@@ -34,25 +34,25 @@ The supported progression is:
 dev → qa → staging → prod
 ```
 
-Each environment has explicit configuration and state boundaries. Promotion should preserve artifact identity. Production-like controls increase progressively; labs must remain practical for student-owned accounts.
+Each environment has its own configuration and its own state. Moving to the next environment should keep the exact same image. Controls get closer to production at each step, but labs must stay practical for students' own accounts.
 
 ## Observability contract
 
-Every provider implementation must teach a student how to answer:
+Every provider guide must teach a student how to answer:
 
 1. Is the workload alive and ready?
 2. Is a request succeeding, and how long does it take?
 3. What do application and platform logs say?
 4. Can a request be followed through distributed traces?
 5. What CPU, memory and Kubernetes resource pressure exists?
-6. Which deployed resources can accrue cost and where is provider-native cost/resource visibility found?
+6. Which deployed resources cost money, and where does the cloud show cost and resource use?
 
-The portable baseline is OpenTelemetry for application metrics, logs and traces plus Kubernetes health probes. Provider-native backends are destinations/integrations, not application dependencies.
+On every cloud, the starting point is OpenTelemetry for app metrics, logs and traces, plus Kubernetes health probes. Each cloud's own monitoring tools are places to send that data, not something the app depends on.
 
 ## Validation contract
 
-`validate` must be safe to run repeatedly. CI should prefer local/static checks: formatting, Terraform validation, Kubernetes schema/render validation, shell/CLI tests and documentation/link checks. Live cloud provisioning is opt-in and must never be required merely to validate a pull request.
+`validate` must be safe to run again and again. CI should favor checks that run locally without a cloud: formatting, Terraform validation, Kubernetes schema and render checks, shell and CLI tests, and documentation and link checks. Creating real cloud resources is opt-in and must never be needed just to check a pull request.
 
 ## Destroy contract
 
-`destroy` must require explicit provider and environment selection. Provider documentation must include a post-destroy verification step because a successful Terraform command does not by itself prove that every manually created or externally managed billable resource is gone.
+`destroy` must make you name the provider and environment. Each provider guide must include a step that checks the teardown afterward. A Terraform command that succeeds doesn't prove that every resource you're billed for is gone, especially ones created by hand or managed outside Terraform.

@@ -1,6 +1,6 @@
 # Applied AI Engineering Residency — Platform Contract
 
-The residency teaches one portable production lifecycle rather than four provider-specific applications.
+The residency teaches one way to take an AI app to production that works the same on every cloud, instead of four separate cloud-specific apps.
 
 ```text
 Applied AI workload
@@ -24,7 +24,7 @@ Validate → Destroy
 
 ## Contract
 
-Every provider adapter MUST expose the same student lifecycle:
+Every provider adapter must offer students the same commands, in the same order:
 
 ```bash
 make doctor PROVIDER=<aws|azure|gcp|openstack>
@@ -37,18 +37,18 @@ make promote PROVIDER=<provider> FROM=<environment> TO=<environment>
 make destroy PROVIDER=<provider> ENV=<environment>
 ```
 
-Students bring their own cloud/private-cloud credentials. Residency code must not depend on Adapt Cloud credentials or infrastructure.
+Students use their own cloud or private-cloud accounts. Residency code must not depend on Adapt Cloud's accounts or infrastructure.
 
-## Portability boundaries
+## What stays the same on every cloud
 
-1. **Application** — provider-neutral AI workload with health endpoints and OpenTelemetry instrumentation.
-2. **Container** — OCI image contract; immutable image promoted between environments.
-3. **Kubernetes** — common workload/service/configuration contract. Provider adapters supply infrastructure, identity, ingress and storage integration.
-4. **PaaS (optional)** — Korifi exposes the Cloud Foundry developer workflow over Kubernetes. It is not required for the core path.
-5. **Terraform** — provider adapters implement a shared input/output and lifecycle contract.
-6. **Environment promotion** — dev → qa → staging → prod promotes a tested artifact/configuration; it does not rebuild application code for each environment.
-7. **Observability** — every target must expose metrics, logs, traces, health/readiness and cost/resource visibility.
-8. **Teardown** — every lab must have a documented, verifiable destroy path.
+1. **Application**: one AI app that runs anywhere, with health endpoints and OpenTelemetry instrumentation.
+2. **Container**: a standard (OCI) container image. The same image moves from one environment to the next and is never changed.
+3. **Kubernetes**: the same workload, service and configuration files everywhere. Each provider adapter supplies the infrastructure, identity, ingress and storage underneath.
+4. **Platform as a service (optional)**: Korifi gives developers the Cloud Foundry `cf push` workflow on top of Kubernetes. The main path doesn't need it.
+5. **Terraform**: every provider adapter takes the same inputs, returns the same outputs and supports the same lifecycle.
+6. **Moving between environments**: going from dev → qa → staging → prod moves an image and configuration that already passed testing. The app code is not rebuilt for each environment.
+7. **Observability**: every target must show metrics, logs, traces, health and readiness, and what resources cost.
+8. **Teardown**: every lab must have a written way to delete what it created, and a way to check that it's gone.
 
 ## Repository layout
 
@@ -89,32 +89,32 @@ residency/
   validation/            # static and local contract checks
 ```
 
-Directories are introduced incrementally. A provider is not marked complete until its implementation, CLI path, setup guide, observability guide, validation path and destroy procedure satisfy the definition below.
+Folders are added as the work reaches them. A provider isn't marked complete until its code, command-line path, setup guide, observability guide, validation and teardown all meet the definition below.
 
-## Definition of done — provider
+## When a provider is done
 
-A provider is complete only when a student can, using their own account or private cloud:
+A provider is complete only when a student, using their own account or private cloud, can:
 
-- install and verify required CLIs;
-- authenticate without repository-stored credentials;
-- initialize Terraform and inspect a plan;
-- provision the Kubernetes target and required registry/identity/networking;
-- build/push or reference the canonical OCI image;
-- deploy the common Kubernetes workload;
-- verify health/readiness and a functional application request;
-- locate application metrics, logs and traces;
-- inspect basic resource/cost signals appropriate to the provider;
-- promote the same tested artifact through dev, qa, staging and prod;
-- run validation independently of deployment;
-- destroy lab resources and verify teardown.
+- install the command-line tools it needs and check that they work;
+- sign in without any credentials stored in the repository;
+- set up Terraform and review a plan;
+- create the Kubernetes cluster and the registry, identity and networking it needs;
+- build and push the standard container image, or point to it;
+- deploy the shared Kubernetes workload;
+- check health and readiness, and send the app a real request;
+- find the app's metrics, logs and traces;
+- see basic resource and cost information for that provider;
+- move the same tested image through dev, qa, staging and prod;
+- run validation on its own, separate from deployment;
+- delete the lab resources and confirm they're gone.
 
 ## Safety and cost controls
 
-Labs default to the smallest practical non-production footprint. `plan` precedes `deploy`; destructive commands require an explicit provider and environment. Documentation must identify resources that can continue accruing charges and show teardown verification. CI validates configuration and contracts without provisioning billable infrastructure by default.
+Labs start with the smallest setup that works, never production-sized. You always run `plan` before `deploy`, and commands that delete things require you to name the provider and environment. The docs must point out resources that keep costing money until they're deleted, and show how to confirm teardown. CI validates configuration and contracts without provisioning billable infrastructure by default.
 
-## Delivery sequence
+## Build order
 
-The implementation remains serialized and merge-gated:
+The work happens one step at a time, and each step must be merged before the next one starts:
 
 1. Platform contract and skeleton.
 2. AWS adapter reconciliation.
@@ -125,4 +125,4 @@ The implementation remains serialized and merge-gated:
 7. Optional Korifi / Cloud Foundry workflow.
 8. End-to-end residency validation and documentation audit.
 
-Each subsequent provider PR starts from newly merged `main`; existing working provider material is refactored/reused rather than duplicated.
+Each new provider PR starts from the latest `main`. Provider material that already works is reused or reworked, not copied.

@@ -1,90 +1,91 @@
-# CAF "Govern and secure AI agents across your organization" — control mapping
+# CAF "Govern and secure AI agents across your organization": how each control is met
 
 Source guidance:
 - <https://learn.microsoft.com/azure/cloud-adoption-framework/ai-agents/governance-security-across-organization>
 - <https://learn.microsoft.com/azure/cloud-adoption-framework/scenarios/ai/> (AI landing zone / Application landing zone)
 - <https://learn.microsoft.com/power-platform/guidance/adoption/dlp-strategy> (Power Platform DLP)
 - <https://learn.microsoft.com/microsoft-copilot-studio/security-and-governance> (Copilot Studio governance)
-- <https://learn.microsoft.com/entra/identity/> (Microsoft Entra Agent ID — non-human/agent identities)
+- <https://learn.microsoft.com/entra/identity/> (Microsoft Entra Agent ID: identities for agents rather than people)
 
-The CAF article frames AI-agent governance around five disciplines. This table
-maps each recommendation to the artifact in this repo that implements it.
+The Cloud Adoption Framework (CAF) article groups AI agent governance into five
+areas. The tables below list each recommendation and the file in this repo that
+puts it into practice.
 
 ## 1. Identify and inventory agents
 
 | CAF recommendation | Implementation |
 |---|---|
-| Treat every agent as a discrete, named identity (a new identity class). | `workloads/insurance-app/identity-agents.tf` — one `azuread_application` + service principal **or** one `azurerm_user_assigned_identity` per agent (`policy-intake-agent`, `claims-triage-agent`, `underwriting-copilot`). Copilot Studio / AI Foundry agents receive an **Entra Agent ID** automatically when created in a Managed Environment; the Terraform records and tags them. |
-| Maintain a catalog/registry of agents with owners. | Tags `agentName`, `agentOwner`, `agentPurpose`, `dataClassification` enforced by the `require-agent-resource-tags` policy; the Power Platform **CoE Starter Kit** (referenced in `workloads/insurance-app/README.md`) provides the live inventory. |
-| Decommission unused agents. | Lifecycle notes + `expiresOn` tag in `workloads/insurance-app/variables.tf`; access reviews recommended in `docs` (see "Operating model"). |
+| Treat every agent as its own named identity (a new kind of identity). | `workloads/insurance-app/identity-agents.tf`: for each agent (`policy-intake-agent`, `claims-triage-agent`, `underwriting-copilot`), one `azuread_application` and service principal **or** one `azurerm_user_assigned_identity`. Copilot Studio and AI Foundry agents get an **Entra Agent ID** automatically when they're created in a Managed Environment; Terraform records and tags them. |
+| Keep a list of all agents and their owners. | The `require-agent-resource-tags` policy requires the tags `agentName`, `agentOwner`, `agentPurpose` and `dataClassification`. The Power Platform **CoE Starter Kit** (see `workloads/insurance-app/README.md`) keeps the live list. |
+| Retire agents that aren't used. | Lifecycle notes and the `expiresOn` tag in `workloads/insurance-app/variables.tf`; access reviews, recommended in `docs` (see "Operating model"). |
 
 ## 2. Govern agent identity and access
 
 | CAF recommendation | Implementation |
 |---|---|
-| Give each agent its own identity; never share or impersonate users. | Per-agent identities in `identity-agents.tf`; no agent uses a user account or a shared SP. |
-| Prefer managed identities / workload identity federation over secrets. | `azurerm_user_assigned_identity` + `azuread_application_federated_identity_credential` for agents that run on Azure compute or in GitHub Actions; **no client secrets are created**. Key material that is unavoidable lives in Key Vault (`key-vault.tf`). |
-| Apply least privilege with scoped RBAC and scoped API permissions. | Narrow `azurerm_role_assignment`s (e.g., `Cognitive Services OpenAI User`, `Key Vault Secrets User`, `Search Index Data Reader`) scoped to the specific resource, not the subscription. |
-| Apply Conditional Access to agent identities. | `identity-agents.tf` tags identities into the `ai-agents` security group; a Conditional Access policy (named `CA-AI-Agents-Restrict`, managed in Entra, documented here) blocks legacy auth, requires the agents to originate from the workload's named locations / IP ranges, and blocks interactive sign-in. |
-| Use PIM / just-in-time for any elevated agent access. | Documented in the operating model; elevated roles are eligible-only. |
+| Give each agent its own identity; never share a person's identity or act as a person. | One identity per agent in `identity-agents.tf`; no agent uses a user account or a shared service principal. |
+| Use managed identities or workload identity federation instead of secrets. | `azurerm_user_assigned_identity` and `azuread_application_federated_identity_credential` for agents that run on Azure compute or in GitHub Actions; **no client secrets are created**. Any key that can't be avoided is kept in Key Vault (`key-vault.tf`). |
+| Give agents only the access they need, through limited roles and API permissions. | Narrow `azurerm_role_assignment`s (for example `Cognitive Services OpenAI User`, `Key Vault Secrets User`, `Search Index Data Reader`) on the one resource they need, not the whole subscription. |
+| Apply Conditional Access to agent identities. | `identity-agents.tf` puts the identities in the `ai-agents` security group. A Conditional Access policy (named `CA-AI-Agents-Restrict`, managed in Entra and described here) blocks legacy sign-in methods, allows agents only from the workload's named locations and IP ranges, and blocks interactive sign-in. |
+| Use Privileged Identity Management (PIM) or just-in-time access for any higher agent access. | Described in the operating model; higher roles must be activated when needed, never held permanently. |
 
 ## 3. Run agents inside a landing zone (Application Platform landing zone)
 
 | CAF recommendation | Implementation |
 |---|---|
-| Place agent workloads in an **Application landing zone** under the **Application Platform** management group. **If one does not exist, create it.** | `landing-zones/application-platform/management-group.tf` creates the `alz-application-platform` management group (under the platform / "Landing Zones" MG) **only if it is absent**, then `subscription-vending.tf` vends/associates the `insurance-app` subscription beneath it. |
-| Connect the workload spoke to the connectivity hub; use platform DNS, firewall, monitoring. | `landing-zones/application-platform/networking.tf` — spoke VNet, subnets (`snet-privateendpoints`, `snet-powerplatform-vnet-injection`, `snet-apim`), peering to the hub VNet, links to the platform Private DNS zones; `monitoring.tf` wires the spoke to the central Log Analytics workspace. |
-| All PaaS over private endpoints; disable public network access. | `workloads/insurance-app/networking.tf` creates private endpoints for AI Foundry, Azure OpenAI, AI Search, Key Vault, Storage, APIM; `publicNetworkAccess = "Disabled"` everywhere; egress is forced through the hub Azure Firewall via UDR. Enforced by the `deny-ai-public-network-access` policy. |
+| Put agent workloads in an **application landing zone** under the **Application Platform** management group. **If it doesn't exist, create it.** | `landing-zones/application-platform/management-group.tf` creates the `alz-application-platform` management group (under the platform's "Landing Zones" management group) **only if it doesn't exist yet**. Then `subscription-vending.tf` creates the `insurance-app` subscription, or moves the existing one, under it. |
+| Connect the workload's spoke network to the network hub, and use the platform's DNS, firewall and monitoring. | `landing-zones/application-platform/networking.tf`: the spoke VNet, its subnets (`snet-privateendpoints`, `snet-powerplatform-vnet-injection`, `snet-apim`), peering to the hub VNet and links to the platform's Private DNS zones. `monitoring.tf` connects the spoke to the central Log Analytics workspace. |
+| Reach all Azure services through private endpoints, with public network access turned off. | `workloads/insurance-app/networking.tf` creates private endpoints for AI Foundry, Azure OpenAI, AI Search, Key Vault, Storage and APIM, with `publicNetworkAccess = "Disabled"` everywhere. Outbound traffic must go through the hub's Azure Firewall (set by a user-defined route). The `deny-ai-public-network-access` policy enforces this. |
 
 ## 4. Govern data and content (responsible AI)
 
 | CAF recommendation | Implementation |
 |---|---|
-| Use Microsoft Purview / DSPM for AI for cataloging, sensitivity labels, DLP, and prompt/response auditing. | `workloads/insurance-app/observability.tf` references the tenant Purview account and enables the AI audit connector; sensitivity-label enforcement is a tenant control documented here. |
-| Ground agents only on approved data sources; honor label-based access. | AI Search data sources are explicit inputs in `variables.tf`; the Copilot Studio agents are configured (in the Managed Environment) to use only those knowledge sources. |
-| Apply content safety (jailbreak/prompt shields, groundedness, blocklists). | `ai-foundry.tf` provisions an **Azure AI Content Safety** resource and a default blocklist; **Microsoft Defender for Cloud — AI threat protection** plan is enabled in `landing-zones/application-platform/monitoring.tf`. |
-| Human-in-the-loop for sensitive actions. | Copilot Studio topics for bind/quote/payout actions are flagged for confirmation; documented in `workloads/insurance-app/README.md`. |
+| Use Microsoft Purview and DSPM for AI to catalog data, apply sensitivity labels and DLP, and audit prompts and responses. | `workloads/insurance-app/observability.tf` uses the tenant's Purview account and turns on the AI audit connector. Sensitivity labels are enforced across the tenant, as described here. |
+| Let agents answer only from approved data, and respect access based on labels. | The AI Search data sources are listed one by one in `variables.tf`; the Copilot Studio agents are set up (in the Managed Environment) to use only those sources. |
+| Use content safety (protection against jailbreaks and prompt attacks, checks that answers match sources, blocklists). | `ai-foundry.tf` creates an **Azure AI Content Safety** resource and a default blocklist. The **Microsoft Defender for Cloud AI threat protection** plan is turned on in `landing-zones/application-platform/monitoring.tf`. |
+| Have a person approve sensitive actions. | Copilot Studio topics for binding, quoting and payouts require confirmation, as described in `workloads/insurance-app/README.md`. |
 
 ## 5. Govern with policy as code
 
 | CAF recommendation | Implementation (`policy-as-code/`) |
 |---|---|
 | Restrict the regions AI resources can deploy to. | `definitions/allowed-ai-locations.json` |
-| Allow only approved/managed models. | `definitions/allowed-aoai-model-deployments.json` (parameter: list of `model.name`/`model.version` pairs, e.g. `gpt-4o`, `text-embedding-3-large`). |
-| Deny public network access on AI resources / require private endpoints. | `definitions/deny-ai-public-network-access.json` |
-| Disable local/key auth on Cognitive Services / AI resources (force Entra ID). | `definitions/deny-cognitive-services-local-auth.json` |
-| Audit/require managed identity on agent-hosting resources. | `definitions/audit-managed-identity-on-agents.json` |
-| Require diagnostic settings → central Log Analytics for AI + Power Platform resources. | `definitions/require-diagnostic-settings-ai.json` |
-| Require ownership/classification tags on agent resources. | `definitions/require-agent-resource-tags.json` |
-| Bundle into one initiative and assign at the Application Platform MG. | `initiative/ai-agent-governance-initiative.json` + `initiative/policy_assignments.tf` (assigns to `alz-application-platform` with a managed identity for `deployIfNotExists`/`modify` effects, and creates an exemption hook for break-glass). |
+| Allow only approved models. | `definitions/allowed-aoai-model-deployments.json` (its parameter is a list of `model.name`/`model.version` pairs, for example `gpt-4o`, `text-embedding-3-large`). |
+| Block public network access to AI resources, and require private endpoints. | `definitions/deny-ai-public-network-access.json` |
+| Turn off key-based sign-in on Cognitive Services and AI resources, so only Entra ID works. | `definitions/deny-cognitive-services-local-auth.json` |
+| Check for, or require, a managed identity on resources that run agents. | `definitions/audit-managed-identity-on-agents.json` |
+| Require AI and Power Platform resources to send diagnostics to the central Log Analytics workspace. | `definitions/require-diagnostic-settings-ai.json` |
+| Require owner and classification tags on agent resources. | `definitions/require-agent-resource-tags.json` |
+| Group them into one initiative and assign it to the Application Platform management group. | `initiative/ai-agent-governance-initiative.json` and `initiative/policy_assignments.tf`. It's assigned to `alz-application-platform` with a managed identity for the `deployIfNotExists`/`modify` effects, and includes a way to grant an exemption in an emergency. |
 
 ## 6. Low-code platform governance (Power Platform / Copilot Studio)
 
 | CAF recommendation | Implementation (`workloads/insurance-app/`) |
 |---|---|
-| Use an environment strategy with separate dev/test/prod environments. | `power-platform.tf` creates `insurance-dev`, `insurance-test`, `insurance-prod` environments (Dataverse-enabled). |
-| Use **Managed Environments** for governance (sharing limits, solution checker, usage insights, IP firewall, CMK). | `power-platform.tf` flips each environment to **Managed**, sets maker sharing limits, enforces Solution Checker on publish, enables weekly usage insights, and binds the environment IP firewall to the spoke ranges. |
-| Apply **DLP policies** that classify the connector catalog (Business / Non-Business / Blocked) and restrict custom connectors. | `dlp-policy.tf` — a tenant-level "baseline" DLP policy plus an environment-scoped policy: insurance line-of-business + Microsoft 365 + Azure connectors → **Business**; general utility connectors → **Non-Business**; social media, consumer storage, unsanctioned AI, and "send to anyone" connectors → **Blocked**; custom connectors restricted to an approved URL pattern (the APIM gateway host). Connector lists are variables — adaptive. |
-| Front custom / API connectors with Azure API Management. | `connectors-apim.tf` provisions an internal-VNet APIM instance; `connectors/insurance-policy-api.openapi.yaml` and `connectors/claims-api.openapi.yaml` are imported as APIM APIs and surfaced as Power Platform **custom connectors** with Entra ID auth. |
-| Provide the widest array of template connectivity. | The DLP "Business" group is seeded from the full set of Microsoft-published/certified connectors relevant to insurance (Dataverse, SharePoint, Outlook, Teams, SQL, Azure Blob, Service Bus, Azure OpenAI, AI Builder, DocuSign, Adobe Sign, Salesforce, Dynamics 365, etc.) — see `variables.tf` `business_connectors`. |
-| Copilot Studio agents: Entra ID auth, scoped knowledge, ALM via solutions/pipelines, get an Entra Agent ID. | Documented + the Managed Environment + DLP make this enforceable; agent ALM uses Power Platform pipelines (referenced in `README.md`). |
+| Use separate dev, test and prod environments. | `power-platform.tf` creates the `insurance-dev`, `insurance-test` and `insurance-prod` environments, each with Dataverse. |
+| Use **Managed Environments** for governance (sharing limits, solution checker, usage insights, IP firewall, customer-managed keys). | `power-platform.tf` makes each environment **Managed**, limits how widely makers can share, requires Solution Checker before publishing, turns on weekly usage insights, and limits the environment's IP firewall to the spoke's address ranges. |
+| Use **DLP policies** that sort the connector catalog (Business, Non-Business, Blocked) and limit custom connectors. | `dlp-policy.tf`: a tenant-wide "baseline" DLP policy plus a policy for these environments. Insurance business, Microsoft 365 and Azure connectors → **Business**; general utility connectors → **Non-Business**; social media, consumer storage, unapproved AI and "send to anyone" connectors → **Blocked**. Custom connectors are limited to one approved URL pattern (the APIM gateway host). The connector lists are variables, so they're easy to change. |
+| Put Azure API Management in front of custom and API connectors. | `connectors-apim.tf` creates an APIM instance inside the VNet. `connectors/insurance-policy-api.openapi.yaml` and `connectors/claims-api.openapi.yaml` are imported as APIM APIs and published as Power Platform **custom connectors** that sign in with Entra ID. |
+| Offer as many ready-made connectors as possible. | The DLP "Business" group starts with every Microsoft-published or certified connector that's useful for insurance (Dataverse, SharePoint, Outlook, Teams, SQL, Azure Blob, Service Bus, Azure OpenAI, AI Builder, DocuSign, Adobe Sign, Salesforce, Dynamics 365 and more). See `business_connectors` in `variables.tf`. |
+| Copilot Studio agents sign in with Entra ID, use only approved knowledge, are released through solutions and pipelines, and get an Entra Agent ID. | Described here, and enforced by the Managed Environment and DLP. Agents are released through Power Platform pipelines (see `README.md`). |
 
 ## 7. Observability and traceability
 
 | CAF recommendation | Implementation |
 |---|---|
-| Centralized logging and a SIEM. | Central Log Analytics in `landing-zones/application-platform/monitoring.tf`; Microsoft Sentinel onboarded onto that workspace; diagnostic settings enforced by policy. |
-| Per-agent telemetry. | `workloads/insurance-app/observability.tf` — one Application Insights component per agent, connected to the central workspace. |
-| Audit who/what invoked the agent, which tools/connectors ran, what data was touched, prompts/responses. | Purview AI audit + Power Platform activity logging + APIM request logging to Log Analytics + AI Foundry trace export — every action correlates back to the agent's Entra Agent ID via the `agentName` dimension. |
-| AI threat protection. | Defender for Cloud AI plan (prompt-injection / anomalous-usage detection) enabled at the subscription. |
+| One central place for logs, and a security information and event management (SIEM) tool. | Central Log Analytics in `landing-zones/application-platform/monitoring.tf`, with Microsoft Sentinel added to that workspace and diagnostic settings required by policy. |
+| Telemetry for each agent. | `workloads/insurance-app/observability.tf`: one Application Insights component per agent, connected to the central workspace. |
+| Record who or what called the agent, which tools and connectors ran, what data was used, and the prompts and responses. | Purview AI audit, Power Platform activity logs, APIM request logs in Log Analytics and AI Foundry trace export. Every action can be traced back to the agent's Entra Agent ID through the `agentName` dimension. |
+| AI threat protection. | The Defender for Cloud AI plan (detects prompt injection and unusual use), turned on for the subscription. |
 
-## Operating model (shared responsibility)
+## Operating model (who owns what)
 
 | Team | Owns |
 |---|---|
 | **Platform** | `landing-zones/application-platform/`, `policy-as-code/`, hub networking, central Log Analytics/Sentinel, Defender plans, the tenant DLP baseline. |
-| **Workload (insurance)** | `workloads/insurance-app/` — the Power Platform environments, the agents, the APIM connectors, the workload Key Vault and App Insights. |
-| **Security / Identity** | Entra Agent ID lifecycle, Conditional Access for agent identities, access reviews, Purview labels/DSPM-for-AI, Sentinel content. |
+| **Workload (insurance)** | `workloads/insurance-app/`: the Power Platform environments, the agents, the APIM connectors, and the workload's Key Vault and App Insights. |
+| **Security / Identity** | Creating and retiring Entra Agent IDs, Conditional Access for agent identities, access reviews, Purview labels and DSPM for AI, and Sentinel content. |
 
-Access reviews run quarterly over the `ai-agents` group; any agent without an
-owner or past its `expiresOn` tag is disabled then deleted.
+The `ai-agents` group is reviewed every quarter. Any agent with no owner, or past
+the date in its `expiresOn` tag, is disabled and then deleted.

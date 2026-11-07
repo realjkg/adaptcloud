@@ -1,12 +1,12 @@
 # Azure / AKS Residency Path
 
-This path deploys the canonical Applied AI workload to a student-owned Azure subscription using Terraform, Azure Kubernetes Service (AKS), Azure Container Registry (ACR), Azure CNI Overlay powered by Cilium, Microsoft Entra Workload ID, and Azure Monitor/Log Analytics.
+This lab deploys the standard Applied AI app to your own Azure subscription. It uses Terraform, Azure Kubernetes Service (AKS), Azure Container Registry (ACR), Azure CNI Overlay with Cilium for networking, Microsoft Entra Workload ID, and Azure Monitor with Log Analytics.
 
-The top-level `azure/` tree contains broader Adapt Cloud landing-zone and insurance workload material. It is useful reference material, but the residency path is intentionally isolated under `residency/` so students do not inherit Adapt Cloud subscriptions, credentials, naming, policy assumptions, or application-specific infrastructure.
+The top-level `azure/` folder holds Adapt Cloud's larger landing-zone and insurance app work. It's useful to read, but the residency lab is kept separate under `residency/` on purpose, so students don't pick up Adapt Cloud's subscriptions, credentials, naming, policy assumptions or app-specific infrastructure.
 
 ## 1. What this path teaches
 
-You will use the same lifecycle as AWS and GCP:
+You'll run the same commands as on AWS and GCP:
 
 ```bash
 make doctor PROVIDER=azure ENV=dev
@@ -19,11 +19,11 @@ make promote PROVIDER=azure FROM=dev TO=qa
 make destroy PROVIDER=azure ENV=dev
 ```
 
-The provider-specific concepts are Azure subscription/tenant context, resource groups, AKS, ACR, managed identities, Microsoft Entra Workload ID, Azure CNI/Cilium, Log Analytics, Azure Monitor, resource tagging and Azure Cost Management.
+What's specific to Azure: which subscription and tenant you're in, resource groups, AKS, ACR, managed identities, Microsoft Entra Workload ID, Azure CNI with Cilium, Log Analytics, Azure Monitor, resource tags and Azure Cost Management.
 
 ## 2. Prerequisites
 
-Use your own Azure subscription. You need permission to create a resource group, VNet/subnet, ACR, Log Analytics workspace, AKS cluster and role assignment. You also need permission to register the resource providers used by the lab; if your organization centralizes provider registration, ask the subscription administrator to register them instead of elevating your account.
+Use your own Azure subscription. You need permission to create a resource group, a VNet and subnet, an ACR, a Log Analytics workspace, an AKS cluster and a role assignment. You also need permission to register the resource providers the lab uses. If your organization registers providers centrally, ask the subscription administrator to do it instead of giving your account more access.
 
 Required local tools:
 
@@ -35,7 +35,7 @@ docker version
 git --version
 ```
 
-Terraform uses the Azure CLI identity for the local student workflow. The residency currently pins the AzureRM provider to the 5.4 minor line.
+When you run the lab on your machine, Terraform signs in as whoever the Azure CLI is signed in as. The residency currently pins the AzureRM provider to version 5.4.x.
 
 ## 3. Sign in and select the subscription
 
@@ -47,15 +47,15 @@ az account set --subscription "$AZURE_SUBSCRIPTION_ID"
 az account show -o table
 ```
 
-Always inspect `az account show` before provisioning. A common Azure lab mistake is deploying into the wrong subscription after changing tenants or accounts.
+Always check `az account show` before you create anything. A common mistake is deploying into the wrong subscription after switching tenants or accounts.
 
-Optional region override:
+To use a different region (optional):
 
 ```bash
 export AZURE_LOCATION=eastus2
 ```
 
-## 4. Doctor and resource-provider initialization
+## 4. Check your setup and register resource providers
 
 From `residency/`:
 
@@ -64,9 +64,9 @@ make doctor PROVIDER=azure ENV=dev
 make init PROVIDER=azure ENV=dev
 ```
 
-`doctor` verifies the local CLIs, active Azure identity and explicit subscription. `init` registers the Azure namespaces required by this lab and then initializes Terraform. Resource-provider registration itself does not create the AKS/ACR lab, but it changes subscription configuration and requires suitable permissions.
+`doctor` checks the local tools, who you're signed in as, and that you picked a subscription. `init` registers the Azure resource providers this lab needs, then sets up Terraform. Registering providers doesn't create the AKS or ACR resources, but it does change the subscription's settings, so it needs the right permissions.
 
-You can inspect registration state directly:
+To check registration yourself:
 
 ```bash
 for rp in Microsoft.ContainerService Microsoft.ContainerRegistry Microsoft.Network Microsoft.OperationalInsights Microsoft.Insights; do
@@ -74,37 +74,37 @@ for rp in Microsoft.ContainerService Microsoft.ContainerRegistry Microsoft.Netwo
 done
 ```
 
-## 5. Inspect the Terraform plan
+## 5. Review the Terraform plan
 
 ```bash
 make plan PROVIDER=azure ENV=dev
 ```
 
-The plan creates a dedicated resource group containing:
+The plan creates one resource group just for the lab, containing:
 
 - a VNet and AKS node subnet;
-- an ACR registry with the administrator account disabled;
+- an ACR registry with its administrator account turned off;
 - a Log Analytics workspace;
-- an AKS Standard cluster using the Free control-plane tier for the lab;
-- Azure CNI Overlay with the Cilium data plane/network policy;
-- OIDC issuer and Microsoft Entra Workload ID support;
-- a system-assigned AKS identity and kubelet identity;
-- an explicit `AcrPull` assignment for the kubelet identity;
-- tags for project, environment and Terraform ownership.
+- an AKS Standard cluster on the Free control-plane tier;
+- Azure CNI Overlay, with Cilium handling traffic and network policy;
+- an OIDC issuer and Microsoft Entra Workload ID support;
+- a system-assigned identity for AKS and one for the kubelet;
+- an `AcrPull` role assignment for the kubelet identity;
+- tags for the project, the environment and "managed by Terraform".
 
-Review the plan before continuing. AKS worker nodes, networking, ACR, logs and related Azure services can incur charges.
+Review the plan before you go on. You can be charged for AKS worker nodes, networking, ACR, logs and related Azure services.
 
 ## 6. Deploy dev
 
-Deployment is deliberately blocked unless you acknowledge that live infrastructure is billable:
+Deploy is blocked until you confirm that you know real infrastructure costs money:
 
 ```bash
 ALLOW_BILLABLE=yes make deploy PROVIDER=azure ENV=dev
 ```
 
-The deploy path applies the saved plan, obtains AKS credentials with `az aks get-credentials`, signs Docker into ACR with your Azure identity, builds the canonical residency workload, pushes an immutable Git-derived image tag, applies the shared Kubernetes overlay and waits for rollout.
+Deploy applies the saved plan, gets AKS credentials with `az aks get-credentials` and signs Docker in to ACR as you. It then builds the standard residency app, pushes it with a tag taken from Git that can't be overwritten, applies the shared Kubernetes overlay and waits for the rollout to finish.
 
-Verify context before running ad-hoc Kubernetes commands:
+Check your context before running other Kubernetes commands:
 
 ```bash
 kubectl config current-context
@@ -114,9 +114,9 @@ kubectl -n applied-ai-residency get deploy,svc,pods
 
 ## 7. ACR and workload identity
 
-The registry administrator account remains disabled. AKS pulls images using its kubelet managed identity and the scoped `AcrPull` role assignment.
+The registry's administrator account stays off. AKS pulls images using its kubelet managed identity and the `AcrPull` role, which is limited to this registry.
 
-Inspect the relationship:
+To see how they're connected:
 
 ```bash
 RG=adapt-residency-dev-rg
@@ -125,7 +125,7 @@ az aks show -g "$RG" -n "$CLUSTER" --query identityProfile.kubeletidentity -o js
 az role assignment list --scope "$(az acr show -g "$RG" --query id -o tsv)" -o table
 ```
 
-The AKS cluster also enables the OIDC issuer and Microsoft Entra Workload ID. Later labs can bind a Kubernetes service account to a narrowly scoped Azure managed identity instead of placing Azure credentials in pods.
+The cluster also turns on the OIDC issuer and Microsoft Entra Workload ID. Later labs can link a Kubernetes service account to an Azure managed identity with limited permissions, instead of putting Azure credentials in pods.
 
 ## 8. Validate
 
@@ -133,9 +133,9 @@ The AKS cluster also enables the OIDC issuer and Microsoft Entra Workload ID. La
 make validate PROVIDER=azure ENV=dev
 ```
 
-Without a live cluster this performs Terraform and Kubernetes render validation. With a live cluster it also refreshes kubeconfig, checks nodes/workload objects and verifies the deployment rollout.
+Without a running cluster, this checks the Terraform files and that the Kubernetes files render. With the cluster running, it also refreshes kubeconfig, checks the nodes and workload objects and confirms the rollout finished.
 
-Useful direct checks:
+Other useful checks:
 
 ```bash
 az aks show -g adapt-residency-dev-rg -n adapt-residency-dev -o table
@@ -145,7 +145,7 @@ kubectl -n applied-ai-residency describe deployment applied-ai-workload
 
 ## 9. Metrics, logs, traces and health
 
-Start with the portable Kubernetes view:
+Start with the Kubernetes view, which works the same on every cloud:
 
 ```bash
 make observe PROVIDER=azure ENV=dev
@@ -154,13 +154,13 @@ kubectl -n applied-ai-residency logs deployment/applied-ai-workload
 kubectl -n applied-ai-residency get events --sort-by=.lastTimestamp
 ```
 
-AKS is connected to a dedicated Log Analytics workspace through the Azure Monitor agent. Find it with:
+AKS sends data to its own Log Analytics workspace through the Azure Monitor agent. Find it with:
 
 ```bash
 az monitor log-analytics workspace list -g adapt-residency-dev-rg -o table
 ```
 
-If you have the Log Analytics query extension installed, obtain the workspace customer ID and query recent container records:
+If you have the Log Analytics query extension installed, get the workspace's customer ID and look at recent container logs:
 
 ```bash
 WORKSPACE_ID=$(az monitor log-analytics workspace show \
@@ -174,13 +174,13 @@ az monitor log-analytics query \
   --timespan PT1H
 ```
 
-Application metrics, logs and traces will converge on the shared OpenTelemetry contract in the dedicated observability PR after all four infrastructure providers reach parity. The Azure adapter intentionally does not couple application code to an Azure-only telemetry SDK.
+Once all four clouds are at the same level, a separate observability PR will move app metrics, logs and traces onto the shared OpenTelemetry setup. The Azure adapter deliberately doesn't tie the app code to an Azure-only telemetry library.
 
-Health remains portable through Kubernetes liveness/readiness and rollout status.
+Health checks work the same everywhere, through Kubernetes liveness, readiness and rollout status.
 
 ## 10. Resource and cost visibility
 
-List the complete lab resource group:
+List everything in the lab's resource group:
 
 ```bash
 az resource list -g adapt-residency-dev-rg -o table
@@ -193,17 +193,17 @@ Project=applied-ai-residency
 Environment=dev
 ```
 
-AKS also has cost-analysis capabilities for supported cluster tiers/configurations, but the residency does not require enabling a more expensive control-plane tier merely to expose that feature. The portable cost lesson is to identify all billable resources, tag them consistently, inspect provider-native cost data and destroy the lab when finished.
+AKS has its own cost analysis on some cluster tiers and setups, but the residency doesn't make you pay for a more expensive control-plane tier just to see it. The cost lesson that applies on every cloud: know every resource you pay for, tag them all the same way, check the cloud's cost data, and delete the lab when you're done.
 
 ## 11. Promote dev → QA → staging → prod
 
-Promotion preserves the tested image identity rather than rebuilding source differently per environment.
+Moving to the next environment keeps the exact image you tested, instead of rebuilding the code for each environment.
 
 ```bash
 make promote PROVIDER=azure FROM=dev TO=qa
 ```
 
-Provision the target environment with its own Terraform state/plan, then deploy using the source image tag through `IMAGE_TAG`. Until the shared promotion layer automates digest capture, verify the source tag/digest in ACR before promotion:
+Create the target environment with its own Terraform state and plan, then deploy it with the original image tag through `IMAGE_TAG`. Until the shared promotion layer records the image digest automatically, check the tag and digest in ACR before you promote:
 
 ```bash
 az acr repository show-tags \
@@ -212,7 +212,7 @@ az acr repository show-tags \
   -o table
 ```
 
-Repeat the same controlled progression for QA → staging → prod. Student labs should keep non-dev environments destroyed when they are not actively being used.
+Do the same, step by step, for QA → staging → prod. In student labs, delete every environment except dev whenever you're not using it.
 
 ## 12. Troubleshooting
 
@@ -237,30 +237,30 @@ az aks get-credentials -g adapt-residency-dev-rg -n adapt-residency-dev --overwr
 kubectl config current-context
 ```
 
-**ACR pull failure:** inspect the kubelet identity and `AcrPull` assignment; do not enable the ACR administrator password as a shortcut.
+**ACR pull failure:** check the kubelet identity and the `AcrPull` assignment. Don't turn on the ACR administrator password as a shortcut.
 
-**Address overlap:** change the Terraform VNet, node, pod or service CIDRs before provisioning. Azure CNI Overlay requires non-overlapping network planning.
+**Address overlap:** change the VNet, node, pod or service CIDRs in Terraform before you create anything. With Azure CNI Overlay, these address ranges must not overlap.
 
-**Quota/VM-size failure:** query region SKUs and subscription quota, then choose a small generally available Linux VM size appropriate for the lab rather than blindly increasing capacity.
+**Quota or VM-size failure:** check which VM sizes the region offers and your subscription's quota, then pick a small, generally available Linux VM size that suits the lab. Don't just raise capacity.
 
 ## 13. Destroy and verify
 
-Destroy as soon as the exercise is complete:
+Tear down as soon as you finish the exercise:
 
 ```bash
 make destroy PROVIDER=azure ENV=dev
 ```
 
-Terraform asks for confirmation and removes the residency-managed resource group and resources. The CLI then verifies that the resource group no longer resolves.
+Terraform asks you to confirm, then deletes the lab's resource group and everything in it. The CLI then checks that the resource group no longer exists.
 
-Perform an independent check:
+Check it yourself as well:
 
 ```bash
 az group show -n adapt-residency-dev-rg
 ```
 
-A `ResourceGroupNotFound` result is expected after successful teardown. Finally inspect the subscription resource list and Azure Cost Management for anything you created manually or outside this Terraform state.
+After a successful teardown you should see `ResourceGroupNotFound`. Finally, look through the subscription's resource list and Azure Cost Management for anything you created by hand or outside this Terraform state.
 
-## 14. Relationship to the existing `azure/` tree
+## 14. How this relates to the `azure/` folder
 
-The repository already contains a much broader Azure implementation with landing zones, policy-as-code and an insurance workload. Some of that material can inform advanced residency labs, especially identity, AI Foundry, networking and observability. It is **not** silently imported into this foundational provider adapter because the residency contract requires a minimal, portable, student-owned deployment with zero dependency on Adapt Cloud infrastructure.
+The repository already has a much larger Azure setup with landing zones, policy as code and an insurance app. Some of it can help with advanced residency labs, especially identity, AI Foundry, networking and observability. It is **not** pulled into this basic adapter, because the residency requires a small deployment that works on any cloud, in the student's own account, with no dependency on Adapt Cloud infrastructure.

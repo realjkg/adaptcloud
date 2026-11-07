@@ -1,20 +1,20 @@
-# E2E orchestration
+# Running the end-to-end test
 
-`run-e2e.sh` is the single-command runner that deploys, exercises, and tears
-down the full sandbox. Each numbered step maps to one architecture pillar
-(see [`../README.md`](../README.md)); the script fails loudly on the first
-red step.
+`run-e2e.sh` deploys the whole sandbox, tests it and tears it down, all with one
+command. Each numbered step checks one of the platform's claims (see
+[`../README.md`](../README.md)), and the script stops with a clear error at the
+first step that fails.
 
-## Prereqs
+## Before you start
 
 - Terraform ≥ 1.6 on PATH
 - Python 3.11+ with `pip install -r ../requirements.txt`
 - Azure CLI (`az login`, or OIDC federation in CI)
-- **Existing** sandbox subscription and:
-  - `LAW_ID` — a Log Analytics workspace resource id (any)
-  - `AI_AGENTS_GROUP` — an Entra security group object id (any; can be empty)
+- A sandbox subscription you **already have**, plus:
+  - `LAW_ID` — the resource ID of any Log Analytics workspace
+  - `AI_AGENTS_GROUP` — the object ID of any Entra security group (it can be empty)
 
-## Env vars
+## Environment variables
 
 | Var | Meaning |
 |---|---|
@@ -27,10 +27,10 @@ red step.
 
 ## Cost note
 
-One full run — with `enable_power_platform=false`, Consumption APIM, Basic AI
-Search, `gpt-4o-mini` for the evaluations — is ~$1-2 in Azure charges plus
-maybe $0.10 in OpenAI tokens. The `terraform destroy` at the end (also
-guaranteed via a bash trap) means nothing lingers.
+One full run, with `enable_power_platform=false`, Consumption APIM, Basic AI
+Search and `gpt-4o-mini` for the evaluations, costs about $1–2 in Azure charges
+plus around $0.10 in OpenAI tokens. The `terraform destroy` at the end runs even
+if a step fails (a bash trap makes sure of it), so nothing is left behind.
 
 ## Run
 

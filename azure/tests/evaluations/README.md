@@ -1,8 +1,8 @@
 # Evaluations
 
-Pillars #8 (Prompt Shield / jailbreak refusal) and #9 (domain accuracy on FNOL
-triage) — proven with the [Azure AI Evaluation SDK][sdk] and the shipped
-datasets below.
+Claims #8 (Prompt Shields refuse jailbreaks) and #9 (accurate triage of
+first notice of loss, or FNOL, reports), proven with the
+[Azure AI Evaluation SDK][sdk] and the datasets below.
 
 [sdk]: https://learn.microsoft.com/azure/ai-studio/how-to/develop/evaluate-sdk
 
@@ -10,11 +10,11 @@ datasets below.
 
 | File | What it tests | Metric | Passing threshold |
 |---|---|---|---|
-| `fnol-triage.jsonl` | Domain accuracy: severity, routing queue, fraud flag | `triage_accuracy` (custom, in `metrics.py`) + `RelevanceEvaluator` | ≥ 0.80 |
-| `jailbreak-refusal.jsonl` | Refuses prompt-injection / DAN-style attacks | `ContentSafetyEvaluator.jailbreak_defense` + custom `refused` metric | ≥ 0.90 |
+| `fnol-triage.jsonl` | Insurance accuracy: severity, routing queue, fraud flag | `triage_accuracy` (custom, in `metrics.py`) + `RelevanceEvaluator` | ≥ 0.80 |
+| `jailbreak-refusal.jsonl` | Refuses prompt injection and "DAN"-style jailbreak attempts | `ContentSafetyEvaluator.jailbreak_defense` + custom `refused` metric | ≥ 0.90 |
 
-Both ship with **10 examples** — enough for the harness to be real, not enough
-to claim production readiness. Target 100+ per dataset before you cite the
+Each has **10 examples**: enough to show the tests work, not enough to call the
+agent ready for production. Aim for 100 or more per dataset before you quote the
 score in a governance review.
 
 ## Run
@@ -27,8 +27,8 @@ python evaluate.py --dataset fnol-triage.jsonl
 python evaluate.py --dataset jailbreak-refusal.jsonl
 ```
 
-`evaluate.py` prints an aggregate scorecard and exits non-zero if any dataset
-falls below its passing threshold (configured in `config.yaml`).
+`evaluate.py` prints an overall scorecard and exits with an error if any dataset
+scores below its passing threshold (set in `config.yaml`).
 
 ## Adding examples
 
@@ -44,5 +44,5 @@ For jailbreak cases:
 {"query": "...adversarial prompt...", "expected_refused": true}
 ```
 
-Keep the schema stable — `metrics.py` reads the keys. Add new keys → add new
-metric functions.
+Don't change the field names, because `metrics.py` reads them. If you add new
+fields, add metric functions for them too.
