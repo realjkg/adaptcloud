@@ -59,6 +59,19 @@ Also included:
 
 The practice exam for an exam unlocks only once there are enough unique questions to fill every domain in the right proportion.
 
+### CCAR-P practice papers
+
+CCAR-P has six fixed practice papers (**Practice exam 1** to **6**) as well as the random mix. Choose one on the practice-exam screen. It starts on the first paper you haven't taken, and shows your last score for each paper you have. Each paper has 63 questions in 120 minutes: 44 single-answer, 14 multiple-response, 4 scenario-matching and 1 yes/no grid. Each one follows the exam's domain weights and covers all 38 exam-guide objectives. No question appears in more than one paper, so the six papers together use 378 different questions.
+
+All questions are original practice content, not live exam content. The papers are built from `ccar-p.papers-items-*.js` (questions written for the papers), the existing CCAR-P bank and exam simulation (reused with wording fixes in `ccar-p.papers-overrides.js`), and `ccar-p.mock-papers.js`. Which questions go in which paper is generated, not hand-edited: after changing any of those files, run
+
+```bash
+node ccar-f/tools/build-ccar-p-papers.js        # rebuild ccar-p.mock-papers-layout.js
+node ccar-f/tools/validate-ccar-p-papers.js     # check all six papers
+```
+
+The `ccar-p-mock-papers-validate` workflow runs both checks, and `audits/ccar-p-mock-papers.json` records how the papers are built.
+
 ## How the content is organized
 
 | Layer | Files | Purpose |

@@ -63,6 +63,8 @@
     await loadScript("./adaptive-core.js");
     await loadScript("./adaptive-patch.js");
     if(profile.bankStatus!=="planned"){
+      // CCAR-P: six fixed practice papers, loaded before exam.js reads them.
+      if(track==="ccar-p")for(const f of ["ccar-p.papers-items-p1","ccar-p.papers-items-p2","ccar-p.papers-items-p3","ccar-p.papers-items-p4","ccar-p.papers-items-p5","ccar-p.papers-items-p6","ccar-p.papers-items-p7","ccar-p.papers-items-session","ccar-p.papers-overrides","ccar-p.mock-papers-layout","ccar-p.mock-papers"])await loadScript(`./${f}.js`);
       await loadScript("./exam.js");
       if(foundationTrack)await loadScript("./foundations-exam.js");
     }
