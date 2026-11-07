@@ -93,8 +93,8 @@ simply not started and Caddy answers `/aidigest/*` with 401. To add AIDigest:
 
 ## First use (order matters)
 
-1. Configure the database role and auth first (`make setup-aidigest`, or a fresh `make setup` and
-   answer `y` to "Also set up AIDigest").
+1. Configure the database role and auth first (`make setup` on a new install, which asks for the
+   AIDigest settings, or `make setup-aidigest` to add them to an existing `.env`).
 2. `make aidigest-start` (or `make start` once `COMPOSE_PROFILES=aidigest` is in `.env`).
 3. `make aidigest-status` must report `"ready": true` (all of articles, knowledge, tasks and runs present). Do not use the endpoints until it does.
 4. Optionally run the first digest now with `make aidigest-run-daily`; otherwise it runs at the next scheduled time (or immediately, once, if the service starts after today's slot).
