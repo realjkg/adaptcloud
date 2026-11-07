@@ -1,6 +1,6 @@
 # Claude Certification Study Simulator
 
-One adaptive study engine with four **isolated** certification tracks: separate banks, domain weights, progress and mastery for each exam. Nothing is shared between tracks, so a question written for one exam can't leak into another.
+One study app for four Claude certification exams. Each exam has its own questions, flashcards, domain weights and saved progress. Nothing is shared between exams, so a question written for one can't show up in another.
 
 **Open it:** `https://realjkg.github.io/adaptcloud/ccar-f/` (GitHub Pages; see [Deployment](#deployment)). Jump straight to a track with `?track=`:
 
@@ -39,15 +39,25 @@ All four tracks are aligned to **Exam Guide v1.0 (effective July 2026)**, verifi
 
 Weights come from `certifications.js`, which is the single place the engine reads them from.
 
-## What each track includes
+## What each exam includes
 
-- adaptive flashcards and an original multiple-choice practice pool (CCAR-F: 162 flashcards, 152-question pool)
-- untimed practice, adaptive weak-area practice, and blueprint-weighted full mock exams
-- per-domain scoring and spaced-review scheduling
-- a deliberately conservative PASS-READY gate: at least 90% overall and no domain below 85%
-- start / stop / resume with browser `localStorage`, plus progress export/import for moving between devices
+The home screen offers four ways to study:
 
-Full mocks unlock for a track only after its bank satisfies the complete blueprint allocation.
+| Mode | What it does |
+|---|---|
+| **Flashcard session** | Flashcards for the exam, each with a short example. Cards you find hard come back sooner. |
+| **Practice questions** | Scenario questions with the answer and explanation shown right after each one. |
+| **Weak-area practice** | Questions from the domains you miss most. |
+| **Practice exam** | A full timed exam weighted like the real one. Answers appear only after you submit. |
+
+Also included:
+
+- original questions written for practice (CCAR-F: 162 flashcards and a 152-question pool)
+- scores by domain, so you can see where you're weak
+- a strict readiness check. On CCAR-F, **Ready** means you've answered at least 100 questions with 90% or better overall, scored at least 85% in every domain (with at least 10 questions answered in each), and scored 90% or better on each of your last three practice exams. The other exams use the same check with their own target in place of 85% and 90%: 88% for CCAO-F, 90% for CCDV-F and 92% for CCAR-P.
+- progress saved in your browser so you can stop and pick up later, plus export and import for moving between devices
+
+The practice exam for an exam unlocks only once there are enough unique questions to fill every domain in the right proportion.
 
 ## How the content is organized
 
@@ -56,14 +66,14 @@ Full mocks unlock for a track only after its bank satisfies the complete bluepri
 | Track profiles | `certifications.js`, `exam-profile.js` | Exam format, domains and weights per track |
 | Seed and base banks | `*.seed.js`, `*.bank*.js`, `payload1–5.js` | Original cards and questions (CCAR-F's base set ships as a compressed payload) |
 | Rewrites and reconciliation | `ccar-p.d*-scenario-rewrite.js`, `ccar-p.d*-reconcile.js`, `*-topup.js` | Domain-level upgrades applied in load order (see `index.html`) |
-| Fidelity and governance | `foundations-*.js`, `source-governance.js` | Scenario-fidelity and source-provenance rules |
-| Audit manifests | `audits/*.json` | Objective-to-content traceability and guide version per track |
-| Source registries | `sources/**/source-registry.json` | Approved and excluded sources with attribution |
-| Engine | `loader.js`, `app.js`, `multi-app.js`, `exam.js`, `adaptive-*.js` | Track loading, practice, mocks, adaptive selection |
+| Scenario and source rules | `foundations-*.js`, `source-governance.js` | Rules that keep scenarios realistic and every question's source approved |
+| Audit files | `audits/*.json` | Which exam-guide objective each piece of content covers, and the guide version |
+| Source lists | `sources/**/source-registry.json` | Approved and excluded sources, with credit |
+| App code | `loader.js`, `app.js`, `multi-app.js`, `exam.js`, `adaptive-*.js` | Loading an exam, flashcards, practice, weak-area selection and practice exams |
 
-## Validation
+## Checks
 
-Each track has dedicated GitHub Actions workflows in `.github/workflows/` (`ccar-f-*`, `ccar-p-*`, `ccdv-f-*`, `ccao-f-*`, `foundations-*`). They check objective coverage, blueprint allocation, scenario fidelity, timed modes and source governance, so a change that breaks a track's blueprint fails in CI before it can deploy.
+Each exam has its own GitHub Actions checks in `.github/workflows/` (`ccar-f-*`, `ccar-p-*`, `ccdv-f-*`, `ccao-f-*`, `foundations-*`). They confirm every objective is covered, each domain has enough questions, scenarios stay realistic, timed modes behave, and sources are approved. A change that breaks any of these fails before it can deploy.
 
 ## Updating a track for a new exam guide
 

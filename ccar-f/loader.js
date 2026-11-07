@@ -18,14 +18,14 @@
     });
   }
   const heading=document.getElementById("certHeading");if(heading)heading.textContent=`${profile.code} Study Simulator`;
-  const sub=document.getElementById("certSubhead");if(sub)sub.textContent=`${profile.title} • adaptive ${profile.role.toLowerCase()} preparation`;
+  const sub=document.getElementById("certSubhead");if(sub)sub.textContent=`${profile.title} • study and practice`;
   const level=document.getElementById("levelBadge");if(level)level.textContent=profile.level;
-  const fmt=document.getElementById("examFormatBadge");if(fmt)fmt.textContent=profile.questionCount?`${profile.questionCount} Q / ${profile.minutes} min`:`${profile.minutes} min / blueprint pending`;
+  const fmt=document.getElementById("examFormatBadge");if(fmt)fmt.textContent=profile.questionCount?`${profile.questionCount} Q / ${profile.minutes} min`:`${profile.minutes} min / domains not final`;
   const note=document.getElementById("blueprintNote");if(note){
-    if(Object.keys(profile.domains||{}).length)note.textContent=`${profile.code} domain weights are isolated from every other certification. Adaptive practice targets the weakest weighted domains first; the expanded bank is validated against each domain allocation before full mocks are enabled.`;
-    else note.textContent=`${profile.code} is registered in the engine, but its detailed exam blueprint is not being treated as final until the track content is locked to the current guide.`;
+    if(Object.keys(profile.domains||{}).length)note.textContent=`${profile.code} has its own domain weights, separate from the other exams. Weak-area practice starts with your weakest high-weight domains. The full practice exam unlocks only once the question bank covers every domain in the right proportion.`;
+    else note.textContent=`${profile.code} is set up, but its domains won't be treated as final until they're checked against the current exam guide.`;
   }
-  const mockDesc=document.getElementById("mockDesc");if(mockDesc)mockDesc.textContent=profile.bankStatus==="complete"?`${profile.questionCount} questions, ${profile.minutes} minutes, blueprint-weighted, with proctored-style navigation and review.`:"Adaptive practice is active now; the proctored full mock unlocks only after the unique bank satisfies the complete blueprint.";
+  const mockDesc=document.getElementById("mockDesc");if(mockDesc)mockDesc.textContent=profile.bankStatus==="complete"?`${profile.questionCount} questions in ${profile.minutes} minutes, weighted like the real exam. You can move between questions, flag them and review before you submit.`:"Weak-area practice is ready now. The full practice exam unlocks once there are enough unique questions for every domain.";
 
   let data=null;
   if(track==="ccar-f"){
@@ -67,4 +67,4 @@
       if(foundationTrack)await loadScript("./foundations-exam.js");
     }
   }
-}catch(e){document.body.innerHTML=`<main style="font-family:system-ui;max-width:760px;margin:40px auto;padding:20px"><h1>Claude Certification Study Engine</h1><p>Unable to load this certification track in this browser.</p><pre>${String(e)}</pre></main>`}})();
+}catch(e){document.body.innerHTML=`<main style="font-family:system-ui;max-width:760px;margin:40px auto;padding:20px"><h1>Claude Certification Study Simulator</h1><p>This exam couldn't load in this browser.</p><pre>${String(e)}</pre></main>`}})();

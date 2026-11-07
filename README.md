@@ -4,7 +4,7 @@ this repo contains secure hardening and will contain chatGPT webhooks as well as
 
 ## Claude Certification Study Simulator
 
-Adaptive practice for all four Claude certifications (Architect Foundations and Professional, Developer Foundations, Associate Foundations), with isolated banks, blueprint-weighted mock exams and per-domain readiness scoring.
+Study and practice for all four Claude certifications (Architect Foundations and Professional, Developer Foundations, Associate Foundations): flashcards, practice questions, weak-area practice and full timed practice exams, with scores by domain. Each exam keeps its own questions and progress.
 
 - **Open it:** https://realjkg.github.io/adaptcloud/ccar-f/ (add `?track=ccar-f`, `ccar-p`, `ccdv-f` or `ccao-f`)
 - **Docs:** [`ccar-f/README.md`](ccar-f/README.md): tracks, exam-guide alignment, how the content is organized and validated

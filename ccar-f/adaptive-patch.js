@@ -58,7 +58,7 @@
     if(!t||t.mode!=="adaptive")return baseRenderQuiz();
     if(t.pos>=t.ids.length){finishQuiz(false);return}
     const q=currentQ(),total=t.target||t.ids.length;
-    quizTitle.textContent=`${PROFILE.code} Adaptive Mode`;
+    quizTitle.textContent=`${PROFILE.code} weak-area practice`;
     quizCounter.textContent=`Question ${t.pos+1} of ${total} • ${DOMAINS[q.domain].name}`;
     quizProgress.style.width=(t.pos/total*100)+"%";
     quizBody.innerHTML=`<div class="qbox"><div class="qtext">${esc(q.q)}</div><div id="choices"></div><div id="feedback" class="hidden"></div></div>`;

@@ -63,7 +63,7 @@
     if (type === "single") return "Multiple choice · Select ONE";
     if (type === "multi") return `Multiple response · Select ${q.selectCount}`;
     if (type === "matching") return "Scenario matching · Choose one option for every row · Options may be reused";
-    if (type === "matrix") return "Scenario matrix · Mark YES or NO for every statement";
+    if (type === "matrix") return "Yes/no grid · Mark YES or NO for every statement";
     return "Question";
   }
 
@@ -189,27 +189,27 @@
     const t = mockState();
     clearInterval(timerHandle);
     timer.textContent = "";
-    quizTitle.textContent = `${PROFILE.code} Full Mock — Exam Instructions`;
-    quizCounter.textContent = "Proctored-style practice session";
+    quizTitle.textContent = `${PROFILE.code} practice exam: instructions`;
+    quizCounter.textContent = "Timed and set up like the real exam";
     quizProgress.style.width = "0%";
     const summary = EXAM_SIM?.summarize ? EXAM_SIM.summarize(t.ids) : null;
     const typeText = summary ? [summary.byType.single?`${summary.byType.single} single-answer`:"",summary.byType.multi?`${summary.byType.multi} multiple-response`:"",summary.byType.matching?`${summary.byType.matching} scenario-matching`:"",summary.byType.matrix?`${summary.byType.matrix} matrix`:""].filter(Boolean).join(" · ") : "Single-answer multiple choice";
-    const evidenceNote = EXAM_SIM ? `<div class="exam-source-note"><strong>Format fidelity:</strong> The public CCAR-P blueprint confirms multiple-choice and multiple-response. This simulator also rehearses practitioner-reported scenario matching and, on some forms, a matrix-style composite. All questions are original practice content; no live or recalled exam items are used.</div>` : "";
+    const evidenceNote = EXAM_SIM ? `<div class="exam-source-note"><strong>Question types:</strong> The public CCAR-P exam guide lists multiple-choice and multiple-response questions. This practice exam also includes scenario-matching questions that past test-takers have described and, on some versions, a yes/no grid. Every question is original practice material, never a real or remembered exam question.</div>` : "";
     quizBody.innerHTML = `
       <div class="exam-intro">
         <h3>Before you begin</h3>
-        <p>This mock reproduces timed navigation, review pressure, blueprint weighting, and supported item mechanics using original practice material.</p>
-        <div class="exam-intro-grid"><div><strong>${t.ids.length}</strong><span>questions</span></div><div><strong>${MOCK_MINUTES}</strong><span>minutes</span></div><div><strong>1</strong><span>final submission</span></div></div>
+        <p>This practice exam works like the real one: it's timed, weighted by domain, and lets you move between questions and review them before you submit. All questions are original.</p>
+        <div class="exam-intro-grid"><div><strong>${t.ids.length}</strong><span>questions</span></div><div><strong>${MOCK_MINUTES}</strong><span>minutes</span></div><div><strong>1</strong><span>submission at the end</span></div></div>
         <div class="exam-format-summary">${safe(typeText)}</div>${evidenceNote}
         <ul>
-          <li>Each item states whether to select one response, multiple responses, or complete every scenario row.</li>
-          <li>Multiple-response and composite items are scored all-or-nothing in this simulator.</li>
-          <li>Move backward and forward and flag any item for review.</li>
-          <li>No correctness feedback or explanations appear until final submission.</li>
-          <li>The timer continues during review and auto-submits at zero.</li>
-          <li>Incomplete items count as incorrect.</li>
+          <li>Each question tells you whether to pick one answer, several answers, or fill in every row of a scenario.</li>
+          <li>Questions with several answers or several rows count as correct only if every part is right.</li>
+          <li>You can move back and forward and flag any question to come back to.</li>
+          <li>You won't see answers or explanations until you submit.</li>
+          <li>The timer keeps running while you review, and the exam submits itself when time runs out.</li>
+          <li>Unanswered questions count as wrong.</li>
         </ul>
-        <div class="exam-start-row"><button class="btn" id="beginMockBtn">Begin Exam</button><button class="ghost" id="cancelMockBtn">Return to dashboard</button></div>
+        <div class="exam-start-row"><button class="btn" id="beginMockBtn">Begin Exam</button><button class="ghost" id="cancelMockBtn">Back to home</button></div>
       </div>`;
     document.getElementById("beginMockBtn").onclick = beginMock;
     document.getElementById("cancelMockBtn").onclick = () => { state.activeQuiz = null; save(); show("home"); renderHome(); };
@@ -259,7 +259,7 @@
 
   function renderQuestion(t) {
     const q=mockQuestion(t.ids[t.pos]);if(!q){alert(`Unable to resolve exam item ${t.ids[t.pos]}.`);return;}
-    const response=t.responses[q.id],c=counts(t);quizTitle.textContent=`${PROFILE.code} Full Mock`;quizCounter.textContent=`Question ${t.pos+1} of ${t.ids.length} • ${DOMAINS[q.domain]?.name||q.domain}`;quizProgress.style.width=((t.pos+1)/t.ids.length*100)+"%";
+    const response=t.responses[q.id],c=counts(t);quizTitle.textContent=`${PROFILE.code} practice exam`;quizCounter.textContent=`Question ${t.pos+1} of ${t.ids.length} • ${DOMAINS[q.domain]?.name||q.domain}`;quizProgress.style.width=((t.pos+1)/t.ids.length*100)+"%";
     quizBody.innerHTML=`<div class="exam-toolbar"><button type="button" class="ghost exam-flag-btn ${t.flags[q.id]?"is-flagged":""}" id="flagReviewBtn" aria-pressed="${t.flags[q.id]?"true":"false"}">${t.flags[q.id]?"⚑ Flagged for Review":"⚐ Flag for Review"}</button><button type="button" class="ghost" id="openReviewBtn">Review (${c.incomplete} incomplete)</button><button type="button" class="ghost" id="toggleTimeBtn">${t.timeHidden?"Show time":"Hide time"}</button></div><div class="exam-layout"><div class="qbox exam-question"><div class="exam-item-type">${safe(itemInstruction(q))}</div><div class="qtext">${safe(q.q)}</div><div id="choices"></div><div class="exam-nav"><button type="button" class="ghost" id="prevMockBtn" ${t.pos===0?"disabled":""}>Previous</button><div class="grow"></div><button type="button" class="btn2" id="nextMockBtn">${t.pos===t.ids.length-1?"Review Exam":"Next"}</button></div></div>${renderPalette(t)}</div>`;
     const type=itemType(q);if(type==="single")renderSingle(q,t,response);else if(type==="multi")renderMulti(q,t,response);else if(type==="matching")renderMatching(q,t,response);else if(type==="matrix")renderMatrix(q,t,response);
     document.getElementById("flagReviewBtn").onclick=()=>{t.flags[q.id]=!t.flags[q.id];save();renderQuestion(t);};
@@ -276,8 +276,8 @@
 
   function renderReview(t,filter="all") {
     clearInterval(timerHandle);quizTitle.textContent="Item Review";quizCounter.textContent="Review before final submission";quizProgress.style.width="100%";const c=counts(t);
-    quizBody.innerHTML=`<div class="exam-review"><div class="review-summary"><div><strong>${t.ids.length}</strong><span>Total</span></div><div><strong>${c.answered}</strong><span>Complete</span></div><div><strong>${c.incomplete}</strong><span>Incomplete</span></div><div><strong>${c.flagged}</strong><span>Flagged</span></div></div><div class="review-actions"><button type="button" class="${filter==="all"?"btn2":"ghost"}" data-filter="all">Review All</button><button type="button" class="${filter==="incomplete"?"btn2":"ghost"}" data-filter="incomplete">Review Incomplete</button><button type="button" class="${filter==="flagged"?"btn2":"ghost"}" data-filter="flagged">Review Flagged</button><div class="grow"></div><button type="button" class="ghost" id="returnToQuestionBtn">Return to Question ${t.pos+1}</button></div><div class="review-list">${reviewRows(t,filter)||'<div class="review-empty">No questions in this review category.</div>'}</div><div class="exam-submit-bar"><div><strong>Ready to end the exam?</strong><div class="small">${c.incomplete?`${c.incomplete} item${c.incomplete===1?"":"s"} remain incomplete${c.partial?` (${c.partial} partially answered)`:""}.`:"All items are complete."}</div></div><button type="button" class="btn" id="submitMockBtn">End Review & Submit Exam</button></div></div>`;
-    document.querySelectorAll("[data-filter]").forEach(btn=>btn.onclick=()=>renderReview(t,btn.dataset.filter));document.querySelectorAll("[data-review-index]").forEach(btn=>{btn.onclick=()=>{t.pos=Number(btn.dataset.reviewIndex);t.phase="exam";save();renderMock();};});document.getElementById("returnToQuestionBtn").onclick=()=>{t.phase="exam";save();renderMock();};document.getElementById("submitMockBtn").onclick=()=>{const c2=counts(t),msg=c2.incomplete?`Submit now? ${c2.incomplete} incomplete item${c2.incomplete===1?"":"s"} will count as incorrect.`:"Submit the exam now? You will not be able to change your answers afterward.";if(confirm(msg))finishQuiz(false);};startTimer();
+    quizBody.innerHTML=`<div class="exam-review"><div class="review-summary"><div><strong>${t.ids.length}</strong><span>Total</span></div><div><strong>${c.answered}</strong><span>Complete</span></div><div><strong>${c.incomplete}</strong><span>Incomplete</span></div><div><strong>${c.flagged}</strong><span>Flagged</span></div></div><div class="review-actions"><button type="button" class="${filter==="all"?"btn2":"ghost"}" data-filter="all">Review All</button><button type="button" class="${filter==="incomplete"?"btn2":"ghost"}" data-filter="incomplete">Review Incomplete</button><button type="button" class="${filter==="flagged"?"btn2":"ghost"}" data-filter="flagged">Review Flagged</button><div class="grow"></div><button type="button" class="ghost" id="returnToQuestionBtn">Return to Question ${t.pos+1}</button></div><div class="review-list">${reviewRows(t,filter)||'<div class="review-empty">No questions in this review category.</div>'}</div><div class="exam-submit-bar"><div><strong>Ready to end the exam?</strong><div class="small">${c.incomplete?`${c.incomplete} item${c.incomplete===1?"":"s"} remain incomplete${c.partial?` (${c.partial} partially answered)`:""}.`:"All questions are answered."}</div></div><button type="button" class="btn" id="submitMockBtn">End Review & Submit Exam</button></div></div>`;
+    document.querySelectorAll("[data-filter]").forEach(btn=>btn.onclick=()=>renderReview(t,btn.dataset.filter));document.querySelectorAll("[data-review-index]").forEach(btn=>{btn.onclick=()=>{t.pos=Number(btn.dataset.reviewIndex);t.phase="exam";save();renderMock();};});document.getElementById("returnToQuestionBtn").onclick=()=>{t.phase="exam";save();renderMock();};document.getElementById("submitMockBtn").onclick=()=>{const c2=counts(t),msg=c2.incomplete?`Submit now? ${c2.incomplete} unanswered question${c2.incomplete===1?"":"s"} will count as wrong.`:"Submit the exam now? You will not be able to change your answers afterward.";if(confirm(msg))finishQuiz(false);};startTimer();
   }
 
   function updateTimerText() {
@@ -299,7 +299,7 @@
   };
 
   showResults=function(r){
-    if(r.mode!=="mock")return baseShowResults(r);show("resultView");resultTitle.textContent=`${PROFILE.code} Full Mock Results`;resultScore.textContent=Math.round(r.score*100)+"%";resultText.textContent=`${r.correct} of ${r.total} items correct${r.timedOut?" when time expired":""}. This is raw practice accuracy; Anthropic's published passing score is scaled and no public raw-percentage conversion is assumed here.`;const by={};Object.keys(DOMAINS).forEach(d=>by[d]={a:0,c:0});r.answers.forEach(x=>{if(by[x.domain]){by[x.domain].a++;if(x.correct)by[x.domain].c++;}});resultDomains.innerHTML="<div class='domainGrid'>"+Object.entries(DOMAINS).map(([d,x])=>`<div class="name">${safe(x.name)}</div><div class="score">${by[d].a?Math.round(by[d].c/by[d].a*100)+"%":"—"}</div><div class="small">${by[d].a} Q</div>`).join("")+"</div>";resultReview.innerHTML="";const wrong=r.answers.filter(a=>!a.correct);if(!wrong.length)resultReview.innerHTML='<div class="item"><strong>No incorrect items.</strong><div class="small">Every scored item was correct.</div></div>';else wrong.forEach((a,index)=>{const q=mockQuestion(a.id);if(!q)return;const div=document.createElement("div");div.className="item post-review-item is-wrong";div.innerHTML=`<div class="post-review-head"><strong>Review ${index+1}</strong><span class="small">${safe(itemInstruction(q))}</span></div><div><strong>${safe(q.q)}</strong></div><div class="post-review-answer"><span class="small">Your answer</span><br>${responseHtml(q,a.response)}</div><div class="post-review-answer"><span class="small">Correct answer</span><br>${correctHtml(q)}</div>${rationaleHtml(q,a.response)}`;resultReview.appendChild(div);});renderHome();
+    if(r.mode!=="mock")return baseShowResults(r);show("resultView");resultTitle.textContent=`${PROFILE.code} practice exam results`;resultScore.textContent=Math.round(r.score*100)+"%";resultText.textContent=`${r.correct} of ${r.total} questions correct${r.timedOut?" when time ran out":""}. This is your practice score. Anthropic's real exam uses a scaled score, and there's no public way to convert a percentage to it.`;const by={};Object.keys(DOMAINS).forEach(d=>by[d]={a:0,c:0});r.answers.forEach(x=>{if(by[x.domain]){by[x.domain].a++;if(x.correct)by[x.domain].c++;}});resultDomains.innerHTML="<div class='domainGrid'>"+Object.entries(DOMAINS).map(([d,x])=>`<div class="name">${safe(x.name)}</div><div class="score">${by[d].a?Math.round(by[d].c/by[d].a*100)+"%":"—"}</div><div class="small">${by[d].a} Q</div>`).join("")+"</div>";resultReview.innerHTML="";const wrong=r.answers.filter(a=>!a.correct);if(!wrong.length)resultReview.innerHTML='<div class="item"><strong>No incorrect items.</strong><div class="small">Every scored item was correct.</div></div>';else wrong.forEach((a,index)=>{const q=mockQuestion(a.id);if(!q)return;const div=document.createElement("div");div.className="item post-review-item is-wrong";div.innerHTML=`<div class="post-review-head"><strong>Review ${index+1}</strong><span class="small">${safe(itemInstruction(q))}</span></div><div><strong>${safe(q.q)}</strong></div><div class="post-review-answer"><span class="small">Your answer</span><br>${responseHtml(q,a.response)}</div><div class="post-review-answer"><span class="small">Correct answer</span><br>${correctHtml(q)}</div>${rationaleHtml(q,a.response)}`;resultReview.appendChild(div);});renderHome();
   };
 
   resume=function(){if(state.activeQuiz?.mode==="mock"){show("quizView");renderMock();startTimer();return;}baseResume();};
