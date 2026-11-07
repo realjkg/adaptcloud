@@ -9,7 +9,10 @@ const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const { loadCcarpPapers, SIM_OBJECTIVES } = require("./ccar-p-papers-load.js");
 
-const LAYOUT_VERSION = "2026-11-06-layout-v1";
+const LAYOUT_VERSION = "2026-11-06-layout-v2";
+// Seeds which questions go in which paper and their order. Keep it fixed so saved paper scores stay
+// meaningful; change it only when the papers themselves are meant to change.
+const ASSIGN_SEED = "2026-11-06-layout-v1";
 const PAPER_COUNT = 6;
 // Per-paper item types by internal domain: [single, multi, composite]. Matches the 44/14/5 mix of
 // the existing 63-item exam simulation (audits/ccar-p-exam-fidelity.json).
@@ -39,6 +42,17 @@ function main() {
     it.objectiveId = obj; reusedObjectives[it.id] = obj;
   }
 
+  // Drill pool: single-answer bank questions that no paper uses (by ID or by question text).
+  const usedSources = new Set(items.map(it => it.sourceQuestionId).filter(Boolean));
+  const usedText = new Set(items.map(it => it.q));
+  const drillObjectives = {};
+  for (const q of bank) {
+    if (usedSources.has(q.id) || usedText.has(q.q) || (q.itemType || "single") !== "single" || q.choices?.length !== 4) continue;
+    const concept = /^P-(P\d+-\d+)-[AB]$/.exec(q.id)?.[1] || q.concept;
+    const obj = q.objectiveIds?.[0] || conceptToObjective[concept];
+    if (obj) drillObjectives[q.id] = obj;
+  }
+
   // Pool geometry must equal exactly what six papers need.
   const kind = (it) => it.itemType === "matching" || it.itemType === "matrix" ? "comp" : it.itemType;
   for (const [d, meta] of Object.entries(profile.domains)) {
@@ -59,7 +73,7 @@ function main() {
   const matrices = items.filter(it => it.itemType === "matrix").sort((a, b) => a.id < b.id ? -1 : 1);
   if (matrices.length !== PAPER_COUNT) fail(`Expected ${PAPER_COUNT} matrix items, found ${matrices.length}`);
   const matrixPaper = {};
-  builder.shuffle([...Array(PAPER_COUNT).keys()], builder.rng(LAYOUT_VERSION + ":matrix")).forEach((p, i) => { matrixPaper[matrices[i].id] = p; });
+  builder.shuffle([...Array(PAPER_COUNT).keys()], builder.rng(ASSIGN_SEED + ":matrix")).forEach((p, i) => { matrixPaper[matrices[i].id] = p; });
 
   const papers = [...Array(PAPER_COUNT)].map(() => []);
   for (const d of Object.keys(profile.domains)) {
@@ -67,7 +81,7 @@ function main() {
     const pool = items.filter(it => it.domain === d);
     const objectives = objectivesByDomain[d];
     let solved = null;
-    for (let attempt = 0; attempt < 5000 && !solved; attempt++) solved = assignDomain(pool, objectives, { single: s, multi: m, comp: c }, matrixPaper, builder.rng(`${LAYOUT_VERSION}:${d}:${attempt}`), builder.shuffle, kind);
+    for (let attempt = 0; attempt < 5000 && !solved; attempt++) solved = assignDomain(pool, objectives, { single: s, multi: m, comp: c }, matrixPaper, builder.rng(`${ASSIGN_SEED}:${d}:${attempt}`), builder.shuffle, kind);
     if (!solved) fail(`${d}: no assignment found that satisfies every constraint`);
     solved.forEach((ids, p) => papers[p].push(...ids));
   }
@@ -80,10 +94,11 @@ function main() {
     paperCount: PAPER_COUNT,
     typeSplit: TYPE_SPLIT,
     reusedObjectives,
+    drillObjectives,
     papers: papers.map((ids, p) => ({
       id: `paper-${p + 1}`,
       title: `Practice exam ${p + 1}`,
-      ids: builder.shuffle(ids.sort(), builder.rng(`${LAYOUT_VERSION}:order:${p}`)),
+      ids: builder.shuffle(ids.sort(), builder.rng(`${ASSIGN_SEED}:order:${p}`)),
     })),
   };
   const out = path.join(ROOT, "ccar-p.mock-papers-layout.js");

@@ -72,6 +72,31 @@ node ccar-f/tools/validate-ccar-p-papers.js     # check all six papers
 
 The `ccar-p-mock-papers-validate` workflow runs both checks, and `audits/ccar-p-mock-papers.json` records how the papers are built.
 
+### Learning from each exam (CCAR-P)
+
+The results screen is built to teach the reasoning behind each answer, not just report a score:
+
+- **Every choice explained.** The review shows why each choice is right or wrong, tagged **Correct** and **Your answer**, so you can see why a plausible alternative loses. Questions you got right but flagged as unsure are reviewed too.
+- **Official sources.** Each question links to the official Anthropic pages its answer rests on, down to the section where one exists (platform.claude.com/docs, code.claude.com/docs, anthropic.com). Links are chosen by topic and exam-guide objective in `ccar-p.sources.js`, which lists every page with the date it was checked.
+- **Score on new questions.** Results show a separate score for questions you hadn't seen before. That's the honest measure of understanding, because a retake partly measures memory.
+- **Study plan and targeted practice.** The objectives you missed are listed with their official pages. **Practice these objectives** runs a 12-question drill with instant feedback and links. Drill questions are reworded versions of paper concepts that no paper uses, with plausible answers and a rationale for every choice (`ccar-p.drill-items-*.js`).
+- **Retakes and the adaptive mix.** On a retake, choices you've seen appear in a new order. Once all six papers are taken, the default is an **Adaptive mix**: a full 63-question form weighted toward objectives you miss, questions you got wrong, and questions you haven't seen.
+
+`exam-insight.js` adds these features to any exam. It uses whatever the track provides (sources, objectives, a drill pool) and skips the rest, so other exams get the new-question score without further work.
+
+## Themes
+
+Choose **Theme** in the header: **System** (the default, which follows your device), **Dark**, **Light**, **High contrast** or **Sepia**. Your choice is saved in this browser.
+
+Every color in the stylesheets is a token named after its default value, such as `var(--c-36d49b)`. `tools/build-themes.js` writes `themes.css`, which keeps the default look and derives the other themes by adjusting each color's lightness, chroma and hue. After changing a stylesheet, run:
+
+```bash
+node ccar-f/tools/build-themes.js          # turn new colors into tokens and rebuild themes.css
+node ccar-f/tools/build-themes.js --check  # what the site-themes-validate workflow runs
+```
+
+To add a theme, add an entry to `THEMES` in the build script and an option in `theme.js`. To reuse the theme system on another site, copy `theme.js` and the build script, and set `FILES` to that site's stylesheets.
+
 ## How the content is organized
 
 | Layer | Files | Purpose |

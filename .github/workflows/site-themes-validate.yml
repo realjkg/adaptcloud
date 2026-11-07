@@ -1,0 +1,34 @@
+name: Validate study simulator themes
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/*.css"
+      - "ccar-f/theme.js"
+      - "ccar-f/index.html"
+      - "ccar-f/tools/build-themes.js"
+      - ".github/workflows/site-themes-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-themes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check syntax
+        run: |
+          node --check ccar-f/theme.js
+          node --check ccar-f/tools/build-themes.js
+      - name: Stylesheets use theme tokens and themes.css is current
+        run: node ccar-f/tools/build-themes.js --check
+      - name: Theme files load first
+        run: |
+          node -e '
+          const html=require("fs").readFileSync("ccar-f/index.html","utf8");
+          const t=html.indexOf("./themes.css"),s=html.indexOf("./styles.css"),j=html.indexOf("./theme.js"),body=html.indexOf("<body");
+          if(!(t>=0&&t<s))throw new Error("themes.css must load before styles.css");
+          if(!(j>=0&&j<body))throw new Error("theme.js must load in <head> so the theme applies before first paint");
+          console.log("theme load order ok");'

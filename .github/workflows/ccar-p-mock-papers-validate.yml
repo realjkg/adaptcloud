@@ -11,6 +11,7 @@ on:
       - "ccar-f/tools/*ccar-p-papers*.js"
       - "ccar-f/exam.js"
       - "ccar-f/loader.js"
+      - "ccar-f/exam-insight.js"
       - ".github/workflows/ccar-p-mock-papers-validate.yml"
   workflow_dispatch:
 
@@ -24,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check syntax
         run: |
-          for f in ccar-f/ccar-p.papers-*.js ccar-f/ccar-p.mock-papers*.js ccar-f/tools/*ccar-p-papers*.js ccar-f/exam.js ccar-f/loader.js; do node --check "$f"; done
+          for f in ccar-f/ccar-p.papers-*.js ccar-f/ccar-p.drill-items-*.js ccar-f/ccar-p.sources.js ccar-f/exam-insight.js ccar-f/ccar-p.mock-papers*.js ccar-f/tools/*ccar-p-papers*.js ccar-f/exam.js ccar-f/loader.js; do node --check "$f"; done
           node -e "JSON.parse(require('fs').readFileSync('ccar-f/audits/ccar-p-mock-papers.json','utf8')); console.log('audit json valid')"
       - name: Check the committed layout is current
         run: node ccar-f/tools/build-ccar-p-papers.js --check

@@ -5,7 +5,9 @@
 // is generated offline by tools/build-ccar-p-papers.js and stored in ccar-p.mock-papers-layout.js.
 // Runs in the browser and in Node validators (it only reads and writes `window`).
 (() => {
-  const VERSION = "2026-11-06-ccar-p-papers-v1";
+  const VERSION = "2026-11-06-ccar-p-papers-v2";
+  // Seeds answer positions. Kept at v1 so saved answers and in-progress exams keep their meaning.
+  const SEED = "2026-11-06-ccar-p-papers-v1";
   const PROVENANCE = {kind: "original-practice", liveExamContent: false, source: "adaptcloud-ccar-p-papers"};
 
   // Small deterministic PRNG (mulberry32) seeded from a string.
@@ -69,10 +71,10 @@
     for (const [g, list] of Object.entries(groups)) {
       list.sort((a, b) => a.id < b.id ? -1 : 1);
       const multi = g.endsWith(":multi");
-      const targets = multi ? balanced(PAIRS.map((_, i) => i), list.length, VERSION + g) : balanced([0, 1, 2, 3], list.length, VERSION + g);
+      const targets = multi ? balanced(PAIRS.map((_, i) => i), list.length, SEED + g) : balanced([0, 1, 2, 3], list.length, SEED + g);
       list.forEach((it, k) => {
         const t = multi ? PAIRS[targets[k]] : [targets[k]];
-        const placed = arrange(it._choices, it._whys, it._correct, t, VERSION + it.id);
+        const placed = arrange(it._choices, it._whys, it._correct, t, SEED + it.id);
         it.choices = placed.choices; it.choiceWhy = placed.choiceWhy;
         if (multi) it.answers = placed.answers; else it.answer = placed.answers[0];
         delete it._choices; delete it._whys; delete it._correct;
@@ -97,11 +99,69 @@
   for (const [id, objective] of Object.entries(layout.reusedObjectives || {})) if (itemById[id] && !itemById[id].objectiveId) itemById[id].objectiveId = objective;
   const papers = layout.papers.map(p => ({id: p.id, title: p.title, ids: p.ids.slice()}));
   const missing = papers.flatMap(p => p.ids.filter(id => !itemById[id]));
+
+  // Drill pool: bank questions that are not in any paper (reworded variants of paper concepts), with
+  // balanced answer positions. Used for targeted practice after an exam, so drilling never spends the
+  // papers' unseen questions.
+  const bank = window.CLAUDE_CERT_BANK_EXPANSIONS?.["ccar-p"]?.questions || [];
+  const drill = bank.filter(q => layout.drillObjectives?.[q.id] && (q.itemType || "single") === "single" && q.choices?.length === 4).map(q => {
+    const it = {id: "DR-" + q.id, sourceQuestionId: q.id, domain: q.domain, objectiveId: layout.drillObjectives[q.id], itemType: "single", q: q.q, why: q.why, family: q.familyId || q.id,
+      provenance: {...PROVENANCE, source: "adaptcloud-ccar-p-bank", reusedFrom: q.id}, _choices: q.choices.slice(), _whys: (q.choiceWhy || []).slice(), _correct: [q.answer]};
+    // Rewritten answer sets (plausible alternatives and a rationale for each) replace the bank's choices.
+    const rw = window.CCARP_DRILL_ITEMS?.[q.id];
+    if (rw) Object.assign(it, {_choices: [rw.c[0], ...rw.x.map(x => x[0])], _whys: [rw.c[1], ...rw.x.map(x => x[1])], _correct: [0], rewritten: true});
+    return it;
+  }).sort((a, b) => a.id < b.id ? -1 : 1);
+  const drillTargets = balanced([0, 1, 2, 3], drill.length, SEED + ":drill");
+  drill.forEach((it, k) => { const placed = arrange(it._choices, it._whys, it._correct, [drillTargets[k]], SEED + it.id); it.choices = placed.choices; it.choiceWhy = placed.choiceWhy.some(Boolean) ? placed.choiceWhy : null; it.answer = placed.answers[0]; delete it._choices; delete it._whys; delete it._correct; itemById[it.id] = it; });
+
+  // Adaptive mix: a full 63-question form with the exam's domain and type geometry, weighted toward
+  // weak objectives, questions answered wrong, and questions not seen yet. `progress(id)` returns
+  // {attempts, correct, lastWrong} for a question; `objectiveAccuracy(o)` returns 0-1 or null.
+  function buildAdaptive({progress, objectiveAccuracy, rand = Math.random}) {
+    const kindOf = (it) => it.itemType === "matching" || it.itemType === "matrix" ? "comp" : it.itemType;
+    const weight = (it) => {
+      const p = progress(it.id) || {}, acc = objectiveAccuracy(it.objectiveId);
+      let w = 1 + 3 * (acc === null || acc === undefined ? 0.5 : 1 - acc);
+      if (!p.attempts) w += 2;
+      else if (p.correct < p.attempts) w += 2.5;
+      else w *= 0.35;
+      return w;
+    };
+    const pick = (list, n, families) => {
+      const out = [], left = list.slice();
+      while (out.length < n && left.length) {
+        const total = left.reduce((s, it) => s + weight(it), 0);
+        let x = rand() * total, k = 0;
+        while (k < left.length - 1 && (x -= weight(left[k])) > 0) k++;
+        const [it] = left.splice(k, 1);
+        if (families.has(it.family)) continue;
+        families.add(it.family); out.push(it.id);
+      }
+      return out;
+    };
+    const families = new Set(), ids = [];
+    let matrixUsed = false;
+    for (const [d, [s, m, c]] of Object.entries(layout.typeSplit)) {
+      const pool = items.filter(it => it.domain === d);
+      ids.push(...pick(pool.filter(it => kindOf(it) === "single"), s, families), ...pick(pool.filter(it => kindOf(it) === "multi"), m, families));
+      if (c) {
+        const comp = pool.filter(it => kindOf(it) === "comp" && (!matrixUsed || it.itemType !== "matrix"));
+        const chosen = pick(comp, c, families);
+        if (chosen.some(id => itemById[id].itemType === "matrix")) matrixUsed = true;
+        ids.push(...chosen);
+      }
+    }
+    return shuffle(ids, rand);
+  }
+
   window.CCARP_MOCK_PAPERS = {
     version: VERSION, layoutVersion: layout.version, guideVersion: layout.guideVersion,
     ready: missing.length === 0, missingIds: missing,
-    papers, items, itemById,
+    papers, items, itemById, drill,
     paperById: Object.fromEntries(papers.map(p => [p.id, p])),
+    objectiveOf: (id) => itemById[id]?.objectiveId || null,
     summarize: (ids) => summarize(ids, itemById),
+    buildAdaptive,
   };
 })();

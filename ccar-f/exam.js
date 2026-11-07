@@ -19,7 +19,36 @@
     return b;
   };
   const mockPool = () => EXAM_SIM?.items?.length ? EXAM_SIM.items : QUESTIONS;
-  const mockQuestion = (id) => PAPERS?.itemById?.[id] || EXAM_SIM?.itemById?.[id] || mockPool().find(q => q.id === id) || QUESTIONS.find(q => q.id === id);
+  // Official source links for answers (per track, optional).
+  const SOURCES = window.CERT_SOURCES?.[String(PROFILE?.code || "").toLowerCase()] || null;
+  const objectiveOf = (q) => q?.objectiveId || PAPERS?.objectiveOf?.(q?.id) || q?.objectiveIds?.[0] || null;
+  // Questions are recognized by their text, so a question counts as seen in any paper or mix.
+  const textKey = (q) => { let h = 5381; for (const ch of String(q?.q || "")) h = (Math.imul(h, 33) ^ ch.charCodeAt(0)) >>> 0; return h.toString(36); };
+  const seenBefore = (q) => !!(state.seenText && state.seenText[textKey(q)]);
+  function markSeen(qs) { state.seenText = state.seenText || {}; qs.forEach(q => { if (q) state.seenText[textKey(q)] = (state.seenText[textKey(q)] || 0) + 1; }); }
+  // On a retake, questions you've seen show their choices in a new order, so a remembered position or
+  // letter doesn't carry over. activePerm maps question ID to the original index shown in each slot.
+  let activePerm = null;
+  const permCache = new Map();
+  function applyPerm(q) {
+    const order = q && activePerm?.[q.id];
+    if (!order || !Array.isArray(q.choices) || order.length !== q.choices.length) return q;
+    const key = q.id + ":" + order.join(",");
+    if (!permCache.has(key)) {
+      const at = (i) => order.indexOf(i);
+      permCache.set(key, {...q, choices: order.map(i => q.choices[i]), choiceWhy: Array.isArray(q.choiceWhy) ? order.map(i => q.choiceWhy[i]) : q.choiceWhy,
+        ...(Number.isInteger(q.answer) ? {answer: at(q.answer)} : {}), ...(Array.isArray(q.answers) && itemType(q) === "multi" ? {answers: q.answers.map(at).sort((a, b) => a - b)} : {})});
+    }
+    return permCache.get(key);
+  }
+  function makePerm(ids) {
+    const perm = {};
+    ids.forEach(id => { const q = baseQuestion(id); if (!q || !seenBefore(q) || !["single", "multi"].includes(itemType(q))) return; let order;
+      do order = shuffle(q.choices.map((_, i) => i)); while (order.every((v, i) => v === i)); perm[id] = order; });
+    return Object.keys(perm).length ? perm : null;
+  }
+  const baseQuestion = (id) => PAPERS?.itemById?.[id] || EXAM_SIM?.itemById?.[id] || mockPool().find(q => q.id === id) || QUESTIONS.find(q => q.id === id);
+  const mockQuestion = (id) => applyPerm(baseQuestion(id));
   const itemType = (q) => q?.itemType || "single";
   const labelFor = (i) => String.fromCharCode(65 + i);
   const safe = (x) => esc(String(x ?? ""));
@@ -88,21 +117,26 @@
     return "";
   }
 
+  function sourcesHtml(q) {
+    const links = SOURCES ? SOURCES.linksFor(q, objectiveOf(q)) : [];
+    if (!links.length) return "";
+    return `<div class="source-links"><span class="small">Read the source</span>${links.map(l => `<a href="${safe(l.url)}" target="_blank" rel="noopener">${safe(l.title)}${l.section ? ` · ${safe(l.section)}` : ""}</a>`).join("")}</div>`;
+  }
+
   function rationaleHtml(q, response) {
     const blocks = [`<div class="post-review-why">${safe(q.why || "")}</div>`];
-    if (Array.isArray(q.choiceWhy) && Array.isArray(q.choices)) {
-      const relevant = new Set();
-      if (itemType(q) === "single") {
-        if (Number.isInteger(response)) relevant.add(response);
-        if (Number.isInteger(q.answer)) relevant.add(q.answer);
-      } else if (itemType(q) === "multi") {
-        (response || []).forEach(i => relevant.add(i));
-        (q.answers || []).forEach(i => relevant.add(i));
-      }
-      if (relevant.size) blocks.push(`<div class="post-review-rationales">${[...relevant].sort((a,b)=>a-b).map(i => `<div><strong>${labelFor(i)}.</strong> ${safe(q.choiceWhy[i] || "")}</div>`).join("")}</div>`);
+    if (Array.isArray(q.choiceWhy) && Array.isArray(q.choices) && ["single", "multi"].includes(itemType(q))) {
+      // Every choice, so you can see why each plausible alternative loses, not only the one you picked.
+      const correctSet = new Set(itemType(q) === "single" ? [q.answer] : (q.answers || []));
+      const picked = new Set(itemType(q) === "single" ? (Number.isInteger(response) ? [response] : []) : (response || []));
+      blocks.push(`<div class="post-review-rationales">${q.choices.map((_, i) => {
+        const tags = [correctSet.has(i) ? '<span class="tag tag-good">Correct</span>' : "", picked.has(i) ? '<span class="tag">Your answer</span>' : ""].join("");
+        return `<div class="${correctSet.has(i) ? "is-key" : ""}"><strong>${labelFor(i)}.</strong> ${tags} ${safe(q.choiceWhy[i] || "")}</div>`;
+      }).join("")}</div>`);
     }
     if (Array.isArray(q.rowWhy)) blocks.push(`<div class="post-review-rationales">${q.rowWhy.map((w,i)=>`<div><strong>Row ${i+1}.</strong> ${safe(w)}</div>`).join("")}</div>`);
     if (Array.isArray(q.statementWhy)) blocks.push(`<div class="post-review-rationales">${q.statementWhy.map((w,i)=>`<div><strong>${i+1}.</strong> ${safe(w)}</div>`).join("")}</div>`);
+    blocks.push(sourcesHtml(q));
     return blocks.join("");
   }
 
@@ -169,13 +203,25 @@
     return `${paper.title} · last score ${Math.round(last.score * 100)}% · ${tries.length} attempt${tries.length === 1 ? "" : "s"}`;
   }
   // Default to the first paper not taken yet; once all six are done, a random mix.
-  const defaultPaperId = () => PAPERS ? (PAPERS.papers.find(p => !paperAttempts(p.id).length)?.id || null) : null;
+  const defaultPaperId = () => PAPERS ? (PAPERS.papers.find(p => !paperAttempts(p.id).length)?.id || "adaptive") : null;
+  // Builds the question list for a picker choice: a paper ID, "adaptive", or "" (random mix).
+  function idsFor(choice) {
+    if (choice && choice !== "adaptive") return PAPERS.paperById[choice].ids.slice();
+    if (choice === "adaptive" && PAPERS?.buildAdaptive) {
+      const objStats = {};
+      for (const [id, p] of Object.entries(state.qProgress || {})) { const o = PAPERS.objectiveOf(id); if (!o || !p.attempts) continue; const s = objStats[o] ||= [0, 0]; s[0] += p.correct || 0; s[1] += p.attempts; }
+      return PAPERS.buildAdaptive({progress: (id) => state.qProgress?.[id], objectiveAccuracy: (o) => objStats[o] ? objStats[o][0] / objStats[o][1] : null});
+    }
+    return buildMockIds();
+  }
+  const paperIdOf = (choice) => choice && choice !== "adaptive" ? choice : null;
 
   function startMock() {
-    const paperId = defaultPaperId();
-    const ids = paperId ? PAPERS.paperById[paperId].ids.slice() : buildMockIds();
+    const choice = defaultPaperId(), paperId = paperIdOf(choice);
+    const ids = idsFor(choice);
     if (!ids.length) return;
-    state.activeQuiz = {mode:"mock",ids,paperId,pos:0,answers:[],responses:{},flags:{},scoredIds:[],started:null,deadline:null,phase:"intro",timeHidden:false,examFidelity:!!EXAM_SIM,examVersion:paperId?PAPERS.version:(EXAM_SIM?.version||null)};
+    activePerm = makePerm(ids);
+    state.activeQuiz = {mode:"mock",ids,paperId,mix:choice==="adaptive"?"adaptive":null,perm:activePerm,pos:0,answers:[],responses:{},flags:{},scoredIds:[],started:null,deadline:null,phase:"intro",timeHidden:false,examFidelity:!!EXAM_SIM,examVersion:paperId?PAPERS.version:(EXAM_SIM?.version||null)};
     save();
     show("quizView");
     renderMock();
@@ -206,7 +252,7 @@
     quizCounter.textContent = "Timed and set up like the real exam";
     quizProgress.style.width = "0%";
     const summary = t.paperId && PAPERS ? PAPERS.summarize(t.ids) : (EXAM_SIM?.summarize ? EXAM_SIM.summarize(t.ids) : null);
-    const paperPicker = PAPERS ? `<div class="paper-picker"><label for="paperSelect"><strong>Choose an exam</strong></label><select id="paperSelect">${PAPERS.papers.map(p => `<option value="${safe(p.id)}"${t.paperId === p.id ? " selected" : ""}>${safe(paperLabel(p))}</option>`).join("")}<option value=""${t.paperId ? "" : " selected"}>Random mix · a new combination each time</option></select><div class="small paper-note">${t.paperId ? "A fixed set of 63 questions. None of them appears in any other numbered exam. Retaking it shows the same questions, so a second score partly reflects memory." : "Drawn from a smaller pool, so questions repeat across attempts and can also appear in the numbered exams."}</div></div>` : "";
+    const paperPicker = PAPERS ? `<div class="paper-picker"><label for="paperSelect"><strong>Choose an exam</strong></label><select id="paperSelect">${PAPERS.papers.map(p => `<option value="${safe(p.id)}"${t.paperId === p.id ? " selected" : ""}>${safe(paperLabel(p))}</option>`).join("")}<option value="adaptive"${!t.paperId && t.mix === "adaptive" ? " selected" : ""}>Adaptive mix · targets your weakest objectives</option><option value=""${t.paperId || t.mix === "adaptive" ? "" : " selected"}>Random mix · a new combination each time</option></select><div class="small paper-note">${t.paperId ? "A fixed set of 63 questions. None of them appears in any other numbered exam. On a retake, choices you've seen appear in a new order, and your results show a separate score for questions that are new to you." : t.mix === "adaptive" ? "Built from all 378 paper questions, weighted toward objectives you miss, questions you got wrong, and questions you haven't seen. Results show a separate score for questions that are new to you." : "Drawn from a smaller pool, so questions repeat across attempts and can also appear in the numbered exams."}</div></div>` : "";
     const typeText = summary ? [summary.byType.single?`${summary.byType.single} single-answer`:"",summary.byType.multi?`${summary.byType.multi} multiple-response`:"",summary.byType.matching?`${summary.byType.matching} scenario-matching`:"",summary.byType.matrix?`${summary.byType.matrix} matrix`:""].filter(Boolean).join(" · ") : "Single-answer multiple choice";
     const evidenceNote = EXAM_SIM ? `<div class="exam-source-note"><strong>Question types:</strong> The public CCAR-P exam guide lists multiple-choice and multiple-response questions. This practice exam also includes scenario-matching questions that past test-takers have described and, on some versions, a yes/no grid. Every question is original practice material, never a real or remembered exam question.</div>` : "";
     quizBody.innerHTML = `
@@ -227,10 +273,11 @@
       </div>`;
     const picker = document.getElementById("paperSelect");
     if (picker) picker.onchange = () => {
-      const paperId = picker.value || null;
-      const ids = paperId ? PAPERS.paperById[paperId].ids.slice() : buildMockIds();
+      const choice = picker.value, paperId = paperIdOf(choice);
+      const ids = idsFor(choice);
       if (!ids.length) return;
-      Object.assign(t, {paperId, ids, pos: 0, responses: {}, flags: {}, answers: [], scoredIds: [], examVersion: paperId ? PAPERS.version : (EXAM_SIM?.version || null)});
+      activePerm = makePerm(ids);
+      Object.assign(t, {paperId, mix: choice === "adaptive" ? "adaptive" : null, perm: activePerm, ids, pos: 0, responses: {}, flags: {}, answers: [], scoredIds: [], examVersion: paperId ? PAPERS.version : (EXAM_SIM?.version || null)});
       save();
       renderIntro();
     };
@@ -310,7 +357,7 @@
   const originalStartTimer=startTimer;
   startTimer=function(){const t=mockState();if(!t)return originalStartTimer();clearInterval(timerHandle);if(!t.deadline||t.phase==="intro"){updateTimerText();return;}const tick=()=>{const current=mockState();if(!current){clearInterval(timerHandle);return;}const ms=current.deadline-Date.now();if(ms<=0){clearInterval(timerHandle);finishQuiz(true);return;}updateTimerText();};tick();timerHandle=setInterval(tick,1000);};
 
-  function renderMock(){const t=prepareMockState(mockState());if(!t){show("home");renderHome();return;}if(t.phase==="intro")return renderIntro();if(t.phase==="review")return renderReview(t,"all");renderQuestion(t);startTimer();}
+  function renderMock(){const t=prepareMockState(mockState());if(!t){show("home");renderHome();return;}activePerm=t.perm||null;if(t.phase==="intro")return renderIntro();if(t.phase==="review")return renderReview(t,"all");renderQuestion(t);startTimer();}
 
   renderQuiz=function(){if(mockState())return renderMock();baseRenderQuiz();};
   answer=function(choice){if(mockState()){const t=prepareMockState(mockState()),q=mockQuestion(t.ids[t.pos]);if(itemType(q)==="single")setResponse(t,q,choice);return;}baseAnswer(choice);};
@@ -318,12 +365,13 @@
   finishQuiz=function(timedOut){
     const t=mockState();if(!t)return baseFinishQuiz(timedOut);clearInterval(timerHandle);prepareMockState(t);const scoredAlready=new Set(t.scoredIds||[]);
     const answers=t.ids.map(id=>{const q=mockQuestion(id),response=t.responses[id]!==undefined?t.responses[id]:null,correct=q?itemCorrect(q,response):false;if(q&&!scoredAlready.has(id)){const p=qP(id);p.attempts=(p.attempts||0)+1;p.lastSeen=Date.now();if(correct)p.correct=(p.correct||0)+1;else p.lastWrong=Date.now();const ds=state.domainStats[q.domain];ds.attempts++;if(correct)ds.correct++;scoredAlready.add(id);}return{id,response,correct,domain:q?.domain||"",itemType:itemType(q)};});
-    t.scoredIds=[...scoredAlready];t.answers=answers;const correct=answers.filter(a=>a.correct).length,total=answers.length,score=total?correct/total:0;state.mockHistory.push({date:new Date().toISOString(),score,correct,total,timedOut:!!timedOut,examVersion:t.examVersion||null,mixedFormat:!!t.examFidelity,paperId:t.paperId||null});const result={mode:"mock",answers,score,correct,total,timedOut:!!timedOut,examFidelity:!!t.examFidelity,examVersion:t.examVersion||null,paperId:t.paperId||null};state.activeQuiz=null;save();showResults(result);
+    t.scoredIds=[...scoredAlready];t.answers=answers;const correct=answers.filter(a=>a.correct).length,total=answers.length,score=total?correct/total:0;const fresh=answers.filter(a=>!seenBefore(baseQuestion(a.id))),newCorrect=fresh.filter(a=>a.correct).length;answers.forEach(a=>{a.isNew=fresh.includes(a);});markSeen(t.ids.map(baseQuestion));state.mockHistory.push({date:new Date().toISOString(),score,correct,total,newCorrect,newTotal:fresh.length,timedOut:!!timedOut,examVersion:t.examVersion||null,mixedFormat:!!t.examFidelity,paperId:t.paperId||null,mix:t.mix||null});const result={mode:"mock",answers,score,correct,total,newCorrect,newTotal:fresh.length,flags:{...(t.flags||{})},timedOut:!!timedOut,examFidelity:!!t.examFidelity,examVersion:t.examVersion||null,paperId:t.paperId||null,mix:t.mix||null};state.activeQuiz=null;save();showResults(result);
   };
 
   showResults=function(r){
-    if(r.mode!=="mock")return baseShowResults(r);show("resultView");resultTitle.textContent=`${PROFILE.code} ${r.paperId&&PAPERS?.paperById[r.paperId]?PAPERS.paperById[r.paperId].title.toLowerCase():"practice exam"} results`;resultScore.textContent=Math.round(r.score*100)+"%";resultText.textContent=`${r.correct} of ${r.total} questions correct${r.timedOut?" when time ran out":""}. This is your practice score. Anthropic's real exam uses a scaled score, and there's no public way to convert a percentage to it.`;const by={};Object.keys(DOMAINS).forEach(d=>by[d]={a:0,c:0});r.answers.forEach(x=>{if(by[x.domain]){by[x.domain].a++;if(x.correct)by[x.domain].c++;}});resultDomains.innerHTML="<div class='domainGrid'>"+Object.entries(DOMAINS).map(([d,x])=>`<div class="name">${safe(x.name)}</div><div class="score">${by[d].a?Math.round(by[d].c/by[d].a*100)+"%":"—"}</div><div class="small">${by[d].a} Q</div>`).join("")+"</div>";resultReview.innerHTML="";const wrong=r.answers.filter(a=>!a.correct);if(!wrong.length)resultReview.innerHTML='<div class="item"><strong>No incorrect items.</strong><div class="small">Every scored item was correct.</div></div>';else wrong.forEach((a,index)=>{const q=mockQuestion(a.id);if(!q)return;const div=document.createElement("div");div.className="item post-review-item is-wrong";div.innerHTML=`<div class="post-review-head"><strong>Review ${index+1}</strong><span class="small">${safe(itemInstruction(q))}</span></div><div><strong>${safe(q.q)}</strong></div><div class="post-review-answer"><span class="small">Your answer</span><br>${responseHtml(q,a.response)}</div><div class="post-review-answer"><span class="small">Correct answer</span><br>${correctHtml(q)}</div>${rationaleHtml(q,a.response)}`;resultReview.appendChild(div);});renderHome();
+    if(r.mode!=="mock")return baseShowResults(r);show("resultView");resultTitle.textContent=`${PROFILE.code} ${r.paperId&&PAPERS?.paperById[r.paperId]?PAPERS.paperById[r.paperId].title.toLowerCase():"practice exam"} results`;resultScore.textContent=Math.round(r.score*100)+"%";resultText.textContent=`${r.correct} of ${r.total} questions correct${r.timedOut?" when time ran out":""}. This is your practice score. Anthropic's real exam uses a scaled score, and there's no public way to convert a percentage to it.`;const by={};Object.keys(DOMAINS).forEach(d=>by[d]={a:0,c:0});r.answers.forEach(x=>{if(by[x.domain]){by[x.domain].a++;if(x.correct)by[x.domain].c++;}});resultDomains.innerHTML="<div class='domainGrid'>"+Object.entries(DOMAINS).map(([d,x])=>`<div class="name">${safe(x.name)}</div><div class="score">${by[d].a?Math.round(by[d].c/by[d].a*100)+"%":"—"}</div><div class="small">${by[d].a} Q</div>`).join("")+"</div>";resultReview.innerHTML="";const wrong=r.answers.filter(a=>!a.correct||(r.flags&&r.flags[a.id]));if(!wrong.length)resultReview.innerHTML='<div class="item"><strong>No incorrect items.</strong><div class="small">Every scored item was correct.</div></div>';else wrong.forEach((a,index)=>{const q=mockQuestion(a.id);if(!q)return;const div=document.createElement("div");div.className="item post-review-item "+(a.correct?"is-unsure":"is-wrong");div.dataset.qid=a.id;div.innerHTML=`<div class="post-review-head"><strong>Review ${index+1}</strong><span class="small">${a.correct?"Correct, but you flagged it · check your reasoning · ":""}${safe(itemInstruction(q))}</span></div><div><strong>${safe(q.q)}</strong></div><div class="post-review-answer"><span class="small">Your answer</span><br>${responseHtml(q,a.response)}</div><div class="post-review-answer"><span class="small">Correct answer</span><br>${correctHtml(q)}</div>${rationaleHtml(q,a.response)}`;resultReview.appendChild(div);});renderHome();
   };
 
   resume=function(){if(state.activeQuiz?.mode==="mock"){show("quizView");renderMock();startTimer();return;}baseResume();};
+  window.ExamCore = {SOURCES, PAPERS, objectiveOf, baseQuestion, itemType, itemCorrect, labelFor, safe, rationaleHtml, sourcesHtml, correctHtml, seenBefore, markSeen, shuffle};
 })();
