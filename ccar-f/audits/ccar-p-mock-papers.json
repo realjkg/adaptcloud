@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.0",
+  "track": "CCAR-P",
+  "reviewedAt": "2026-11-06",
+  "purpose": "Six fixed, non-overlapping 63-question CCAR-P practice papers (Practice exam 1-6), plus the existing random mix.",
+  "guideVersion": "Exam Guide v1.0 (effective July 2026)",
+  "builderVersion": "2026-11-06-ccar-p-papers-v1",
+  "layoutVersion": "2026-11-06-layout-v1",
+  "paperCount": 6,
+  "itemsPerPaper": 63,
+  "minutesPerPaper": 120,
+  "perPaperMix": { "single": 44, "multi": 14, "matching": 4, "matrix": 1 },
+  "perPaperDomains": { "P1": 12, "P2": 11, "P3": 10, "P4": 9, "P5": 9, "P6": 8, "P7": 4 },
+  "pool": {
+    "total": 378,
+    "byOrigin": { "new": 246, "sessionBank": 32, "existingBank": 100 },
+    "byType": { "single": 264, "multi": 84, "matching": 24, "matrix": 6 },
+    "note": "Every pool item appears in exactly one paper. Existing-bank items are reused under a PX- prefix with wording overrides in ccar-p.papers-overrides.js; the source bank is unchanged."
+  },
+  "constraints": [
+    "Every paper matches the exam's seven-domain weights and the 44/14/5 item-type mix of the existing exam simulation.",
+    "Every paper covers all 38 exam-guide objectives and never repeats a concept family.",
+    "Correct-answer positions are balanced (20-30% per position across all single-answer items, at most 40% within one paper).",
+    "The correct choice is the longest in at most 40% of single-answer items; both correct choices are the two longest in at most 40% of multiple-response items.",
+    "Question stems within a paper have word overlap (Jaccard) below 0.6."
+  ],
+  "contentProvenance": "Original practice content written for this repository. No live, recalled or third-party exam content. Every item has liveExamContent set to false.",
+  "formatReference": {
+    "description": "A user-supplied list of commercial CCAR-P mock-exam products was consulted for format facts only: 63 questions, 120 minutes, single-answer and multiple-response items, and sets of six full-length papers.",
+    "questionTextUsed": false
+  },
+  "followUps": [
+    "The practice-question bank outside these papers still often makes the correct choice the longest one. The papers correct this through overrides; the practice bank itself needs the same review.",
+    "Updated CCAR-P exam guides are due November 17, 2026, with content effective December 7, 2026. Re-verify objectives and weights against the new guide and rebuild the layout."
+  ],
+  "validation": [
+    "node ccar-f/tools/validate-ccar-p-papers.js",
+    "node ccar-f/tools/build-ccar-p-papers.js --check"
+  ]
+}

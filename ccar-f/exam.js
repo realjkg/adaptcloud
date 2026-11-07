@@ -7,6 +7,8 @@
   const baseResume = resume;
   const MOCK_MINUTES = Number(PROFILE?.minutes) || 120;
   const EXAM_SIM = PROFILE?.code === "CCAR-P" ? window.CCARP_EXAM_SIM : null;
+  // Fixed practice papers (CCAR-P only): six 63-question exams that never share a question.
+  const PAPERS = PROFILE?.code === "CCAR-P" && window.CCARP_MOCK_PAPERS?.ready ? window.CCARP_MOCK_PAPERS : null;
 
   const shuffle = (a) => {
     const b = a.slice();
@@ -17,7 +19,7 @@
     return b;
   };
   const mockPool = () => EXAM_SIM?.items?.length ? EXAM_SIM.items : QUESTIONS;
-  const mockQuestion = (id) => EXAM_SIM?.itemById?.[id] || mockPool().find(q => q.id === id) || QUESTIONS.find(q => q.id === id);
+  const mockQuestion = (id) => PAPERS?.itemById?.[id] || EXAM_SIM?.itemById?.[id] || mockPool().find(q => q.id === id) || QUESTIONS.find(q => q.id === id);
   const itemType = (q) => q?.itemType || "single";
   const labelFor = (i) => String.fromCharCode(65 + i);
   const safe = (x) => esc(String(x ?? ""));
@@ -159,10 +161,21 @@
     return { answered, partial, incomplete: t.ids.length - answered, flagged };
   }
 
+  const paperAttempts = (paperId) => (state.mockHistory || []).filter(h => h.paperId === paperId);
+  function paperLabel(paper) {
+    const tries = paperAttempts(paper.id);
+    if (!tries.length) return `${paper.title} · not taken yet`;
+    const last = tries[tries.length - 1];
+    return `${paper.title} · last score ${Math.round(last.score * 100)}% · ${tries.length} attempt${tries.length === 1 ? "" : "s"}`;
+  }
+  // Default to the first paper not taken yet; once all six are done, a random mix.
+  const defaultPaperId = () => PAPERS ? (PAPERS.papers.find(p => !paperAttempts(p.id).length)?.id || null) : null;
+
   function startMock() {
-    const ids = buildMockIds();
+    const paperId = defaultPaperId();
+    const ids = paperId ? PAPERS.paperById[paperId].ids.slice() : buildMockIds();
     if (!ids.length) return;
-    state.activeQuiz = {mode:"mock",ids,pos:0,answers:[],responses:{},flags:{},scoredIds:[],started:null,deadline:null,phase:"intro",timeHidden:false,examFidelity:!!EXAM_SIM,examVersion:EXAM_SIM?.version||null};
+    state.activeQuiz = {mode:"mock",ids,paperId,pos:0,answers:[],responses:{},flags:{},scoredIds:[],started:null,deadline:null,phase:"intro",timeHidden:false,examFidelity:!!EXAM_SIM,examVersion:paperId?PAPERS.version:(EXAM_SIM?.version||null)};
     save();
     show("quizView");
     renderMock();
@@ -192,12 +205,13 @@
     quizTitle.textContent = `${PROFILE.code} practice exam: instructions`;
     quizCounter.textContent = "Timed and set up like the real exam";
     quizProgress.style.width = "0%";
-    const summary = EXAM_SIM?.summarize ? EXAM_SIM.summarize(t.ids) : null;
+    const summary = t.paperId && PAPERS ? PAPERS.summarize(t.ids) : (EXAM_SIM?.summarize ? EXAM_SIM.summarize(t.ids) : null);
+    const paperPicker = PAPERS ? `<div class="paper-picker"><label for="paperSelect"><strong>Choose an exam</strong></label><select id="paperSelect">${PAPERS.papers.map(p => `<option value="${safe(p.id)}"${t.paperId === p.id ? " selected" : ""}>${safe(paperLabel(p))}</option>`).join("")}<option value=""${t.paperId ? "" : " selected"}>Random mix · a new combination each time</option></select><div class="small paper-note">${t.paperId ? "A fixed set of 63 questions. None of them appears in any other numbered exam. Retaking it shows the same questions, so a second score partly reflects memory." : "Drawn from a smaller pool, so questions repeat across attempts and can also appear in the numbered exams."}</div></div>` : "";
     const typeText = summary ? [summary.byType.single?`${summary.byType.single} single-answer`:"",summary.byType.multi?`${summary.byType.multi} multiple-response`:"",summary.byType.matching?`${summary.byType.matching} scenario-matching`:"",summary.byType.matrix?`${summary.byType.matrix} matrix`:""].filter(Boolean).join(" · ") : "Single-answer multiple choice";
     const evidenceNote = EXAM_SIM ? `<div class="exam-source-note"><strong>Question types:</strong> The public CCAR-P exam guide lists multiple-choice and multiple-response questions. This practice exam also includes scenario-matching questions that past test-takers have described and, on some versions, a yes/no grid. Every question is original practice material, never a real or remembered exam question.</div>` : "";
     quizBody.innerHTML = `
       <div class="exam-intro">
-        <h3>Before you begin</h3>
+        <h3>Before you begin</h3>${paperPicker}
         <p>This practice exam works like the real one: it's timed, weighted by domain, and lets you move between questions and review them before you submit. All questions are original.</p>
         <div class="exam-intro-grid"><div><strong>${t.ids.length}</strong><span>questions</span></div><div><strong>${MOCK_MINUTES}</strong><span>minutes</span></div><div><strong>1</strong><span>submission at the end</span></div></div>
         <div class="exam-format-summary">${safe(typeText)}</div>${evidenceNote}
@@ -211,6 +225,15 @@
         </ul>
         <div class="exam-start-row"><button class="btn" id="beginMockBtn">Begin Exam</button><button class="ghost" id="cancelMockBtn">Back to home</button></div>
       </div>`;
+    const picker = document.getElementById("paperSelect");
+    if (picker) picker.onchange = () => {
+      const paperId = picker.value || null;
+      const ids = paperId ? PAPERS.paperById[paperId].ids.slice() : buildMockIds();
+      if (!ids.length) return;
+      Object.assign(t, {paperId, ids, pos: 0, responses: {}, flags: {}, answers: [], scoredIds: [], examVersion: paperId ? PAPERS.version : (EXAM_SIM?.version || null)});
+      save();
+      renderIntro();
+    };
     document.getElementById("beginMockBtn").onclick = beginMock;
     document.getElementById("cancelMockBtn").onclick = () => { state.activeQuiz = null; save(); show("home"); renderHome(); };
   }
@@ -295,11 +318,11 @@
   finishQuiz=function(timedOut){
     const t=mockState();if(!t)return baseFinishQuiz(timedOut);clearInterval(timerHandle);prepareMockState(t);const scoredAlready=new Set(t.scoredIds||[]);
     const answers=t.ids.map(id=>{const q=mockQuestion(id),response=t.responses[id]!==undefined?t.responses[id]:null,correct=q?itemCorrect(q,response):false;if(q&&!scoredAlready.has(id)){const p=qP(id);p.attempts=(p.attempts||0)+1;p.lastSeen=Date.now();if(correct)p.correct=(p.correct||0)+1;else p.lastWrong=Date.now();const ds=state.domainStats[q.domain];ds.attempts++;if(correct)ds.correct++;scoredAlready.add(id);}return{id,response,correct,domain:q?.domain||"",itemType:itemType(q)};});
-    t.scoredIds=[...scoredAlready];t.answers=answers;const correct=answers.filter(a=>a.correct).length,total=answers.length,score=total?correct/total:0;state.mockHistory.push({date:new Date().toISOString(),score,correct,total,timedOut:!!timedOut,examVersion:t.examVersion||null,mixedFormat:!!t.examFidelity});const result={mode:"mock",answers,score,correct,total,timedOut:!!timedOut,examFidelity:!!t.examFidelity,examVersion:t.examVersion||null};state.activeQuiz=null;save();showResults(result);
+    t.scoredIds=[...scoredAlready];t.answers=answers;const correct=answers.filter(a=>a.correct).length,total=answers.length,score=total?correct/total:0;state.mockHistory.push({date:new Date().toISOString(),score,correct,total,timedOut:!!timedOut,examVersion:t.examVersion||null,mixedFormat:!!t.examFidelity,paperId:t.paperId||null});const result={mode:"mock",answers,score,correct,total,timedOut:!!timedOut,examFidelity:!!t.examFidelity,examVersion:t.examVersion||null,paperId:t.paperId||null};state.activeQuiz=null;save();showResults(result);
   };
 
   showResults=function(r){
-    if(r.mode!=="mock")return baseShowResults(r);show("resultView");resultTitle.textContent=`${PROFILE.code} practice exam results`;resultScore.textContent=Math.round(r.score*100)+"%";resultText.textContent=`${r.correct} of ${r.total} questions correct${r.timedOut?" when time ran out":""}. This is your practice score. Anthropic's real exam uses a scaled score, and there's no public way to convert a percentage to it.`;const by={};Object.keys(DOMAINS).forEach(d=>by[d]={a:0,c:0});r.answers.forEach(x=>{if(by[x.domain]){by[x.domain].a++;if(x.correct)by[x.domain].c++;}});resultDomains.innerHTML="<div class='domainGrid'>"+Object.entries(DOMAINS).map(([d,x])=>`<div class="name">${safe(x.name)}</div><div class="score">${by[d].a?Math.round(by[d].c/by[d].a*100)+"%":"—"}</div><div class="small">${by[d].a} Q</div>`).join("")+"</div>";resultReview.innerHTML="";const wrong=r.answers.filter(a=>!a.correct);if(!wrong.length)resultReview.innerHTML='<div class="item"><strong>No incorrect items.</strong><div class="small">Every scored item was correct.</div></div>';else wrong.forEach((a,index)=>{const q=mockQuestion(a.id);if(!q)return;const div=document.createElement("div");div.className="item post-review-item is-wrong";div.innerHTML=`<div class="post-review-head"><strong>Review ${index+1}</strong><span class="small">${safe(itemInstruction(q))}</span></div><div><strong>${safe(q.q)}</strong></div><div class="post-review-answer"><span class="small">Your answer</span><br>${responseHtml(q,a.response)}</div><div class="post-review-answer"><span class="small">Correct answer</span><br>${correctHtml(q)}</div>${rationaleHtml(q,a.response)}`;resultReview.appendChild(div);});renderHome();
+    if(r.mode!=="mock")return baseShowResults(r);show("resultView");resultTitle.textContent=`${PROFILE.code} ${r.paperId&&PAPERS?.paperById[r.paperId]?PAPERS.paperById[r.paperId].title.toLowerCase():"practice exam"} results`;resultScore.textContent=Math.round(r.score*100)+"%";resultText.textContent=`${r.correct} of ${r.total} questions correct${r.timedOut?" when time ran out":""}. This is your practice score. Anthropic's real exam uses a scaled score, and there's no public way to convert a percentage to it.`;const by={};Object.keys(DOMAINS).forEach(d=>by[d]={a:0,c:0});r.answers.forEach(x=>{if(by[x.domain]){by[x.domain].a++;if(x.correct)by[x.domain].c++;}});resultDomains.innerHTML="<div class='domainGrid'>"+Object.entries(DOMAINS).map(([d,x])=>`<div class="name">${safe(x.name)}</div><div class="score">${by[d].a?Math.round(by[d].c/by[d].a*100)+"%":"—"}</div><div class="small">${by[d].a} Q</div>`).join("")+"</div>";resultReview.innerHTML="";const wrong=r.answers.filter(a=>!a.correct);if(!wrong.length)resultReview.innerHTML='<div class="item"><strong>No incorrect items.</strong><div class="small">Every scored item was correct.</div></div>';else wrong.forEach((a,index)=>{const q=mockQuestion(a.id);if(!q)return;const div=document.createElement("div");div.className="item post-review-item is-wrong";div.innerHTML=`<div class="post-review-head"><strong>Review ${index+1}</strong><span class="small">${safe(itemInstruction(q))}</span></div><div><strong>${safe(q.q)}</strong></div><div class="post-review-answer"><span class="small">Your answer</span><br>${responseHtml(q,a.response)}</div><div class="post-review-answer"><span class="small">Correct answer</span><br>${correctHtml(q)}</div>${rationaleHtml(q,a.response)}`;resultReview.appendChild(div);});renderHome();
   };
 
   resume=function(){if(state.activeQuiz?.mode==="mock"){show("quizView");renderMock();startTimer();return;}baseResume();};
