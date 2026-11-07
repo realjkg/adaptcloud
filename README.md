@@ -2,8 +2,16 @@
 Initial MVP repository and GKE setup
 this repo contains secure hardening and will contain chatGPT webhooks as well as GKE hooks for the community to use
 
+## Claude Certification Study Simulator
+
+Adaptive practice for all four Claude certifications (Architect Foundations and Professional, Developer Foundations, Associate Foundations), with isolated banks, blueprint-weighted mock exams and per-domain readiness scoring.
+
+- **Open it:** https://realjkg.github.io/adaptcloud/ccar-f/ (add `?track=ccar-f`, `ccar-p`, `ccdv-f` or `ccao-f`)
+- **Docs:** [`ccar-f/README.md`](ccar-f/README.md): tracks, exam-guide alignment, how the content is organized and validated
+
 ## Contents
 
+- [`ccar-f/`](ccar-f/) — **Claude Certification Study Simulator** (all four tracks; see above).
 - [`commercial/outcomes/`](commercial/outcomes/) — proposed renewable AI advisory and engineering commercial model, outcome-based SOW, PromptForce.AI accelerator schedule, and client brochure.
 
 - `gke/` — hardened GKE / Terraform reference deployment (GCP).
