@@ -1,11 +1,11 @@
 {
-  # LAN deployment — use Caddy's built-in CA instead of ACME/Let's Encrypt.
-  # Run "make caddy-trust" to export the root cert and install it on tablets.
+  # LAN deployment: use Caddy's built-in CA instead of ACME/Let's Encrypt.
+  # Run "make caddy-trust" to export the root cert and install it on each device.
   local_certs
   admin off
 }
 
-# HTTPS: TLS-terminate and proxy to nginx
+# HTTPS: terminate TLS and proxy /aidigest/* to the AIDigest service
 :443 {
   tls internal
 
@@ -13,7 +13,7 @@
   # carries the proxy secret AND the user id Caddy sets here (header_up replaces
   # any client-supplied value). See AIDigest/DESIGN.md.
   #
-  # Fail closed without ever breaking Caddy (it is the only ingress for the homeschool UI):
+  # Fail closed without ever breaking Caddy (it is the only ingress, so it must always start):
   #  - unset/empty values fall back to non-empty sentinels, so basic_auth always adapts; the
   #    sentinel hash is bcrypt of a random value that was discarded - no password matches it;
   #  - env placeholders are substituted into the Caddyfile text BEFORE tokenizing, so the user and hash
@@ -50,20 +50,13 @@
     }
   }
 
+  # Nothing else is served here.
   handle {
-    reverse_proxy ui:80 {
-      header_up Host              {host}
-      header_up X-Real-IP         {remote_host}
-      header_up X-Forwarded-For   {remote_host}
-      header_up X-Forwarded-Proto https
-      # Never forward AIDigest trust headers to other upstreams.
-      header_up -X-AIDigest-User
-      header_up -X-AIDigest-Proxy-Secret
-    }
+    respond 404
   }
 }
 
-# HTTP → HTTPS redirect (tablets and browsers follow automatically)
+# HTTP → HTTPS redirect (browsers follow automatically)
 :80 {
   redir https://{host}{uri} permanent
 }

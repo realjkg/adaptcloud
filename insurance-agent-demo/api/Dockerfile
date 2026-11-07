@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Non-root user (parity with the Bede stack's hardened containers)
+# Non-root user with no login shell
 RUN useradd -r -u 1000 -s /usr/sbin/nologin agent \
     && chown -R agent:agent /app
 USER agent

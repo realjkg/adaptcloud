@@ -2,6 +2,9 @@
 
 Branch `feat/ai-digest-initial` (PR #60), base `f96765d`. Recorded 2026-10-03.
 
+This is a dated record and is kept as written. When it was recorded, a homeschool tutor shared
+this Caddy and `docker-compose.yml`; that app has since been removed from the repository.
+
 Sections 1-9 record the initial implementation (`351e7b2`). Section 10 records challenger
 round 1 and section 11 challenger round 2. **Section 12 records challenger round 3 and
 supersedes all earlier gate results** (543 tests on Python 3.11.15 and 3.12.3, each against a

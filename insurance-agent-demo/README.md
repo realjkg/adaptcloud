@@ -1,10 +1,9 @@
 # Adapt Cloud — Insurance Agent Demo
 
 The `claims-triage-agent` from `azure/workloads/insurance-app/` as a
-**locally runnable, Bede-style stack**: `make setup && make start`, open the
-browser, paste an FNOL narrative, see the triage decision. Same shape as the
-`homeschool-api/` + `homeschool-tutor/` (Bede) tutor demo — Caddy TLS on 443,
-UI on 80, FastAPI on 8000, a Prism mock of the Claims API.
+**locally runnable stack**: `make setup && make start`, open the browser, paste
+an FNOL narrative, see the triage decision. Caddy TLS on 443, UI on 80, FastAPI
+on 8000, and a Prism mock of the Claims API.
 
 ## What this proves
 

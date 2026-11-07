@@ -1,7 +1,7 @@
 """Settings for AIDigest, read from the environment (pydantic-settings).
 
-Mirrors homeschool-api/core/config.py: with PRODUCTION=true the service refuses
-to start when a secret is missing, a placeholder, or too weak."""
+With PRODUCTION=true the service refuses to start when a secret is missing,
+a placeholder, or too weak."""
 
 import re
 from typing import Literal

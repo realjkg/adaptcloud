@@ -2,7 +2,7 @@
 -- aidigest/db.py:apply_schema(); safe to run by hand with psql as well.
 -- When schema "aidigest" already exists (the recommended least-privilege setup,
 -- see README), CREATE SCHEMA is skipped so the role needs no database CREATE.
--- Everything lives in schema "aidigest" so nothing collides with homeschool
+-- Everything lives in schema "aidigest" so nothing collides with other
 -- tables in "public". Statements are separated by ";" and must not contain
 -- a literal semicolon.
 
