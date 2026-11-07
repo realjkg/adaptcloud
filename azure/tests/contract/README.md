@@ -1,20 +1,20 @@
 # Contract tests
 
-Fast tests against the APIM Claims API surface. Prove:
+Quick tests of the Claims API through APIM. They prove that:
 
-- APIM rejects unauth requests (401/403 via `validate-azure-ad-token`)
+- APIM rejects requests without a valid sign-in (401/403 through `validate-azure-ad-token`)
 - APIM accepts the agent's Entra token (200)
-- The rate-limit policy engages under burst
-- Responses match the shipped OpenAPI spec (`connectors/claims-api.openapi.yaml`)
-- The `/payout` endpoint requires the human-approval header (human-in-the-loop)
+- The rate limit kicks in when many calls arrive at once
+- Responses match the OpenAPI spec in the repo (`connectors/claims-api.openapi.yaml`)
+- The `/payout` endpoint requires the human-approval header, so a person approves each payout
 
 ## Two modes
 
-- `TEST_MODE=local` — points `CLAIMS_API_BASE_URL` at a Prism mock server
-  driven by the OpenAPI spec. Auth / rate-limit tests are skipped. Useful for
-  PR CI (no Azure creds needed).
-- `TEST_MODE=azure` (default) — hits the real APIM URL with a DefaultAzureCredential
-  token. Requires the agent's federated identity or `az login`.
+- `TEST_MODE=local` — points `CLAIMS_API_BASE_URL` at a Prism mock server built
+  from the OpenAPI spec. The sign-in and rate-limit tests are skipped. Useful for
+  CI on pull requests (no Azure credentials needed).
+- `TEST_MODE=azure` (default) — calls the real APIM URL with a DefaultAzureCredential
+  token. Needs the agent's federated identity or `az login`.
 
 ### Local mock
 

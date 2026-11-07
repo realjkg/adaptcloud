@@ -1,19 +1,24 @@
 # AIDigest
 
-AIDigest is Adapt Cloud's AI intelligence service. It is intentionally small: one FastAPI container in the existing docker-compose stack, its own Postgres schema (`aidigest`), Claude through the Anthropic SDK, an in-process daily scheduler, and Caddy as the only way in.
+AIDigest is Adapt Cloud's AI news and research service. It is small on purpose: one FastAPI container in the docker-compose stack, its own Postgres schema (`aidigest`), Claude through the Anthropic SDK, a daily scheduler that runs inside the service, and Caddy as the only way in.
 
-See [CODEX.md](CODEX.md) for the operating contract and guardrails, [DESIGN.md](DESIGN.md) for the architecture and threat model, and [EVIDENCE.md](EVIDENCE.md) for the verification log.
+See [CODEX.md](CODEX.md) for the rules the service follows, [DESIGN.md](DESIGN.md) for the architecture and threat model, and [EVIDENCE.md](EVIDENCE.md) for the record of how it was tested.
 
-## Loops
+## How it works
 
-STARTUP:
-apply schema.sql (CREATE ... IF NOT EXISTS) -> readiness -> scheduler -> serve
+**At startup**, it applies `schema.sql` (every statement is `CREATE ... IF NOT EXISTS`), checks
+that it's ready, starts the scheduler and begins answering requests.
 
-DAILY:
-12:30 UTC scheduler or POST /ops/run-daily -> readiness gate -> claim the day -> curated feeds -> deterministic score -> top candidates -> ONE Claude curation -> validate -> Postgres -> /digest
+**Every day** at 12:30 UTC, or when an operator calls `POST /ops/run-daily`, it checks that it's
+ready and claims the day's run so the digest is made only once. It reads the curated feeds, scores
+the items with fixed rules and sends the best candidates to Claude in a single call to pick and
+summarize. It checks the result, saves it in Postgres and publishes it at `/digest`.
 
-TASK:
-Caddy identity -> strict validation -> readiness gate -> deterministic mode -> <=3 explicit URLs + stored evidence -> ONE Claude synthesis -> validate -> optional source-backed knowledge -> Postgres -> response
+**For a task**, it takes the user name that Caddy passes in and checks the request strictly. After
+the readiness check, it picks a mode by fixed rules. It fetches up to 3 URLs the user listed and
+adds evidence it already has stored. Claude writes the answer in a single call, which the service
+checks. It can also save knowledge points backed by sources, then stores everything in Postgres and
+responds.
 
 ## Configuration
 
@@ -28,22 +33,23 @@ values live in the root `.env` (never committed); `.env.example` lists the names
 | `AIDIGEST_PROXY_SECRET` | aidigest, caddy | Shared secret Caddy sends to the service (`openssl rand -hex 32`, at least 32 characters) |
 | `AIDIGEST_BASIC_AUTH_USER` | caddy | Basic-auth user name for `/aidigest/*` |
 | `AIDIGEST_BASIC_AUTH_HASH` | caddy | bcrypt hash (cost 10) of that user's password; keep it single-quoted in `.env` because it contains `$` |
-| `COMPOSE_PROFILES` | compose | `aidigest` makes `make start` / `docker compose up` include the service |
+| `COMPOSE_PROFILES` | compose | `aidigest` makes `make start` and `docker compose up` start the service |
 | `AIDIGEST_MODEL` | aidigest | Optional; default `claude-sonnet-5-5` |
 | `AIDIGEST_DAILY_TIME` | aidigest | Optional; `HH:MM` UTC, default `12:30` (7:30 AM CDT / 6:30 AM CST) |
 
-That is five required values (`ANTHROPIC_API_KEY` plus the four `AIDIGEST_*` above) and
-`COMPOSE_PROFILES=aidigest`. `make setup-aidigest` adds all of them except the API key.
+That's five required values (`ANTHROPIC_API_KEY` plus the four `AIDIGEST_*` above) and
+`COMPOSE_PROFILES=aidigest`. `make setup` writes all of them; `make setup-aidigest` adds all of
+them except the API key to an existing `.env`.
 
-With `PRODUCTION=true` (set by docker-compose), the service refuses to start if the API key, the
-database URL or the proxy secret is missing, a placeholder, or weak. If any of the Caddy values
-(`AIDIGEST_BASIC_AUTH_USER`, `AIDIGEST_BASIC_AUTH_HASH`, `AIDIGEST_PROXY_SECRET`) is missing or
-empty - alone or in any combination - Caddy still starts (non-empty sentinel defaults: user
-`aidigest-disabled`, a bcrypt hash of a discarded random value) and answers every `/aidigest/*`
-request with 401 before basic auth runs. `scripts/caddy_matrix.sh` checks every combination
-against the real Caddy.
+With `PRODUCTION=true` (docker-compose sets it), the service won't start if the API key, the
+database URL or the proxy secret is missing, still a placeholder, or too weak. If any of the Caddy
+values (`AIDIGEST_BASIC_AUTH_USER`, `AIDIGEST_BASIC_AUTH_HASH`, `AIDIGEST_PROXY_SECRET`) is missing
+or empty, alone or together, Caddy still starts. It fills in stand-in values that can never sign
+in (the user `aidigest-disabled` and a bcrypt hash of a random value that was thrown away), and it
+answers every `/aidigest/*` request with 401 before basic auth even runs.
+`scripts/caddy_matrix.sh` checks every combination against the real Caddy.
 
-Bounds (all optional, safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST_AI_MAX_TOKENS`
+Limits (all optional, with safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST_AI_MAX_TOKENS`
 (16000), `AIDIGEST_AI_MAX_CONCURRENCY` (2), `AIDIGEST_TASK_HOURLY_LIMIT` (20 per Basic Auth account, then 429),
 `AIDIGEST_TASK_BUDGET_SECONDS` (600), `AIDIGEST_DAILY_BUDGET_SECONDS` (900),
 `AIDIGEST_DAILY_LEASE_SECONDS` (1200, must exceed the budget), `AIDIGEST_DAILY_HEARTBEAT_SECONDS`
@@ -52,11 +58,11 @@ Bounds (all optional, safe defaults): `AIDIGEST_AI_EFFORT` (`medium`), `AIDIGEST
 
 ### Least-privilege database role (one-time, as a DBA)
 
-AIDigest connects as its own role that owns **only** schema `aidigest`. It needs no
-database-level `CREATE` (startup skips `CREATE SCHEMA` when the schema exists) and has no access
-to other tables in `public`. Run this as the database owner with `CREATEROLE` (on managed
-Postgres, the admin/owner role you were given; a superuser works too). Replace `<admin>` with that
-role's name and `<dbname>` with the database name (`SELECT current_database();`):
+AIDigest connects as its own role, which owns **only** the `aidigest` schema. It doesn't need
+`CREATE` on the database (startup skips `CREATE SCHEMA` when the schema already exists), and it
+can't touch other tables in `public`. Run this as the database owner with `CREATEROLE` (on managed
+Postgres, that's the admin or owner role you were given; a superuser works too). Replace `<admin>`
+with that role's name and `<dbname>` with the database name (`SELECT current_database();`):
 
 ```sql
 CREATE ROLE aidigest_app LOGIN PASSWORD '<generate a strong password>';
@@ -71,22 +77,22 @@ REVOKE aidigest_app FROM <admin>;
 
 Nothing else: no `CREATE` on the database, no grants on schema `public`.
 
-**PostgreSQL 14 and older:** every role may create objects in schema `public` by default. Also
-run `REVOKE CREATE ON SCHEMA public FROM PUBLIC;` (or at least `FROM aidigest_app`) so the
-AIDigest role cannot create tables next to other data in that database. PostgreSQL 15+ already defaults
-to that.
+**PostgreSQL 14 and older:** by default, every role can create objects in the `public` schema.
+Also run `REVOKE CREATE ON SCHEMA public FROM PUBLIC;` (or at least `FROM aidigest_app`), so the
+AIDigest role can't create tables next to other data in that database. PostgreSQL 15 and later
+already work that way.
 
-On managed Postgres (Neon, Supabase, ...) create the role in the provider console if `CREATE
-ROLE` is not available to you, then run the `GRANT`/`CREATE SCHEMA ... AUTHORIZATION` lines.
+On managed Postgres (Neon, Supabase and others), create the role in the provider's console if you
+can't run `CREATE ROLE`, then run the `GRANT` and `CREATE SCHEMA ... AUTHORIZATION` lines.
 
 ## Upgrading an existing install (read this first)
 
-An existing `.env` keeps working unchanged: without the AIDigest values the `aidigest` profile is
-simply not started and Caddy answers `/aidigest/*` with 401. To add AIDigest:
+An existing `.env` keeps working as it is. Without the AIDigest values, the `aidigest` profile
+just doesn't start, and Caddy answers `/aidigest/*` with 401. To add AIDigest:
 
 1. Create the database role above.
-2. `make setup-aidigest`: it **appends** the AIDigest keys and `COMPOSE_PROFILES=aidigest` to
-   `.env`, never edits an existing key and is safe to re-run. Avoid `make setup` → overwrite on a
+2. `make setup-aidigest`: it **adds** the AIDigest keys and `COMPOSE_PROFILES=aidigest` to the
+   end of `.env`, never changes a key that's already there, and is safe to run again. Avoid `make setup` → overwrite on a
    live install: it replaces every value in `.env`, including the AIDigest password and proxy
    secret (it backs up the old file to `.env.backup` and requires typing `OVERWRITE`).
 3. `make aidigest-start`, then `make aidigest-status` (must report `"ready": true`).
@@ -96,28 +102,29 @@ simply not started and Caddy answers `/aidigest/*` with 401. To add AIDigest:
 1. Configure the database role and auth first (`make setup` on a new install, which asks for the
    AIDigest settings, or `make setup-aidigest` to add them to an existing `.env`).
 2. `make aidigest-start` (or `make start` once `COMPOSE_PROFILES=aidigest` is in `.env`).
-3. `make aidigest-status` must report `"ready": true` (all of articles, knowledge, tasks and runs present). Do not use the endpoints until it does.
-4. Optionally run the first digest now with `make aidigest-run-daily`; otherwise it runs at the next scheduled time (or immediately, once, if the service starts after today's slot).
+3. `make aidigest-status` must report `"ready": true` (articles, knowledge, tasks and runs are all present). Don't use the endpoints until it does.
+4. If you like, run the first digest now with `make aidigest-run-daily`. Otherwise it runs at the next scheduled time (or right away, once, if the service starts after today's scheduled time).
 
 ## Endpoints
 
-All endpoints are served under `https://<host>/aidigest` and require Caddy basic auth.
+All endpoints are under `https://<host>/aidigest`, and all need Caddy's basic-auth sign-in.
 
 - GET /health
 - GET /ops/status
-- POST /ops/run-daily (operator trigger: 409 if today's run already happened or is running, 429 after the day's attempt cap, 502 if every feed failed - retryable, 503 if not ready)
+- POST /ops/run-daily (starts today's run by hand. Returns 409 if today's run already happened or is running, 429 once the day's attempt limit is reached, 502 if every feed failed (you can retry), and 503 if the service isn't ready)
 - GET /digest
 - GET /digest.json
 - GET /knowledge?q=finops
-- POST /agent/tasks (429 with Retry-After after the per-account hourly cap; with the single basic-auth
-  account Caddy ships with, that cap is shared by the whole team)
-- GET /agent/tasks/{id} (scoped to the authenticated Basic Auth ACCOUNT that created the task; a task of
-  another account gets 404). Isolation is by account, not by person: Caddy ships with one account, so
-  everyone who knows its password shares one `requested_by` and can read any task whose ID they know.
-  Per-person isolation needs a distinct Basic Auth credential per person (more `basic_auth` accounts
-  in the Caddyfile); the service then keeps their tasks apart with no code change.
+- POST /agent/tasks (returns 429 with Retry-After once an account reaches its hourly limit. Caddy
+  comes with a single basic-auth account, so by default the whole team shares that limit)
+- GET /agent/tasks/{id} (only the basic-auth ACCOUNT that created the task can read it; any other
+  account gets 404). Tasks are kept apart by account, not by person. Caddy comes with one account,
+  so everyone who knows its password shares one `requested_by` and can read any task whose ID they
+  know. To keep each person's tasks private, give each person their own basic-auth sign-in (more
+  `basic_auth` accounts in the Caddyfile); the service then keeps their tasks apart without any
+  code change.
 
-Example task body (strictly validated; unknown fields are rejected):
+Example task body (checked strictly; unknown fields are rejected):
 
 ```json
 {
@@ -128,12 +135,12 @@ Example task body (strictly validated; unknown fields are rejected):
 }
 ```
 
-`mode` is one of `auto`, `research`, `compare`, `summarize`, `knowledge_lookup`, `build_brief`, `opportunity_analysis`. `urls` takes at most 3 HTTPS URLs.
+`mode` is one of `auto`, `research`, `compare`, `summarize`, `knowledge_lookup`, `build_brief`, `opportunity_analysis`. `urls` takes up to 3 HTTPS URLs.
 
-`persist_knowledge` (default `true`) saves the model's knowledge points from this task. They are
-model output written with your task text in the prompt, everyone can read them via `/knowledge`, and
-they are used as evidence in other users' tasks. Send `false` when the task text must stay private.
-See DESIGN.md section 16.1.
+`persist_knowledge` (default `true`) saves the knowledge points the model produces for this task.
+The model wrote them with your task text in its prompt, everyone can read them through
+`/knowledge`, and they're used as evidence in other people's tasks. Send `false` when the task text
+must stay private. See DESIGN.md section 16.1.
 
 ```bash
 curl -sk -u "$AIDIGEST_BASIC_AUTH_USER" -H 'content-type: application/json' \
@@ -159,6 +166,6 @@ pip install --require-hashes -r requirements-dev.txt   # exact, hash-pinned (pip
 python -m pytest -q
 ```
 
-The tests never call Claude or the internet: the Anthropic client and the fetcher are injected fakes. DB tests need a real Postgres. By default they initdb a throwaway cluster from `/usr/lib/postgresql/16/bin` under `/tmp/aidg_pg` on the first free port in 29650-29659 (below the ephemeral port range), then stop and delete it. Set `AIDIGEST_TEST_DATABASE_URL` to use an existing database instead (the tests drop and recreate schema `aidigest` in it). If Postgres is unavailable the tests fail; skipped tests count as failures.
+The tests never call Claude or the internet: the Anthropic client and the fetcher are replaced with fakes. Database tests need a real Postgres. By default they create a throwaway database cluster with `initdb` from `/usr/lib/postgresql/16/bin`, under `/tmp/aidg_pg`, on the first free port from 29650 to 29659 (below the range the system hands out on its own), then stop and delete it. To use a database you already have, set `AIDIGEST_TEST_DATABASE_URL` (the tests drop and recreate the `aidigest` schema in it). If Postgres isn't available the tests fail; a skipped test counts as a failure.
 
-`scripts/mutation_check.py` reverts each security control in turn and confirms that a test fails.
+`scripts/mutation_check.py` switches off each security control, one at a time, and confirms that a test fails each time.

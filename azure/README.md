@@ -1,22 +1,23 @@
 # Adapt Cloud — Insurance Agent Platform on Azure
 
-Infrastructure-as-code for an **insurance application** built **low-code first**
-(Power Platform + Copilot Studio) and progressively layered with **API
-connectors**, deployed inside an **Azure Landing Zone (ALZ)** with **policy as
-code** governance.
+Infrastructure as code for an **insurance application**. It is built with
+**low-code tools first** (Power Platform and Copilot Studio), with **API
+connectors** added on top as needed. It runs inside an **Azure Landing Zone
+(ALZ)**, and its rules are enforced with **policy as code**.
 
-This directory is the implementation of the Microsoft Cloud Adoption Framework
+This folder puts into practice the Microsoft Cloud Adoption Framework (CAF)
 guidance **"Govern and secure AI agents across your organization"**
 (<https://learn.microsoft.com/azure/cloud-adoption-framework/ai-agents/governance-security-across-organization>)
-and the AI landing zone / Application landing zone guidance.
+and its guidance on AI landing zones and application landing zones.
 
 ## Why this layout
 
-The CAF says: agents are a **new identity class**, they must run inside an
-**Application (workload) landing zone** that sits under an **Application Platform
-management group**, and their guardrails must be **policy as code**. If your
-tenant does not already have an Application Platform landing zone, you must
-create one before onboarding agent workloads — so we do.
+The CAF says three things about AI agents. They are a **new kind of identity**.
+They must run inside an **application (workload) landing zone** that sits under
+an **Application Platform management group**. And the rules that limit them must
+be written as **policy as code**. If your tenant doesn't have an Application
+Platform landing zone yet, you have to create one before adding agent workloads,
+so this folder does that.
 
 ```
 azure/
@@ -39,48 +40,51 @@ azure/
     └── caf-ai-agent-governance-mapping.md   # Control-by-control traceability matrix
 ```
 
-> **Just want to get started clicking?** See [`QUICKSTART-portal.md`](QUICKSTART-portal.md)
-> for the portal-only path (Azure portal + Power Platform admin center + Copilot
-> Studio + AI Foundry), step-by-step, mapped back to each Terraform file.
+> **Rather click through it?** [`QUICKSTART-portal.md`](QUICKSTART-portal.md)
+> walks through it step by step in the Azure portal, the Power Platform admin
+> center, Copilot Studio and AI Foundry, and links each step to its Terraform file.
 >
-> **Cost & teardown?** See [`COSTS.md`](COSTS.md). Ready-made variable sets — a
-> ~$80–150/mo demo and a production posture — are in [`profiles/`](profiles/).
+> **Cost and teardown?** See [`COSTS.md`](COSTS.md). Ready-made sets of
+> variables, one for a ~$80–150/mo demo and one for production, are in
+> [`profiles/`](profiles/).
 
-## Build / deploy order
+## Order to build and deploy
 
-1. **Platform team** — `landing-zones/application-platform/` (idempotent: creates
-   the Application Platform MG and supporting subscription only if absent).
-2. **Platform team** — `policy-as-code/` (publishes definitions + the
-   `ai-agent-governance` initiative and assigns it at the Application Platform MG).
-3. **Workload team** — `workloads/insurance-app/` (low-code environment first;
-   connectors and AI Foundry agents layered on top, all behind the policy guardrails).
+1. **Platform team**: `landing-zones/application-platform/`. It creates the
+   Application Platform management group and its subscription only if they don't
+   exist yet, so it's safe to run again.
+2. **Platform team**: `policy-as-code/`. It publishes the policy definitions and
+   the `ai-agent-governance` initiative, and assigns the initiative to the
+   Application Platform management group.
+3. **Workload team**: `workloads/insurance-app/`. The low-code environment comes
+   first, then connectors and AI Foundry agents on top, all inside the policy rules.
 
-Each directory has its own `README.md`, `providers.tf`, `variables.tf`, and
-`terraform.tfvars.example`. Nothing here is meant to go straight to production —
-review, parameterize, and run through your own pipeline first.
+Each folder has its own `README.md`, `providers.tf`, `variables.tf` and
+`terraform.tfvars.example`. None of this should go straight to production:
+review it, set your own values, and run it through your own pipeline first.
 
 ## Sandbox quickstart (dev-demo)
 
-The cheapest way to actually exercise the use case. Uses the
-[`profiles/dev-demo`](profiles/) posture (~$80–150/mo: public endpoints,
-Consumption APIM, Basic AI Search, one Power Platform sandbox, one agent). **Demo
-data only** — public endpoints mean the network-isolation guardrails are off.
+The cheapest way to try the whole use case. It uses the
+[`profiles/dev-demo`](profiles/) settings (~$80–150/mo: public endpoints,
+Consumption APIM, Basic AI Search, one Power Platform sandbox, one agent). **Use
+demo data only**: with public endpoints, the network-isolation rules are off.
 
 ### Prerequisites
 
 - **Terraform ≥ 1.6** and **Azure CLI** — `az login` then `az account set --subscription <sandbox-sub-id>`.
 - Providers are pulled on `terraform init`: `azurerm` ~4, `azuread` ~3, `azapi` ~2, `microsoft/power-platform` ~3.
 - **Permissions** in the sandbox subscription:
-  - **Owner** *and* **User Access Administrator** (the modules create RBAC role assignments).
-  - Entra: rights to create **app registrations** + a **security group** (Application Administrator / Application Developer).
-  - Full-stack path only: **Management Group Contributor** + **Resource Policy Contributor** at the MG scope.
-- **Power Platform**: the signed-in principal must be a **Power Platform Service Admin** (the provider uses `use_cli = true`), and the tenant needs available **Dataverse capacity** to create the environment. No capacity? See the caveat below.
+  - **Owner** *and* **User Access Administrator** (the modules create role assignments).
+  - Entra: rights to create **app registrations** and a **security group** (Application Administrator or Application Developer).
+  - Full-stack path only: **Management Group Contributor** and **Resource Policy Contributor** on the management group.
+- **Power Platform**: whoever is signed in must be a **Power Platform Service Admin** (the provider uses `use_cli = true`), and the tenant needs free **Dataverse capacity** to create the environment. No capacity? See the note below.
 
-### Path A — workload only (fastest; skips landing zone + policy)
+### Path A: workload only (fastest; skips the landing zone and policy)
 
-Deploy just the agent workload into an existing sandbox subscription. Pre-create
-(or reuse) a **Log Analytics workspace** and an **Entra security group** (can be
-empty) and grab their IDs.
+Deploy only the agent workload into a sandbox subscription you already have.
+Create or reuse a **Log Analytics workspace** and an **Entra security group**
+(it can be empty), and note their IDs.
 
 ```bash
 cd azure/workloads/insurance-app
@@ -92,35 +96,36 @@ terraform apply \
   -var ai_agents_group_object_id=<existing-group-object-id>
 ```
 
-No VNet, no private endpoints, Consumption APIM, Basic AI Search, one Power
-Platform sandbox env, one agent identity.
+This gives you no VNet, no private endpoints, Consumption APIM, Basic AI Search,
+one Power Platform sandbox environment and one agent identity.
 
-> **No Power Platform capacity (or you only want the Azure AI plane)?** Add
+> **No Power Platform capacity, or you only want the Azure AI services?** Add
 > `-var enable_power_platform=false`. That skips the Dataverse environments,
-> Managed Environments, environment settings, DLP policies, and the VNet
-> enterprise policy — the Azure AI plane (OpenAI/Search/Content Safety/AI
-> Foundry), APIM, Key Vault, agent identities, and observability still deploy.
+> Managed Environments, environment settings, data loss prevention (DLP)
+> policies and the VNet enterprise policy. The Azure AI services (OpenAI, Search,
+> Content Safety, AI Foundry), APIM, Key Vault, agent identities and monitoring
+> still deploy.
 
-### Path B — full stack with governance
+### Path B: full stack with governance
 
-1. `landing-zones/application-platform` with `-var-file=../../profiles/dev-demo/application-platform.tfvars` (+ your real IDs).
+1. `landing-zones/application-platform` with `-var-file=../../profiles/dev-demo/application-platform.tfvars`, plus your real IDs.
 2. `policy-as-code/initiative` — **assign with `-var enforcement_mode=DoNotEnforce`.**
-   **IMPORTANT:** the dev-demo workload uses **public endpoints**; if you assign the
+   **IMPORTANT:** the dev-demo workload uses **public endpoints**. If you assign the
    initiative in its default **Deny** mode, the `deny-ai-public-network-access`
-   (and `deny-cognitive-services-local-auth`) policies will **block the workload
-   apply**. `DoNotEnforce` still evaluates compliance (so you see what *would*
-   fail) without blocking. Switch to `Default` once you move to the `prod`
-   profile (private endpoints).
-3. `workloads/insurance-app` with the dev-demo profile, feeding the landing-zone
-   outputs (`spoke_subnet_ids`, `central_log_analytics_workspace_id`,
+   and `deny-cognitive-services-local-auth` policies **stop the workload from
+   deploying**. `DoNotEnforce` still checks compliance, so you see what *would*
+   fail, but doesn't block anything. Switch to `Default` when you move to the
+   `prod` profile, which uses private endpoints.
+3. `workloads/insurance-app` with the dev-demo profile, passing in the landing
+   zone's outputs (`spoke_subnet_ids`, `central_log_analytics_workspace_id`,
    `ai_agents_group_object_id`).
 
 ### Verify
 
 - `terraform output workload_summary` and `terraform output agent_identities`.
-- Azure portal: the Azure OpenAI account + the two model deployments, Key Vault, per-agent Application Insights.
-- Power Platform admin center: the `insurance-demo` **Managed Environment** + the connector **DLP policy**.
-- Copilot Studio: create an agent in `insurance-demo` — it gets an **Entra Agent ID**; confirm it lands in the `ai-agents` group in Entra. (Walkthrough: [`QUICKSTART-portal.md`](QUICKSTART-portal.md) step 4.)
+- Azure portal: the Azure OpenAI account and its two model deployments, Key Vault, and one Application Insights per agent.
+- Power Platform admin center: the `insurance-demo` **Managed Environment** and the connector **DLP policy**.
+- Copilot Studio: create an agent in `insurance-demo`. It gets an **Entra Agent ID**; check that it shows up in the `ai-agents` group in Entra. (Walkthrough: [`QUICKSTART-portal.md`](QUICKSTART-portal.md), step 4.)
 
 ### Tear down
 
@@ -129,17 +134,17 @@ terraform destroy   # same -var-file / -var flags as apply
 ```
 
 With the dev-demo profile (`key_vault_purge_protection = false`, Consumption
-APIM, Basic AI Search) nothing lingers or blocks a rebuild. Full teardown
-gotchas (purge protection, soft-delete) are in [`COSTS.md`](COSTS.md).
+APIM, Basic AI Search), nothing is left behind and nothing blocks a rebuild. The
+teardown pitfalls (purge protection, soft delete) are in [`COSTS.md`](COSTS.md).
 
 ## Design principles (from the CAF article)
 
 | Principle | How it shows up here |
 |---|---|
-| Agents are first-class identities | Every agent gets a dedicated **Entra Agent ID** (Copilot Studio / AI Foundry) or **user-assigned managed identity**; no shared identities, no human impersonation, no secrets in code. See `workloads/insurance-app/identity-agents.tf`. |
-| Least privilege | Scoped RBAC role assignments + scoped connector permissions + Conditional Access targeting agent identities. |
-| Run inside a landing zone | The workload is a vended **Application landing zone** subscription peered to the connectivity hub; PaaS is private-endpoint only. |
-| Policy as code | `policy-as-code/` — allowed regions, approved models, deny public network access, require diagnostic settings, require ownership/classification tags, audit managed identity / disable local auth. |
-| Low-code first, widest connector reach | Power Platform **managed environment** + **DLP policy** classifying the full connector catalog into Business / Non-Business / Blocked; custom **API connectors** generated from OpenAPI specs in `workloads/insurance-app/connectors/`. |
-| Traceable / observable | Central Log Analytics, Application Insights per agent, diagnostic settings enforced by policy, Purview/DSPM-for-AI hooks, Defender for Cloud AI threat protection. |
-| Adaptive & flexible | Connector classification, model allow-lists, environment settings, and policy parameters are all variables — change governance posture without re-architecting. |
+| Agents are identities in their own right | Every agent gets its own **Entra Agent ID** (Copilot Studio or AI Foundry) or **user-assigned managed identity**. No shared identities, no acting as a person, no secrets in code. See `workloads/insurance-app/identity-agents.tf`. |
+| Only the access each agent needs | Role assignments and connector permissions limited to what's needed, plus Conditional Access rules aimed at agent identities. |
+| Run inside a landing zone | The workload gets its own **application landing zone** subscription, connected to the network hub. Azure services are reached only through private endpoints. |
+| Policy as code | `policy-as-code/`: allowed regions, approved models, no public network access, required diagnostic settings, required owner and classification tags, and checks for managed identity and local sign-in being off. |
+| Low-code first, with access to many connectors | A Power Platform **managed environment** and a **DLP policy** that sorts the whole connector catalog into Business, Non-Business and Blocked. Custom **API connectors** are generated from the OpenAPI specs in `workloads/insurance-app/connectors/`. |
+| You can trace and monitor everything | Central Log Analytics, Application Insights for each agent, diagnostic settings required by policy, hooks for Purview and DSPM for AI, and Defender for Cloud AI threat protection. |
+| Easy to adjust | Connector classification, the list of allowed models, environment settings and policy parameters are all variables, so you can tighten or loosen the rules without redesigning anything. |

@@ -1,12 +1,12 @@
-# End-to-end tests: does the architecture carry its own weight?
+# End-to-end tests: does the architecture do what it says?
 
-Every pillar of the platform makes a claim. This tree pairs each claim with a
-runnable test that proves it. If the test passes, the claim is real; if you
-delete the guardrail, the test fails.
+Each part of the platform makes a claim. This folder pairs each claim with a test
+you can run to prove it. If the test passes, the claim holds; if you remove the
+safeguard, the test fails.
 
-## Architecture claim → test file
+## Each claim and the test that proves it
 
-| # | Pillar (what the platform claims) | Proven by |
+| # | What the platform claims | Proven by |
 |---|---|---|
 | 1 | Every agent has its **own Entra Agent ID / managed identity** — no shared identities, no keys | [`contract/test_auth.py`](contract/test_auth.py) — unauth call → 401/403; call with the agent's federated token → 200 |
 | 2 | APIM **validates the Entra JWT** on every call (`validate-azure-ad-token`) | same |
@@ -19,33 +19,33 @@ delete the guardrail, the test fails.
 | 9 | The agent's **domain accuracy** — severity classification, routing queue, fraud flag — is correct | [`evaluations/fnol-triage.jsonl`](evaluations/fnol-triage.jsonl) — 10 labeled FNOL cases scored by the custom `triage_accuracy` metric in [`evaluations/metrics.py`](evaluations/metrics.py) |
 | 10 | **Human-in-the-loop** gate on sensitive actions (`/payout`) | [`contract/test_claims_api.py::test_payout_requires_human_approval_header`](contract/test_claims_api.py) — call `/payout` without the `X-Human-Approver` header → 403 from the APIM policy |
 | 11 | Every call is **traceable to the agent's Entra Agent ID** in App Insights | [`observability/test_traces.py`](observability/test_traces.py) — send a synthetic prompt, poll App Insights for a trace with `agentName == "claims-triage-agent"` |
-| 12 | **The initiative is enforced** at the Application Platform MG scope | [`policy-compliance/test_policy_denies.py`](policy-compliance/test_policy_denies.py) — parametrised over the three bad-fixtures; each `terraform apply` must fail with `RequestDisallowedByPolicy` |
+| 12 | **The initiative is enforced** on the Application Platform management group | [`policy-compliance/test_policy_denies.py`](policy-compliance/test_policy_denies.py) — runs once for each of the three bad fixtures; each `terraform apply` must fail with `RequestDisallowedByPolicy` |
 
 ## The E2E script
 
-[`e2e/run-e2e.sh`](e2e/run-e2e.sh) chains it all in order:
+[`e2e/run-e2e.sh`](e2e/run-e2e.sh) runs it all, in this order:
 
 1. `terraform apply` the dev-demo profile (workload only, `enable_power_platform=false`)
-2. Wait for the workload's first policy-scan cycle
+2. Wait for Azure Policy's first scan of the workload
 3. Run the **contract** tests (`pytest tests/contract/`)
-4. Run one **eval** (FNOL triage) — smallest sample so a full run is ~$0.05 in tokens
+4. Run one **eval** (FNOL triage), with the smallest sample, so a full run costs about $0.05 in tokens
 5. Run one **jailbreak** eval
 6. Run the **observability** trace test (with a 2-minute poll)
 7. Run the **policy-compliance** denial tests
-8. Print a compliance summary from `az policy state list` for the workload sub
+8. Print a compliance summary from `az policy state list` for the workload subscription
 9. `terraform destroy`
 
-If every step is green, the platform is *actually* what it claims to be. If step 5 passes but step 8 shows non-compliant resources, the policy is misaligned with what the workload built — and you know exactly which policy without reading a plan output.
+If every step passes, the platform really does what it claims. If step 5 passes but step 8 shows non-compliant resources, a policy doesn't match what the workload built, and you can see exactly which policy without reading a plan.
 
 ## Two run modes
 
-- **Local / mock mode** (no Azure, ~30s): points `CLAIMS_API_BASE_URL` at a
-  Prism mock server that satisfies the OpenAPI spec. Runs contract tests only
-  — proves *the tests themselves* are sound and the OpenAPI spec is coherent.
-  Useful for PR CI. See [`contract/README.md`](contract/README.md).
-- **Azure mode** (real deploy, ~15 minutes + tokens): the whole E2E script.
-  Runs on `workflow_dispatch` in [`.github/workflows/e2e.yml`](../../.github/workflows/e2e.yml)
-  using OIDC federated identity to a dedicated sandbox subscription.
+- **Local (mock) mode** (no Azure, about 30 seconds): points `CLAIMS_API_BASE_URL`
+  at a Prism mock server that follows the OpenAPI spec, and runs only the
+  contract tests. This proves *the tests themselves* work and the OpenAPI spec is
+  consistent. Useful for CI on pull requests. See [`contract/README.md`](contract/README.md).
+- **Azure mode** (a real deployment, about 15 minutes plus tokens): the whole E2E
+  script. It runs on `workflow_dispatch` in [`.github/workflows/e2e.yml`](../../.github/workflows/e2e.yml)
+  and signs in to a sandbox subscription used only for this, through OIDC federation.
 
 ## Setup
 
@@ -55,17 +55,16 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Then either `TEST_MODE=local pytest contract/` (mock) or set the Azure env vars
-(`APIM_GATEWAY_URL`, `APIM_ENTRA_SCOPE`, `AZURE_SUBSCRIPTION_ID`,
-`AGENT_APP_INSIGHTS_ID`, etc. — full list in [`conftest.py`](conftest.py)) and
-run `bash e2e/run-e2e.sh`.
+Then either run `TEST_MODE=local pytest contract/` (mock), or set the Azure
+environment variables (`APIM_GATEWAY_URL`, `APIM_ENTRA_SCOPE`,
+`AZURE_SUBSCRIPTION_ID`, `AGENT_APP_INSIGHTS_ID` and others; the full list is in
+[`conftest.py`](conftest.py)) and run `bash e2e/run-e2e.sh`.
 
-## What this scaffold *is not*
+## What these tests *don't* cover
 
-- Not a load test — see the sizing guidance in `../COSTS.md` for the APIM SKU
-  ladder.
-- Not a full agent-quality bar — the evaluation datasets ship with 10 examples
-  each so the shape is real; the target is 100+ labeled examples per agent
-  before you claim production readiness.
-- Not a red-team suite — the jailbreak dataset is a starter. Rotate it and add
-  fresh CVEs / attacks quarterly.
+- They aren't a load test. For APIM sizes, see the guidance in `../COSTS.md`.
+- They don't fully measure agent quality. Each evaluation dataset has 10 examples,
+  enough to show the format. Aim for 100 or more labeled examples per agent before
+  calling it ready for production.
+- They aren't a full red-team suite. The jailbreak dataset is a starting point;
+  refresh it every quarter with new vulnerabilities and attacks.
