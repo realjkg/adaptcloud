@@ -11,8 +11,10 @@ Quick tests of the Claims API through APIM. They prove that:
 ## Two modes
 
 - `TEST_MODE=local` — points `CLAIMS_API_BASE_URL` at a Prism mock server built
-  from the OpenAPI spec. The sign-in and rate-limit tests are skipped. Useful for
-  CI on pull requests (no Azure credentials needed).
+  from the OpenAPI spec. Tests that need real sign-in checks, rate limits or the
+  approval header are skipped. The rest send a placeholder token, because Prism
+  checks only that a token is present. Useful for CI on pull requests (no Azure
+  credentials needed).
 - `TEST_MODE=azure` (default) — calls the real APIM URL with a DefaultAzureCredential
   token. Needs the agent's federated identity or `az login`.
 

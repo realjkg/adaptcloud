@@ -59,7 +59,9 @@ def test_list_and_get_roundtrip(claims_api_base_url, auth_headers, fnol_body):
     assert fetched["policyId"] == created["policyId"]
 
 
-def test_triage_decision_updates_state(claims_api_base_url, auth_headers, fnol_body):
+def test_triage_decision_updates_state(
+    claims_api_base_url, auth_headers, openapi_spec, fnol_body, test_mode
+):
     created = _post(f"{claims_api_base_url}/claims", auth_headers, fnol_body).json()
     triage = {"severity": "medium", "routingQueue": "auto-adjusters", "fraudScore": 0.12}
     updated = _post(
@@ -68,6 +70,12 @@ def test_triage_decision_updates_state(claims_api_base_url, auth_headers, fnol_b
         triage,
         expected=200,
     ).json()
+    if test_mode == "local":
+        # Prism returns the spec's static example and keeps no state, so only the shape is
+        # checkable: the state must be one the spec allows. The real API must move it forward.
+        allowed = openapi_spec["components"]["schemas"]["Claim"]["properties"]["state"]["enum"]
+        assert updated["state"] in allowed
+        return
     assert updated["state"] in {"triaging", "in_review"}
 
 
