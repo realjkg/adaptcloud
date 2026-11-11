@@ -1,0 +1,48 @@
+name: Validate CCAR-F comprehension layer
+
+on:
+  pull_request:
+    paths:
+      - "ccar-f/ccar-f.comprehension-*.js"
+      - "ccar-f/ccar-f.answer-repair*.js"
+      - "ccar-f/ccar-f.sources.js"
+      - "ccar-f/cert-sources.js"
+      - "ccar-f/ccar-f.bank*.js"
+      - "ccar-f/ccar-f.audit-bank.js"
+      - "ccar-f/ccar-f-foundations-complexity.js"
+      - "ccar-f/ccar-f-complexity-position-balance.js"
+      - "ccar-f/exam-insight.js"
+      - "ccar-f/audits/ccar-f.json"
+      - "ccar-f/index.html"
+      - "ccar-f/loader.js"
+      - "ccar-f/payload*.js"
+      - "ccar-f/tools/validate-ccar-f-comprehension.js"
+      - ".github/workflows/ccar-f-comprehension-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-comprehension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check syntax and load order
+        run: |
+          for f in ccar-f/ccar-f.comprehension-items-1.js ccar-f/ccar-f.comprehension-items-2.js ccar-f/ccar-f.comprehension-bank.js \
+                   ccar-f/ccar-f.answer-repair-1.js ccar-f/ccar-f.answer-repair-2.js ccar-f/ccar-f.answer-repair-3.js \
+                   ccar-f/ccar-f.answer-repair-4.js ccar-f/ccar-f.answer-repair.js ccar-f/cert-sources.js ccar-f/ccar-f.sources.js \
+                   ccar-f/exam-insight.js ccar-f/tools/validate-ccar-f-comprehension.js; do node --check "$f"; done
+          line() { grep -n "$1" "$2" | head -1 | cut -d: -f1; }
+          test "$(line 'ccar-f.audit-bank.js' ccar-f/index.html)" -lt "$(line 'ccar-f.comprehension-items-1.js' ccar-f/index.html)"
+          test "$(line 'ccar-f.comprehension-items-2.js' ccar-f/index.html)" -lt "$(line 'ccar-f.comprehension-bank.js' ccar-f/index.html)"
+          test "$(line 'ccar-f.comprehension-bank.js' ccar-f/index.html)" -lt "$(line 'loader.js' ccar-f/index.html)"
+          test "$(line 'ccar-f-complexity-position-balance.js' ccar-f/loader.js)" -lt "$(line 'ccar-f.answer-repair' ccar-f/loader.js)"
+          test "$(line 'ccar-f.answer-repair' ccar-f/loader.js)" -lt "$(line 'foundations-scenario-fidelity.js' ccar-f/loader.js)"
+          grep -q '"cert-sources"' ccar-f/loader.js
+          grep -q '"ccar-f.sources"' ccar-f/loader.js
+
+      - name: Validate questions, repairs, answer balance and official sources
+        run: node ccar-f/tools/validate-ccar-f-comprehension.js

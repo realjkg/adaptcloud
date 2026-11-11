@@ -49,6 +49,7 @@
   if(track==="ccar-f"){
     await loadScript("./ccar-f-foundations-complexity.js");
     await loadScript("./ccar-f-complexity-position-balance.js");
+    for(const f of ["ccar-f.answer-repair-1","ccar-f.answer-repair-2","ccar-f.answer-repair-3","ccar-f.answer-repair-4","ccar-f.answer-repair"])await loadScript(`./${f}.js`);
   }
   if(foundationTrack)await loadScript("./foundations-scenario-fidelity.js");
   if(track==="ccar-f")await loadScript("./foundations-scenario-fit-patch.js");
@@ -58,13 +59,14 @@
     await loadScript("./ccar-f-runtime-patch.js");
     await loadScript("./exam.js");
     await loadScript("./foundations-exam.js");
+    for(const f of ["cert-sources","ccar-f.sources","exam-insight"])await loadScript(`./${f}.js`);
   }else{
     await loadScript("./multi-app.js");
     await loadScript("./adaptive-core.js");
     await loadScript("./adaptive-patch.js");
     if(profile.bankStatus!=="planned"){
       // CCAR-P: six fixed practice papers, loaded before exam.js reads them.
-      if(track==="ccar-p")for(const f of ["ccar-p.papers-items-p1","ccar-p.papers-items-p2","ccar-p.papers-items-p3","ccar-p.papers-items-p4","ccar-p.papers-items-p5","ccar-p.papers-items-p6","ccar-p.papers-items-p7","ccar-p.papers-items-session","ccar-p.papers-overrides","ccar-p.drill-items-1","ccar-p.drill-items-2","ccar-p.mock-papers-layout","ccar-p.mock-papers","ccar-p.sources"])await loadScript(`./${f}.js`);
+      if(track==="ccar-p")for(const f of ["ccar-p.papers-items-p1","ccar-p.papers-items-p2","ccar-p.papers-items-p3","ccar-p.papers-items-p4","ccar-p.papers-items-p5","ccar-p.papers-items-p6","ccar-p.papers-items-p7","ccar-p.papers-items-session","ccar-p.papers-overrides","ccar-p.drill-items-1","ccar-p.drill-items-2","ccar-p.mock-papers-layout","ccar-p.mock-papers","cert-sources","ccar-p.sources"])await loadScript(`./${f}.js`);
       await loadScript("./exam.js");
       await loadScript("./exam-insight.js");
       if(foundationTrack)await loadScript("./foundations-exam.js");

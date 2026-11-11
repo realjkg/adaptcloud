@@ -17,6 +17,8 @@ on:
       - "ccar-f/ccdv-f.remediation.js"
       - "ccar-f/ccdv-f.family-map.js"
       - "ccar-f/ccar-f.audit-bank.js"
+      - "ccar-f/ccar-f.comprehension-*.js"
+      - "ccar-f/ccar-f.answer-repair*.js"
       - "ccar-f/payload*.js"
       - ".github/workflows/foundations-scenario-fidelity-validate.yml"
   workflow_dispatch:
@@ -80,9 +82,12 @@ jobs:
           function buildCCAR(){
             const ctx=baseContext();
             evalFile(ctx,'ccar-f/ccar-f.bank.js');evalFile(ctx,'ccar-f/ccar-f.bank-topup.js');evalFile(ctx,'ccar-f/ccar-f.audit-bank.js');
+            for(const f of ['ccar-f.comprehension-items-1','ccar-f.comprehension-items-2','ccar-f.comprehension-bank'])evalFile(ctx,`ccar-f/${f}.js`);
             let b64='';for(let n=1;n<=5;n++){const text=fs.readFileSync(`ccar-f/payload${n}.js`,'utf8'),m=text.match(/push\("([A-Za-z0-9+/=]+)"\);/);if(!m)fail(`payload${n} unreadable`);b64+=m[1];}
             const base=JSON.parse(zlib.gunzipSync(Buffer.from(b64,'base64'))),exp=ctx.window.CLAUDE_CERT_BANK_EXPANSIONS['ccar-f'];
             ctx.window.CERT_TRACK='ccar-f';ctx.window.CERT_PROFILE=ctx.window.CLAUDE_CERTIFICATIONS['ccar-f'];ctx.window.CCARF_QUESTIONS=[...(base.questions||[]),...(exp.questions||[])];
+            // The complexity layer and the answer-set repairs run before the scenario layer, as in loader.js.
+            for(const f of ['ccar-f-foundations-complexity','ccar-f-complexity-position-balance','ccar-f.answer-repair-1','ccar-f.answer-repair-2','ccar-f.answer-repair-3','ccar-f.answer-repair-4','ccar-f.answer-repair'])evalFile(ctx,`ccar-f/${f}.js`);
             return ctx;
           }
 
