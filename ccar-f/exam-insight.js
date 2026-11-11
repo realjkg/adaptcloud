@@ -71,7 +71,7 @@
       quizCounter.textContent = `Question ${d.pos + 1} of ${d.ids.length} · ${safe(objectiveOf(q0) || "")} ${safe(objectiveName(objectiveOf(q0)))}`;
       quizProgress.style.width = `${(d.pos / d.ids.length) * 100}%`;
       timer.textContent = "";
-      quizBody.innerHTML = `<div class="qbox drill-question"><div class="exam-item-type">${multi ? `Multiple response · Select ${need}` : "Multiple choice · Select ONE"}</div><div class="qtext">${safe(q.q)}</div><div id="choices"></div><div id="drillFeedback"></div></div>`;
+      quizBody.innerHTML = `<div class="qbox drill-question"><div class="exam-item-type">${multi ? "Multiple response" : "Multiple choice"}</div><div class="qtext">${safe(q.q)}</div><div id="choices"></div><div id="drillFeedback"></div></div>`;
       const host = document.getElementById("choices"), picked = new Set();
       q.choices.forEach((c, i) => {
         const b = document.createElement("button");
