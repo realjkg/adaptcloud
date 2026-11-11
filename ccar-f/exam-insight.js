@@ -7,28 +7,36 @@
 (() => {
   const core = window.ExamCore;
   if (!core) return;
-  const {SOURCES, PAPERS, objectiveOf, baseQuestion, itemType, labelFor, safe, rationaleHtml, sourcesHtml, markSeen, shuffle} = core;
+  const {PAPERS, objectiveOf, itemType, labelFor, safe, rationaleHtml, sourcesHtml, markSeen, shuffle} = core;
+  const sources = () => core.SOURCES;
+  // Answers may carry their question (Foundations forms do); otherwise look it up by ID.
+  const questionOf = (a) => a.q || core.baseQuestion(a.id);
+  const baseQuestion = (id) => core.baseQuestion(id) || (typeof QUESTIONS !== "undefined" ? QUESTIONS.find(q => q.id === id) : null);
   const DRILL_SIZE = 12;
   const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-  const objectiveName = (o) => SOURCES?.objectiveNames?.[o] || o;
+  const objectiveName = (o) => sources()?.objectiveNames?.[o] || o;
 
   // Objectives missed in an exam, most misses first.
   function missedObjectives(r) {
     const by = {};
-    r.answers.forEach(a => { const q = baseQuestion(a.id), o = objectiveOf(q); if (!o) return; const s = by[o] ||= {o, missed: 0, total: 0}; s.total++; if (!a.correct) s.missed++; });
+    r.answers.forEach(a => { const q = questionOf(a), o = objectiveOf(q); if (!o) return; const s = by[o] ||= {o, missed: 0, total: 0}; s.total++; if (!a.correct) s.missed++; });
     return Object.values(by).filter(s => s.missed).sort((a, b) => b.missed - a.missed || a.o.localeCompare(b.o));
   }
 
   function drillIds(objectives, examAnswers) {
     const want = new Set(objectives.map(s => s.o)), qp = state.qProgress || {};
     const rank = (q) => objectives.findIndex(s => s.o === objectiveOf(q));
-    const fresh = (PAPERS?.drill || []).filter(q => want.has(q.objectiveId) && !(qp[q.id]?.correct > 0));
-    // Not enough reworded questions: add exam questions you just missed, with choices reshuffled.
-    const missed = examAnswers.filter(a => !a.correct).map(a => baseQuestion(a.id)).filter(q => q && ["single", "multi"].includes(itemType(q)));
+    // Drill pool: the track's dedicated drill set if it has one, otherwise practice-bank questions with a
+    // rationale for every choice that you haven't seen yet.
+    const pool = PAPERS?.drill || (typeof QUESTIONS !== "undefined" ? QUESTIONS.filter(q => Array.isArray(q.choiceWhy) && q.choiceWhy.length === q.choices?.length && !core.seenBefore(q)) : []);
+    const fresh = pool.filter(q => want.has(objectiveOf(q)) && ["single", "multi"].includes(itemType(q)) && !(qp[q.id]?.correct > 0));
+    // Not enough fresh questions: add exam questions you just missed, with choices reshuffled.
+    const missed = examAnswers.filter(a => !a.correct).map(a => questionOf(a)).filter(q => q && ["single", "multi"].includes(itemType(q)) && baseQuestion(q.id));
     const ordered = [...shuffle(fresh).sort((a, b) => rank(a) - rank(b)), ...missed.filter(q => !fresh.includes(q))];
     return ordered.slice(0, DRILL_SIZE).map(q => q.id);
   }
 
+  const drillAvailable = (objectives) => !!(PAPERS?.drill?.length || (typeof QUESTIONS !== "undefined" && objectives.length));
   function insightHtml(r, objectives) {
     const parts = [];
     if (Number.isInteger(r.newTotal)) {
@@ -39,10 +47,10 @@
     }
     if (objectives.length) {
       const rows = objectives.slice(0, 8).map(s => {
-        const links = SOURCES?.objectiveLinks(s.o) || [];
+        const links = sources()?.objectiveLinks(s.o) || [];
         return `<li><div class="insight-obj"><strong>${safe(s.o)}</strong> ${safe(objectiveName(s.o))} <span class="small">missed ${s.missed} of ${s.total}</span></div>${links.length ? `<div class="source-links">${links.map(l => `<a href="${safe(l.url)}" target="_blank" rel="noopener">${safe(l.title)}${l.section ? ` · ${safe(l.section)}` : ""}</a>`).join("")}</div>` : ""}</li>`;
       }).join("");
-      parts.push(`<div class="insight-plan"><h3>Study plan</h3><p class="small">The objectives you missed, with the official pages to read for each.</p><ol>${rows}</ol>${PAPERS ? `<button class="btn" id="startDrillBtn" type="button">Practice these objectives</button><span class="small insight-drill-note">${DRILL_SIZE} questions with instant feedback and source links</span>` : ""}</div>`);
+      parts.push(`<div class="insight-plan"><h3>Study plan</h3><p class="small">The objectives you missed, with the official pages to read for each.</p><ol>${rows}</ol>${drillAvailable(objectives) ? `<button class="btn" id="startDrillBtn" type="button">Practice these objectives</button><span class="small insight-drill-note">${DRILL_SIZE} questions with instant feedback and source links</span>` : ""}</div>`);
     }
     return parts.join("");
   }
@@ -105,10 +113,8 @@
     render();
   }
 
-  const baseShow = showResults;
-  showResults = function (r) {
-    baseShow(r);
-    if (r?.mode !== "mock") return;
+  // Draws the comprehension panel under the result summary. Called after any practice exam.
+  function render(r) {
     const objectives = missedObjectives(r);
     let panel = document.getElementById("insightPanel");
     if (!panel) { panel = document.createElement("div"); panel.id = "insightPanel"; resultText.insertAdjacentElement("afterend", panel); }
@@ -116,6 +122,11 @@
     panel.innerHTML = insightHtml(r, objectives);
     const btn = document.getElementById("startDrillBtn");
     if (btn) btn.onclick = () => { const ids = drillIds(objectives, r.answers); if (ids.length) runDrill(ids, () => { show("resultView"); }); };
+  }
+  const baseShow = showResults;
+  showResults = function (r) {
+    baseShow(r);
+    if (r?.mode === "mock") render(r);
   };
-  window.ExamInsight = {missedObjectives, drillIds, runDrill, DRILL_SIZE};
+  window.ExamInsight = {render, missedObjectives, drillIds, runDrill, DRILL_SIZE};
 })();

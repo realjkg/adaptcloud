@@ -176,11 +176,23 @@
     const answers=t.form.map(q=>({id:q.id,domain:q.domain,response:t.responses[q.id],correct:correct(q,t.responses[q.id]),q}));
     if(!t.scored){answers.forEach(a=>{const p=qP(a.id);p.attempts++;if(a.correct)p.correct++;else p.lastWrong=Date.now();const ds=state.domainStats[a.domain];ds.attempts++;if(a.correct)ds.correct++;});t.scored=true;}
     const correctN=answers.filter(a=>a.correct).length,total=answers.length,score=total?correctN/total:0;
-    state.mockHistory.push({date:new Date().toISOString(),score,correct:correctN,total,timedOut:!!timedOut,format:SIM.version,variantKeys:t.form.map(variantKey)});
+    // Questions are recognized by their bank question, so a scenario variant of one you've seen still counts as seen.
+    const core=window.ExamCore,baseOf=q=>(typeof QUESTIONS!=="undefined"&&QUESTIONS.find(x=>x.id===String(q.id).split("::")[0]))||q;
+    const fresh=core?answers.filter(a=>!core.seenBefore(baseOf(a.q))):[],newCorrect=fresh.filter(a=>a.correct).length;
+    if(core)core.markSeen(answers.map(a=>baseOf(a.q)));
+    const flags={...(t.flags||{})};
+    state.mockHistory.push({date:new Date().toISOString(),score,correct:correctN,total,newCorrect,newTotal:fresh.length,timedOut:!!timedOut,format:SIM.version,variantKeys:t.form.map(variantKey)});
     state.activeQuiz=null;save();show("resultView");resultTitle.textContent=`${PROFILE.code} practice exam results`;resultScore.textContent=Math.round(score*100)+"%";resultText.textContent=`${correctN} of ${total} questions answered correctly${timedOut?" before time ran out":""}. This is your practice score, not Anthropic's scaled score.`;
     const by={};Object.keys(DOMAINS).forEach(d=>by[d]={a:0,c:0});answers.forEach(a=>{by[a.domain].a++;if(a.correct)by[a.domain].c++;});
     resultDomains.innerHTML="<div class='domainGrid'>"+Object.entries(DOMAINS).map(([d,x])=>`<div class="name">${esc2(x.name)}</div><div class="score">${by[d].a?Math.round(by[d].c/by[d].a*100)+"%":"—"}</div><div class="small">${by[d].a} Q</div>`).join("")+"</div>";
-    resultReview.innerHTML="";answers.filter(a=>!a.correct).forEach(a=>{const q=a.q,div=document.createElement("div");div.className="item post-review-item is-wrong";const rationales=Array.isArray(q.choiceWhy)?`<div class="foundation-review-rationales">${q.choiceWhy.map((w,i)=>`<div><strong>${label(i)}.</strong> ${esc2(w)}</div>`).join("")}</div>`:"";div.innerHTML=`<strong>${esc2(q.q)}</strong><div class="foundation-review-answer small"><strong>Your answer:</strong> ${esc2(responseText(q,a.response))}</div><div class="foundation-review-answer small"><strong>Correct:</strong> ${esc2(correctText(q))}</div><div class="foundation-review-why small">${esc2(q.why||"")}</div>${rationales}`;resultReview.appendChild(div);});
+    // Review: every missed question, plus correct ones you flagged as unsure. Each choice shows its
+    // rationale, tagged Correct and Your answer, with links to the official pages the answer rests on.
+    resultReview.innerHTML="";answers.filter(a=>!a.correct||flags[a.q.id]).forEach(a=>{const q=a.q,div=document.createElement("div");div.className="item post-review-item "+(a.correct?"is-unsure":"is-wrong");div.dataset.qid=q.id;
+      const multi=(q.itemType||"single")==="multi",key=new Set(multi?q.answers:[q.answer]),picked=new Set(multi?(Array.isArray(a.response)?a.response:[]):(Number.isInteger(a.response)?[a.response]:[]));
+      const rationales=Array.isArray(q.choiceWhy)?`<div class="foundation-review-rationales post-review-rationales">${q.choiceWhy.map((w,i)=>`<div class="${key.has(i)?"is-key":""}"><strong>${label(i)}.</strong> ${key.has(i)?'<span class="tag tag-good">Correct</span>':""}${picked.has(i)?'<span class="tag">Your answer</span>':""} ${esc2(w)}</div>`).join("")}</div>`:"";
+      const links=core?core.sourcesHtml(baseOf(q)):"";
+      div.innerHTML=`<strong>${esc2(q.q)}</strong>${a.correct?'<div class="small">Correct, but you flagged it · check your reasoning</div>':""}<div class="foundation-review-answer small"><strong>Your answer:</strong> ${esc2(responseText(q,a.response))}</div><div class="foundation-review-answer small"><strong>Correct:</strong> ${esc2(correctText(q))}</div><div class="foundation-review-why small">${esc2(q.why||"")}</div>${rationales}${links}`;resultReview.appendChild(div);});
+    if(window.ExamInsight)window.ExamInsight.render({mode:"mock",answers:answers.map(a=>({id:a.id,correct:a.correct,q:baseOf(a.q)})),total,correct:correctN,newTotal:core?fresh.length:undefined,newCorrect});
     renderHome();
   }
   finishQuiz=function(timedOut){if(isFoundationMock())return finishFoundation(timedOut);return baseFinishQuiz(timedOut);};

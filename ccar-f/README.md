@@ -52,7 +52,7 @@ The home screen offers four ways to study:
 
 Also included:
 
-- original questions written for practice (CCAR-F: 162 flashcards and a 152-question pool)
+- original questions written for practice (CCAR-F: 162 flashcards and a 302-question pool, every question with a rationale for each choice)
 - scores by domain, so you can see where you're weak
 - a strict readiness check. On CCAR-F, **Ready** means you've answered at least 100 questions with 90% or better overall, scored at least 85% in every domain (with at least 10 questions answered in each), and scored 90% or better on each of your last three practice exams. The other exams use the same check with their own target in place of 85% and 90%: 88% for CCAO-F, 90% for CCDV-F and 92% for CCAR-P.
 - progress saved in your browser so you can stop and pick up later, plus export and import for moving between devices
@@ -72,17 +72,29 @@ node ccar-f/tools/validate-ccar-p-papers.js     # check all six papers
 
 The `ccar-p-mock-papers-validate` workflow runs both checks, and `audits/ccar-p-mock-papers.json` records how the papers are built.
 
-### Learning from each exam (CCAR-P)
+### Learning from each exam (CCAR-P and CCAR-F)
 
 The results screen is built to teach the reasoning behind each answer, not just report a score:
 
 - **Every choice explained.** The review shows why each choice is right or wrong, tagged **Correct** and **Your answer**, so you can see why a plausible alternative loses. Questions you got right but flagged as unsure are reviewed too.
-- **Official sources.** Each question links to the official Anthropic pages its answer rests on, down to the section where one exists (platform.claude.com/docs, code.claude.com/docs, anthropic.com). Links are chosen by topic and exam-guide objective in `ccar-p.sources.js`, which lists every page with the date it was checked.
+- **Official sources.** Each question links to the official Anthropic pages its answer rests on, down to the section where one exists (platform.claude.com/docs, code.claude.com/docs, anthropic.com). `cert-sources.js` holds the shared catalog of pages, with the date each was checked, and the engine that picks links by topic and exam-guide objective. Each track maps its objectives to pages in its own file (`ccar-p.sources.js`, `ccar-f.sources.js`).
 - **Score on new questions.** Results show a separate score for questions you hadn't seen before. That's the honest measure of understanding, because a retake partly measures memory.
 - **Study plan and targeted practice.** The objectives you missed are listed with their official pages. **Practice these objectives** runs a 12-question drill with instant feedback and links. Drill questions are reworded versions of paper concepts that no paper uses, with plausible answers and a rationale for every choice (`ccar-p.drill-items-*.js`).
 - **Retakes and the adaptive mix.** On a retake, choices you've seen appear in a new order. Once all six papers are taken, the default is an **Adaptive mix**: a full 63-question form weighted toward objectives you miss, questions you got wrong, and questions you haven't seen.
 
+On CCAR-F the same review, new-question score, study plan and drill run after each practice exam. The drill draws from practice-bank questions you haven't seen.
+
 `exam-insight.js` adds these features to any exam. It uses whatever the track provides (sources, objectives, a drill pool) and skips the rest, so other exams get the new-question score without further work.
+
+### CCAR-F comprehension layer
+
+CCAR-F questions are built to test understanding rather than recognition:
+
+- **Comprehension questions.** `ccar-f.comprehension-items-*.js` holds 70 original scenario questions covering all 30 exam-guide objectives, with a plausible wrong answer and a rationale for every choice. `ccar-f.comprehension-bank.js` adds them to the bank with balanced answer positions.
+- **Answer-set repairs.** Many older questions had wrong answers that were easy to rule out, and the correct answer was often the longest choice. `ccar-f.answer-repair-*.js` replaces those wrong answers with plausible alternatives and explains each choice. `ccar-f.answer-repair.js` applies the repairs when the exam loads, rebalances answer positions and removes filler sentences from question stems.
+- **No answer tells.** Across the bank, the correct answer is the longest choice about 25% of the time (the rate expected by chance), and each answer position holds about a quarter of the correct answers.
+
+Third-party practice tests were used only as a benchmark for style, difficulty and coverage. No question text was copied from them. Run `node ccar-f/tools/validate-ccar-f-comprehension.js` after changing any of these files. The `ccar-f-comprehension-validate` workflow runs the same check.
 
 ## Themes
 
@@ -104,10 +116,12 @@ To add a theme, add an entry to `THEMES` in the build script and an option in `t
 | Track profiles | `certifications.js`, `exam-profile.js` | Exam format, domains and weights per track |
 | Seed and base banks | `*.seed.js`, `*.bank*.js`, `payload1–5.js` | Original cards and questions (CCAR-F's base set ships as a compressed payload) |
 | Rewrites and reconciliation | `ccar-p.d*-scenario-rewrite.js`, `ccar-p.d*-reconcile.js`, `*-topup.js` | Domain-level upgrades applied in load order (see `index.html`) |
+| Comprehension and repairs | `ccar-f.comprehension-*.js`, `ccar-f.answer-repair*.js` | CCAR-F comprehension questions and answer-set repairs (see above) |
+| Official links | `cert-sources.js`, `ccar-p.sources.js`, `ccar-f.sources.js` | Shared catalog of official pages and each track's objective map |
 | Scenario and source rules | `foundations-*.js`, `source-governance.js` | Rules that keep scenarios realistic and every question's source approved |
 | Audit files | `audits/*.json` | Which exam-guide objective each piece of content covers, and the guide version |
 | Source lists | `sources/**/source-registry.json` | Approved and excluded sources, with credit |
-| App code | `loader.js`, `app.js`, `multi-app.js`, `exam.js`, `adaptive-*.js` | Loading an exam, flashcards, practice, weak-area selection and practice exams |
+| App code | `loader.js`, `app.js`, `multi-app.js`, `exam.js`, `exam-insight.js`, `adaptive-*.js` | Loading an exam, flashcards, practice, weak-area selection and practice exams |
 
 ## Checks
 

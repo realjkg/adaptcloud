@@ -32,6 +32,7 @@ function loadCcarpPapers(root, { withLayout = false } = {}) {
   PAPER_FILES.forEach(load);
   if (withLayout) load("ccar-p.mock-papers-layout");
   load("ccar-p.mock-papers");
+  load("cert-sources");
   load("ccar-p.sources");
   const objectivesByDomain = {};
   for (const f of fs.readdirSync(path.join(root, "audits")).filter(f => /^ccar-p-d\d\.json$/.test(f))) {

@@ -156,7 +156,7 @@ if (SRC) {
 // 8. Layout and wiring.
 check(layout.builderVersion === P.version, `Layout was built with builder ${layout.builderVersion}, current builder is ${P.version}`);
 const loader = fs.readFileSync(path.join(ROOT, "loader.js"), "utf8");
-for (const f of ["ccar-p.papers-items-p1", "ccar-p.papers-items-session", "ccar-p.papers-overrides", "ccar-p.drill-items-1", "ccar-p.drill-items-2", "ccar-p.mock-papers-layout", "ccar-p.mock-papers", "ccar-p.sources"]) {
+for (const f of ["ccar-p.papers-items-p1", "ccar-p.papers-items-session", "ccar-p.papers-overrides", "ccar-p.drill-items-1", "ccar-p.drill-items-2", "ccar-p.mock-papers-layout", "ccar-p.mock-papers", "cert-sources", "ccar-p.sources"]) {
   const at = loader.indexOf(`"${f}"`);
   check(at >= 0 && at < loader.lastIndexOf("./exam.js"), `loader.js must load ${f}.js before exam.js`);
 }

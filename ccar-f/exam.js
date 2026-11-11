@@ -20,7 +20,8 @@
   };
   const mockPool = () => EXAM_SIM?.items?.length ? EXAM_SIM.items : QUESTIONS;
   // Official source links for answers (per track, optional).
-  const SOURCES = window.CERT_SOURCES?.[String(PROFILE?.code || "").toLowerCase()] || null;
+  // Looked up when needed: some tracks load their source map after this script.
+  const sourcesOf = () => window.CERT_SOURCES?.[String(PROFILE?.code || "").toLowerCase()] || null;
   const objectiveOf = (q) => q?.objectiveId || PAPERS?.objectiveOf?.(q?.id) || q?.objectiveIds?.[0] || null;
   // Questions are recognized by their text, so a question counts as seen in any paper or mix.
   const textKey = (q) => { let h = 5381; for (const ch of String(q?.q || "")) h = (Math.imul(h, 33) ^ ch.charCodeAt(0)) >>> 0; return h.toString(36); };
@@ -118,7 +119,7 @@
   }
 
   function sourcesHtml(q) {
-    const links = SOURCES ? SOURCES.linksFor(q, objectiveOf(q)) : [];
+    const SOURCES = sourcesOf(), links = SOURCES ? SOURCES.linksFor(q, objectiveOf(q)) : [];
     if (!links.length) return "";
     return `<div class="source-links"><span class="small">Read the source</span>${links.map(l => `<a href="${safe(l.url)}" target="_blank" rel="noopener">${safe(l.title)}${l.section ? ` · ${safe(l.section)}` : ""}</a>`).join("")}</div>`;
   }
@@ -373,5 +374,5 @@
   };
 
   resume=function(){if(state.activeQuiz?.mode==="mock"){show("quizView");renderMock();startTimer();return;}baseResume();};
-  window.ExamCore = {SOURCES, PAPERS, objectiveOf, baseQuestion, itemType, itemCorrect, labelFor, safe, rationaleHtml, sourcesHtml, correctHtml, seenBefore, markSeen, shuffle};
+  window.ExamCore = {get SOURCES() { return sourcesOf(); }, PAPERS, objectiveOf, baseQuestion, itemType, itemCorrect, labelFor, safe, rationaleHtml, sourcesHtml, correctHtml, seenBefore, markSeen, shuffle};
 })();
