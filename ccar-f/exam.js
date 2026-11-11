@@ -92,10 +92,10 @@
 
   function itemInstruction(q) {
     const type = itemType(q);
-    if (type === "single") return "Multiple choice · Select ONE";
-    if (type === "multi") return `Multiple response · Select ${q.selectCount}`;
-    if (type === "matching") return "Scenario matching · Choose one option for every row · Options may be reused";
-    if (type === "matrix") return "Yes/no grid · Mark YES or NO for every statement";
+    if (type === "single") return "Multiple choice";
+    if (type === "multi") return "Multiple response";
+    if (type === "matching") return "Scenario matching";
+    if (type === "matrix") return "Yes/no grid";
     return "Question";
   }
 
